@@ -19,6 +19,9 @@ drop type if exists invitation_role;
 drop type if exists membership_status;
 drop type if exists company_role;
 
+-- Delete all auth users for a clean start
+delete from auth.users;
+
 -- ----------------------
 -- Enums
 -- ----------------------
