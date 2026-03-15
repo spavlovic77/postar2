@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual, createHmac } from "crypto";
-
-function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { createInvitation, getInviteUrl } from "@/lib/invitations";
+import { sendInvitationEmail } from "@/lib/email";
 
 function verifySignature(rawBody: string, signature: string): boolean {
   const secrets = (process.env.PFS_WEBHOOK_SECRET ?? "").split(",");
@@ -31,7 +26,6 @@ function verifySignature(rawBody: string, signature: string): boolean {
 const DIC_REGEX = /^\d{10}$/;
 
 export async function POST(request: Request) {
-  // Validate signature
   const signature = request.headers.get("x-pfs-signature");
   if (!signature) {
     return NextResponse.json(
@@ -46,7 +40,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  // Parse and validate payload
   let payload;
   try {
     payload = JSON.parse(rawBody);
@@ -71,7 +64,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error } = await getSupabaseAdmin().from("pfs_verifications").insert({
+  const supabase = getSupabaseAdmin();
+
+  // 1. Save raw webhook payload
+  const { error: pfsError } = await supabase.from("pfs_verifications").insert({
     verification_token,
     dic,
     legal_name: legalName ?? null,
@@ -80,10 +76,75 @@ export async function POST(request: Request) {
     pfs_created_at: created,
   });
 
-  if (error) {
-    console.error("Failed to insert PFS verification:", error);
+  if (pfsError) {
+    console.error("Failed to insert PFS verification:", pfsError);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 
-  return NextResponse.json({ message: "Created" }, { status: 201 });
+  // 2. Upsert company by DIC
+  let companyId: string;
+  const { data: existingCompany } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("dic", dic)
+    .single();
+
+  if (existingCompany) {
+    companyId = existingCompany.id;
+  } else {
+    const { data: newCompany, error: companyError } = await supabase
+      .from("companies")
+      .insert({
+        dic,
+        legal_name: legalName ?? null,
+        company_email: company_email ?? null,
+        company_phone: company_phone ?? null,
+        pfs_created_at: created,
+      })
+      .select("id")
+      .single();
+
+    if (companyError || !newCompany) {
+      console.error("Failed to create company:", companyError);
+      return NextResponse.json({ error: "Server error" }, { status: 500 });
+    }
+
+    companyId = newCompany.id;
+  }
+
+  // 3. Send genesis admin invitation (if company_email provided)
+  if (company_email) {
+    try {
+      const result = await createInvitation(supabase, {
+        email: company_email,
+        role: "company_admin",
+        companyIds: [companyId],
+        isGenesis: true,
+      });
+
+      if (result && !result.alreadyExists) {
+        const baseUrl = request.headers.get("x-forwarded-proto")
+          ? `${request.headers.get("x-forwarded-proto")}://${request.headers.get("host")}`
+          : new URL(request.url).origin;
+
+        await sendInvitationEmail({
+          to: company_email,
+          inviteUrl: getInviteUrl(result.token, baseUrl),
+          role: "company_admin",
+          companyNames: [legalName ?? dic],
+        });
+      }
+    } catch (err) {
+      // Log but don't fail the webhook — the company was still created
+      console.error("Failed to create invitation:", err);
+    }
+  }
+
+  return NextResponse.json(
+    {
+      message: existingCompany ? "Webhook processed" : "Company created",
+      company_id: companyId,
+    },
+    { status: existingCompany ? 200 : 201 }
+  );
 }
