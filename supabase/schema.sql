@@ -8,6 +8,7 @@
 -- ----------------------
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
+drop function if exists upsert_profile(uuid, text, text);
 
 drop table if exists invitations cascade;
 drop table if exists company_memberships cascade;
@@ -20,6 +21,8 @@ drop type if exists membership_status;
 drop type if exists company_role;
 
 -- Delete all auth users for a clean start
+delete from auth.sessions;
+delete from auth.identities;
 delete from auth.users;
 
 -- ----------------------
@@ -40,23 +43,23 @@ create table profiles (
   created_at timestamptz not null default now()
 );
 
--- Auto-create profile on signup
-create or replace function handle_new_user()
-returns trigger as $$
+-- ----------------------
+-- Upsert profile (called from app after login, no trigger needed)
+-- ----------------------
+create or replace function upsert_profile(
+  user_id uuid,
+  user_full_name text default null,
+  user_avatar_url text default null
+)
+returns void as $$
 begin
-  insert into profiles (id, full_name, avatar_url)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
-    new.raw_user_meta_data ->> 'avatar_url'
-  );
-  return new;
+  insert into public.profiles (id, full_name, avatar_url)
+  values (user_id, user_full_name, user_avatar_url)
+  on conflict (id) do update set
+    full_name = coalesce(excluded.full_name, profiles.full_name),
+    avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url);
 end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function handle_new_user();
+$$ language plpgsql security definer set search_path = public;
 
 -- ----------------------
 -- Companies
@@ -201,3 +204,11 @@ create policy "Super admins can view all invitations"
 create policy "No direct access to pfs_verifications"
   on pfs_verifications for select
   using (false);
+
+-- ============================================================
+-- Seed Super Admin
+-- After running this schema:
+-- 1. Sign in to the app with Google/Apple
+-- 2. Run: update profiles set is_super_admin = true
+--    where id = (select id from auth.users limit 1);
+-- ============================================================
