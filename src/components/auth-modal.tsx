@@ -54,6 +54,8 @@ export function AuthModal() {
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams:
+          provider === "google" ? { prompt: "consent", access_type: "offline" } : {},
       },
     });
   };
