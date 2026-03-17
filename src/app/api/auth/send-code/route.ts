@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createVerificationCode } from "@/lib/verification";
 import { sendVerificationCodeEmail } from "@/lib/email";
@@ -6,13 +7,10 @@ import { sendSmsCode } from "@/lib/sms";
 
 export async function POST(request: Request) {
   try {
-    const { email, password, channel, phone } = await request.json();
+    const { email, channel, phone } = await request.json();
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
+    if (!email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     if (!channel || !["email", "sms"].includes(channel)) {
@@ -31,52 +29,64 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseAdmin();
 
-    // Try to create the user. If they already exist, createUser will fail.
+    // Find or create user
     let userId: string;
+    let isNewUser = false;
+    let storedPhone: string | null = null;
 
+    // Try to create. If exists, will fail.
     const { data: newUser, error: createError } =
       await supabase.auth.admin.createUser({
         email,
-        password,
+        password: randomBytes(32).toString("hex"),
         email_confirm: false,
       });
 
     if (createError) {
-      // User likely already exists
-      if (createError.message?.includes("already been registered")) {
-        // Find existing user via admin API
-        const { data: { users } } = await supabase.auth.admin.listUsers({
-          page: 1,
-          perPage: 1000,
-        });
-        const existing = users?.find((u) => u.email === email);
-
-        if (!existing) {
-          return NextResponse.json(
-            { error: "Failed to find existing account" },
-            { status: 500 }
-          );
-        }
-
-        if (existing.email_confirmed_at) {
-          return NextResponse.json(
-            { error: "This email is already registered. Please sign in." },
-            { status: 409 }
-          );
-        }
-
-        // Update password for unconfirmed user
-        await supabase.auth.admin.updateUserById(existing.id, { password });
-        userId = existing.id;
-      } else {
+      if (!createError.message?.includes("already been registered")) {
         console.error("Failed to create user:", createError);
         return NextResponse.json(
           { error: "Failed to create account" },
           { status: 500 }
         );
       }
+
+      // Existing user — find them
+      const { data: { users } } = await supabase.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+      const existing = users?.find((u) => u.email === email);
+
+      if (!existing) {
+        return NextResponse.json(
+          { error: "Failed to find account" },
+          { status: 500 }
+        );
+      }
+
+      userId = existing.id;
+
+      // Get their stored phone from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("phone")
+        .eq("id", userId)
+        .single();
+
+      storedPhone = profile?.phone ?? null;
+
+      // For existing users with a phone, SMS must go to their stored phone
+      if (channel === "sms" && storedPhone && phone !== storedPhone) {
+        const masked = storedPhone.slice(-4).padStart(storedPhone.length, "*");
+        return NextResponse.json(
+          { error: `SMS can only be sent to your registered phone ending in ${masked}` },
+          { status: 400 }
+        );
+      }
     } else {
       userId = newUser.user.id;
+      isNewUser = true;
     }
 
     // Generate and store code
@@ -94,9 +104,15 @@ export async function POST(request: Request) {
       await sendSmsCode({ to: phone, code });
     }
 
+    // Return masked phone for existing users (so UI can show "Send to ***1234")
     return NextResponse.json({
       message: `Verification code sent via ${channel}`,
       userId,
+      isNewUser,
+      hasPhone: !!storedPhone,
+      maskedPhone: storedPhone
+        ? `****${storedPhone.slice(-4)}`
+        : null,
     });
   } catch (err) {
     console.error("send-code error:", err);

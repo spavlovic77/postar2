@@ -41,6 +41,7 @@ export async function GET(request: Request) {
           user_full_name:
             user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
           user_avatar_url: user.user_metadata?.avatar_url ?? null,
+          user_phone: null,
         });
       }
 

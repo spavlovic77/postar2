@@ -27,13 +27,11 @@ function AppleIcon() {
   );
 }
 
-type Step = "credentials" | "choose_channel" | "enter_code";
-type AuthMode = "sign_in" | "sign_up";
+type Step = "email" | "choose_channel" | "enter_code";
 
 interface AuthFormProps {
   redirectTo?: string;
   onSignedIn?: () => void;
-  /** Pre-fill phone from invitation/webhook */
   defaultPhone?: string;
 }
 
@@ -95,13 +93,14 @@ function CodeInput({
 }
 
 export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps) {
-  const [step, setStep] = useState<Step>("credentials");
-  const [mode, setMode] = useState<AuthMode>("sign_in");
-  const [isLoading, setIsLoading] = useState<"google" | "apple" | "email" | "code" | "resend" | null>(null);
+  const [step, setStep] = useState<Step>("email");
+  const [isLoading, setIsLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState(defaultPhone ?? "");
   const [userId, setUserId] = useState<string | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [hasPhone, setHasPhone] = useState(false);
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [channel, setChannel] = useState<"email" | "sms" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,43 +122,15 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     });
   };
 
-  const handleCredentials = async (e: React.FormEvent) => {
+  const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading("email");
     setError(null);
-    setMessage(null);
-
-    if (mode === "sign_in") {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        setError(error.message);
-        setIsLoading(null);
-        return;
-      }
-
-      await fetch("/api/auth/profile", { method: "POST" });
-      setIsLoading(null);
-
-      if (onSignedIn) {
-        onSignedIn();
-      } else if (redirectTo) {
-        router.push(redirectTo);
-      } else {
-        router.refresh();
-      }
-      return;
-    }
-
-    // Sign up — move to channel selection
-    setIsLoading(null);
     setStep("choose_channel");
   };
 
   const handleSendCode = async (selectedChannel: "email" | "sms") => {
     setChannel(selectedChannel);
-    setIsLoading("email");
+    setIsLoading("send");
     setError(null);
 
     try {
@@ -168,7 +139,6 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          password,
           channel: selectedChannel,
           phone: selectedChannel === "sms" ? phone : undefined,
         }),
@@ -178,14 +148,13 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
 
       if (!res.ok) {
         setError(data.error);
-        if (res.status === 409) {
-          setStep("credentials");
-          setMode("sign_in");
-        }
         return;
       }
 
       setUserId(data.userId);
+      setIsNewUser(data.isNewUser);
+      setHasPhone(data.hasPhone);
+      setMaskedPhone(data.maskedPhone);
       setStep("enter_code");
       setMessage(
         selectedChannel === "email"
@@ -201,14 +170,18 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
 
   const handleVerifyCode = async () => {
     if (code.length !== 6) return;
-    setIsLoading("code");
+    setIsLoading("verify");
     setError(null);
 
     try {
       const res = await fetch("/api/auth/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, code }),
+        body: JSON.stringify({
+          userId,
+          code,
+          phone: isNewUser && phone ? phone : undefined,
+        }),
       });
 
       const data = await res.json();
@@ -218,20 +191,7 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         return;
       }
 
-      // Account confirmed — now sign in
-      const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        setError(signInError.message);
-        return;
-      }
-
-      await fetch("/api/auth/profile", { method: "POST" });
-
+      // Session was created server-side, just redirect/refresh
       if (onSignedIn) {
         onSignedIn();
       } else if (redirectTo) {
@@ -258,7 +218,6 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          password,
           channel,
           phone: channel === "sms" ? phone : undefined,
         }),
@@ -297,7 +256,7 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
           onClick={handleVerifyCode}
           disabled={isDisabled || code.length !== 6}
         >
-          {isLoading === "code" ? (
+          {isLoading === "verify" ? (
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : (
             "Verify"
@@ -329,9 +288,9 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     return (
       <div className="flex flex-col gap-4">
         <div className="text-center">
-          <h3 className="text-lg font-semibold">Verify your account</h3>
+          <h3 className="text-lg font-semibold">Verify your identity</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            How would you like to receive your verification code?
+            We&apos;ll send a 6-digit code to verify <strong>{email}</strong>
           </p>
         </div>
 
@@ -343,43 +302,62 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
           onClick={() => handleSendCode("email")}
           disabled={isDisabled}
         >
-          {isLoading === "email" && channel === "email" ? (
+          {isLoading === "send" && channel === "email" ? (
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : (
-            "Send code to my email"
+            `Send code to ${email}`
           )}
         </Button>
 
         <div className="flex flex-col gap-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="phone">Phone number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+421 9XX XXX XXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+          {hasPhone && maskedPhone ? (
+            <Button
+              variant="outline"
+              className="h-12 w-full text-base"
+              onClick={() => handleSendCode("sms")}
               disabled={isDisabled}
-            />
-          </div>
-          <Button
-            variant="outline"
-            className="h-12 w-full text-base"
-            onClick={() => handleSendCode("sms")}
-            disabled={isDisabled || !phone}
-          >
-            {isLoading === "email" && channel === "sms" ? (
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              "Send code via SMS"
-            )}
-          </Button>
+            >
+              {isLoading === "send" && channel === "sms" ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                `Send code to ${maskedPhone}`
+              )}
+            </Button>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="phone">Phone number (optional)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+421 9XX XXX XXX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={isDisabled}
+                />
+              </div>
+              {phone && (
+                <Button
+                  variant="outline"
+                  className="h-12 w-full text-base"
+                  onClick={() => handleSendCode("sms")}
+                  disabled={isDisabled}
+                >
+                  {isLoading === "send" && channel === "sms" ? (
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    "Send code via SMS"
+                  )}
+                </Button>
+              )}
+            </>
+          )}
         </div>
 
         <button
           type="button"
           className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          onClick={() => { setStep("credentials"); setError(null); }}
+          onClick={() => { setStep("email"); setError(null); }}
         >
           Back
         </button>
@@ -387,7 +365,7 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     );
   }
 
-  // Step 1: Email + password + OAuth
+  // Step 1: Enter email + OAuth
   return (
     <div className="flex flex-col gap-3">
       <Button
@@ -423,7 +401,7 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         <Separator className="flex-1" />
       </div>
 
-      <form onSubmit={handleCredentials} className="flex flex-col gap-3">
+      <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="auth-email">Email</Label>
           <Input
@@ -436,58 +414,13 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
             disabled={isDisabled}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="auth-password">Password</Label>
-          <Input
-            id="auth-password"
-            type="password"
-            placeholder={mode === "sign_up" ? "Min. 6 characters" : ""}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            disabled={isDisabled}
-          />
-        </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" className="h-12 w-full text-base" disabled={isDisabled}>
-          {isLoading === "email" ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          ) : mode === "sign_in" ? (
-            "Sign In"
-          ) : (
-            "Continue"
-          )}
+          Continue with Email
         </Button>
       </form>
-
-      <p className="text-center text-sm text-muted-foreground">
-        {mode === "sign_in" ? (
-          <>
-            Don&apos;t have an account?{" "}
-            <button
-              type="button"
-              className="font-medium text-foreground underline underline-offset-2"
-              onClick={() => { setMode("sign_up"); setError(null); setMessage(null); }}
-            >
-              Sign up
-            </button>
-          </>
-        ) : (
-          <>
-            Already have an account?{" "}
-            <button
-              type="button"
-              className="font-medium text-foreground underline underline-offset-2"
-              onClick={() => { setMode("sign_in"); setError(null); setMessage(null); setStep("credentials"); }}
-            >
-              Sign in
-            </button>
-          </>
-        )}
-      </p>
     </div>
   );
 }

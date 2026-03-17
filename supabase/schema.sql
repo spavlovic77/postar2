@@ -8,7 +8,7 @@
 -- ----------------------
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
-drop function if exists upsert_profile(uuid, text, text);
+drop function if exists upsert_profile(uuid, text, text, text);
 
 drop table if exists verification_codes cascade;
 drop table if exists invitations cascade;
@@ -42,6 +42,7 @@ create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   avatar_url text,
+  phone text,
   is_super_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -52,15 +53,17 @@ create table profiles (
 create or replace function upsert_profile(
   user_id uuid,
   user_full_name text default null,
-  user_avatar_url text default null
+  user_avatar_url text default null,
+  user_phone text default null
 )
 returns void as $$
 begin
-  insert into public.profiles (id, full_name, avatar_url)
-  values (user_id, user_full_name, user_avatar_url)
+  insert into public.profiles (id, full_name, avatar_url, phone)
+  values (user_id, user_full_name, user_avatar_url, user_phone)
   on conflict (id) do update set
     full_name = coalesce(excluded.full_name, profiles.full_name),
-    avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url);
+    avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url),
+    phone = coalesce(excluded.phone, profiles.phone);
 end;
 $$ language plpgsql security definer set search_path = public;
 
