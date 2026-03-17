@@ -162,38 +162,41 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     setIsLoading("email");
     setError(null);
 
-    const res = await fetch("/api/auth/send-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        channel: selectedChannel,
-        phone: selectedChannel === "sms" ? phone : undefined,
-      }),
-    });
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          channel: selectedChannel,
+          phone: selectedChannel === "sms" ? phone : undefined,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error);
-      setIsLoading(null);
-      if (res.status === 409) {
-        // Already registered — switch to sign in
-        setStep("credentials");
-        setMode("sign_in");
+      if (!res.ok) {
+        setError(data.error);
+        if (res.status === 409) {
+          setStep("credentials");
+          setMode("sign_in");
+        }
+        return;
       }
-      return;
-    }
 
-    setUserId(data.userId);
-    setIsLoading(null);
-    setStep("enter_code");
-    setMessage(
-      selectedChannel === "email"
-        ? `Code sent to ${email}`
-        : `Code sent to ${phone}`
-    );
+      setUserId(data.userId);
+      setStep("enter_code");
+      setMessage(
+        selectedChannel === "email"
+          ? `Code sent to ${email}`
+          : `Code sent to ${phone}`
+      );
+    } catch {
+      setError("Failed to send code. Please try again.");
+    } finally {
+      setIsLoading(null);
+    }
   };
 
   const handleVerifyCode = async () => {
@@ -201,42 +204,45 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     setIsLoading("code");
     setError(null);
 
-    const res = await fetch("/api/auth/verify-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, code }),
-    });
+    try {
+      const res = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, code }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error);
+      if (!res.ok) {
+        setError(data.error);
+        return;
+      }
+
+      // Account confirmed — now sign in
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      await fetch("/api/auth/profile", { method: "POST" });
+
+      if (onSignedIn) {
+        onSignedIn();
+      } else if (redirectTo) {
+        router.push(redirectTo);
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError("Verification failed. Please try again.");
+    } finally {
       setIsLoading(null);
-      return;
-    }
-
-    // Account confirmed — now sign in
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      setError(signInError.message);
-      setIsLoading(null);
-      return;
-    }
-
-    await fetch("/api/auth/profile", { method: "POST" });
-    setIsLoading(null);
-
-    if (onSignedIn) {
-      onSignedIn();
-    } else if (redirectTo) {
-      router.push(redirectTo);
-    } else {
-      router.refresh();
     }
   };
 
@@ -246,24 +252,29 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     setError(null);
     setCode("");
 
-    const res = await fetch("/api/auth/send-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        channel,
-        phone: channel === "sms" ? phone : undefined,
-      }),
-    });
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          channel,
+          phone: channel === "sms" ? phone : undefined,
+        }),
+      });
 
-    if (res.ok) {
-      setMessage("New code sent!");
-    } else {
-      const data = await res.json();
-      setError(data.error);
+      if (res.ok) {
+        setMessage("New code sent!");
+      } else {
+        const data = await res.json();
+        setError(data.error);
+      }
+    } catch {
+      setError("Failed to resend code. Please try again.");
+    } finally {
+      setIsLoading(null);
     }
-    setIsLoading(null);
   };
 
   const isDisabled = isLoading !== null;
