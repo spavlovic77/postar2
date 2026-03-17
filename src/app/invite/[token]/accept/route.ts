@@ -80,6 +80,14 @@ export async function GET(
     return NextResponse.redirect(`${origin}/invite/${token}?error=session`);
   }
 
+  // Upsert profile FIRST (memberships FK depends on it)
+  await supabase.rpc("upsert_profile", {
+    user_id: user.id,
+    user_full_name: null,
+    user_avatar_url: null,
+    user_phone: null,
+  });
+
   // Accept the invitation — create memberships
   if (invitation.role === "super_admin") {
     await supabase
@@ -89,7 +97,7 @@ export async function GET(
   } else {
     const companyIds: string[] = invitation.company_ids ?? [];
     for (const companyId of companyIds) {
-      await supabase
+      const { error: memberError } = await supabase
         .from("company_memberships")
         .upsert(
           {
@@ -102,16 +110,12 @@ export async function GET(
           },
           { onConflict: "user_id,company_id" }
         );
+
+      if (memberError) {
+        console.error(`Failed to create membership for company ${companyId}:`, memberError);
+      }
     }
   }
-
-  // Upsert profile
-  await supabase.rpc("upsert_profile", {
-    user_id: user.id,
-    user_full_name: null,
-    user_avatar_url: null,
-    user_phone: null,
-  });
 
   // Mark invitation as accepted
   await supabase

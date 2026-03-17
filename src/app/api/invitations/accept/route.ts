@@ -49,6 +49,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // Upsert profile FIRST (memberships FK depends on it)
+  await supabase.rpc("upsert_profile", {
+    user_id: user.id,
+    user_full_name: null,
+    user_avatar_url: null,
+    user_phone: null,
+  });
+
   // Handle super_admin role
   if (invitation.role === "super_admin") {
     const { error } = await supabase
