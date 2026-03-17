@@ -10,12 +10,14 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text);
 
+drop table if exists verification_codes cascade;
 drop table if exists invitations cascade;
 drop table if exists company_memberships cascade;
 drop table if exists companies cascade;
 drop table if exists pfs_verifications cascade;
 drop table if exists profiles cascade;
 
+drop type if exists verification_channel;
 drop type if exists invitation_role;
 drop type if exists membership_status;
 drop type if exists company_role;
@@ -31,6 +33,7 @@ delete from auth.users;
 create type company_role as enum ('company_admin', 'accountant');
 create type membership_status as enum ('active', 'inactive');
 create type invitation_role as enum ('super_admin', 'company_admin', 'accountant');
+create type verification_channel as enum ('email', 'sms');
 
 -- ----------------------
 -- Profiles
@@ -130,6 +133,22 @@ create index idx_invitations_token on invitations (token);
 create index idx_invitations_email on invitations (email);
 
 -- ----------------------
+-- Verification Codes (6-digit OTP for email/SMS)
+-- ----------------------
+create table verification_codes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  code text not null,
+  channel verification_channel not null,
+  destination text not null,
+  expires_at timestamptz not null default (now() + interval '5 minutes'),
+  verified_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index idx_verification_codes_user on verification_codes (user_id);
+
+-- ----------------------
 -- Row Level Security
 -- ----------------------
 alter table profiles enable row level security;
@@ -137,6 +156,7 @@ alter table companies enable row level security;
 alter table company_memberships enable row level security;
 alter table invitations enable row level security;
 alter table pfs_verifications enable row level security;
+alter table verification_codes enable row level security;
 
 -- Profiles
 create policy "Users can read own profile"
@@ -203,6 +223,11 @@ create policy "Super admins can view all invitations"
 -- PFS Verifications (no direct user access, only via service role)
 create policy "No direct access to pfs_verifications"
   on pfs_verifications for select
+  using (false);
+
+-- Verification Codes (no direct user access, only via service role)
+create policy "No direct access to verification_codes"
+  on verification_codes for select
   using (false);
 
 -- ============================================================

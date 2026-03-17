@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
+import { AuthForm } from "@/components/auth-form";
 
 interface Props {
   token: string;
@@ -16,16 +16,6 @@ export function InviteAcceptForm({ token, isSignedIn, emailMatch, inviteEmail }:
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-
-  const handleSignIn = async () => {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/invite/${token}`,
-      },
-    });
-  };
 
   const handleAccept = async () => {
     setIsLoading(true);
@@ -50,27 +40,29 @@ export function InviteAcceptForm({ token, isSignedIn, emailMatch, inviteEmail }:
 
   if (!isSignedIn) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <p className="text-center text-sm text-muted-foreground">
           Sign in with <strong>{inviteEmail}</strong> to accept this invitation.
         </p>
-        <Button className="w-full" size="lg" onClick={handleSignIn}>
-          Sign In to Accept
-        </Button>
+        <AuthForm
+          redirectTo={`/invite/${token}`}
+          onSignedIn={() => router.refresh()}
+        />
       </div>
     );
   }
 
   if (!emailMatch) {
     return (
-      <div className="space-y-3 text-center">
+      <div className="space-y-4 text-center">
         <p className="text-sm text-destructive">
           This invitation was sent to <strong>{inviteEmail}</strong>. Please sign in with
           that email address.
         </p>
-        <Button className="w-full" variant="outline" size="lg" onClick={handleSignIn}>
-          Switch Account
-        </Button>
+        <AuthForm
+          redirectTo={`/invite/${token}`}
+          onSignedIn={() => router.refresh()}
+        />
       </div>
     );
   }
