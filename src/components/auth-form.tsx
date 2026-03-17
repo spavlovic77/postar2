@@ -38,10 +38,12 @@ interface AuthFormProps {
 function CodeInput({
   value,
   onChange,
+  onComplete,
   disabled,
 }: {
   value: string;
   onChange: (code: string) => void;
+  onComplete: (code: string) => void;
   disabled: boolean;
 }) {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -54,6 +56,9 @@ function CodeInput({
     onChange(updated);
     if (char && index < 5) {
       inputsRef.current[index + 1]?.focus();
+    }
+    if (updated.length === 6) {
+      onComplete(updated);
     }
   };
 
@@ -69,6 +74,9 @@ function CodeInput({
     onChange(pasted);
     const focusIndex = Math.min(pasted.length, 5);
     inputsRef.current[focusIndex]?.focus();
+    if (pasted.length === 6) {
+      onComplete(pasted);
+    }
   };
 
   return (
@@ -168,8 +176,9 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
     }
   };
 
-  const handleVerifyCode = async () => {
-    if (code.length !== 6) return;
+  const handleVerifyCode = async (submittedCode?: string) => {
+    const codeToVerify = submittedCode ?? code;
+    if (codeToVerify.length !== 6) return;
     setIsLoading("verify");
     setError(null);
 
@@ -179,7 +188,7 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          code,
+          code: codeToVerify,
           phone: isNewUser && phone ? phone : undefined,
         }),
       });
@@ -247,21 +256,13 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
           {message && <p className="mt-1 text-sm text-muted-foreground">{message}</p>}
         </div>
 
-        <CodeInput value={code} onChange={setCode} disabled={isDisabled} />
+        <CodeInput value={code} onChange={setCode} onComplete={handleVerifyCode} disabled={isDisabled} />
+
+        {isLoading === "verify" && (
+          <span className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <Button
-          className="h-12 w-full text-base"
-          onClick={handleVerifyCode}
-          disabled={isDisabled || code.length !== 6}
-        >
-          {isLoading === "verify" ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          ) : (
-            "Verify"
-          )}
-        </Button>
 
         <button
           type="button"
