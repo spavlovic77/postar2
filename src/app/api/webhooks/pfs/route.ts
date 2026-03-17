@@ -129,7 +129,7 @@ export async function POST(request: Request) {
 
         await sendInvitationEmail({
           to: company_email,
-          inviteUrl: getInviteUrl(result.token, baseUrl),
+          inviteUrl: getInviteUrl(result.token, baseUrl, result.isExistingUser),
           role: "company_admin",
           companyNames: [legalName ?? dic],
         });
