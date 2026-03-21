@@ -1,5 +1,6 @@
 import { Building2, Users, Mail, Webhook } from "lucide-react";
 import { StatsCard } from "./stats-card";
+import { SendOnboardingRequest } from "./send-onboarding-request";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -149,6 +150,8 @@ export function SuperAdminDashboard({
           </div>
         </div>
       </div>
+
+      <SendOnboardingRequest />
     </div>
   );
 }

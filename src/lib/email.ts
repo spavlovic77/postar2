@@ -82,6 +82,41 @@ export async function sendInvitationEmail(params: {
   }
 }
 
+export async function sendOnboardingEmail(params: {
+  to: string;
+  companyName: string | null;
+  activationLink: string;
+}): Promise<void> {
+  const resend = getResend();
+  const companyLine = params.companyName
+    ? ` for <strong>${params.companyName}</strong>`
+    : "";
+
+  const { error } = await resend.emails.send({
+    from: `Postar <${process.env.RESEND_FROM_EMAIL!}>`,
+    to: params.to,
+    subject: "Get started with Postar — Register your company",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2>Welcome to Postar</h2>
+        <p>You've been invited to register your company${companyLine} on the Postar platform for sending and receiving electronic invoices via the Peppol network.</p>
+        <p>To get started, please visit the PFS portal and complete the registration process:</p>
+        <a href="${params.activationLink}" style="display: inline-block; background: #171717; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+          Register Your Company
+        </a>
+        <p style="color: #666; font-size: 14px; margin-top: 24px;">
+          If you have any questions, please contact your Postar administrator.
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Failed to send onboarding email:", error);
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+}
+
 export async function sendReonboardingEmail(params: {
   to: string;
   companyName: string;
