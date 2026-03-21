@@ -57,6 +57,7 @@ create table profiles (
   avatar_url text,
   phone text,
   is_super_admin boolean not null default false,
+  pfs_activation_link text,
   onboarded_at timestamptz,
   created_at timestamptz not null default now()
 );

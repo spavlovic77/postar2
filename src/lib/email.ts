@@ -81,3 +81,34 @@ export async function sendInvitationEmail(params: {
     throw new Error(`Failed to send email: ${error.message}`);
   }
 }
+
+export async function sendReonboardingEmail(params: {
+  to: string;
+  companyName: string;
+  activationLink: string;
+}): Promise<void> {
+  const resend = getResend();
+  const { error } = await resend.emails.send({
+    from: `Postar <${process.env.RESEND_FROM_EMAIL!}>`,
+    to: params.to,
+    subject: `Action required: Re-onboard ${params.companyName} on Postar`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2>Re-onboarding Request</h2>
+        <p>The company <strong>${params.companyName}</strong> needs to be re-onboarded on Postar.</p>
+        <p>Please visit the PFS portal using the link below and complete the activation process. This will trigger the webhook that registers the company again.</p>
+        <a href="${params.activationLink}" style="display: inline-block; background: #171717; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+          Go to PFS Portal
+        </a>
+        <p style="color: #666; font-size: 14px; margin-top: 24px;">
+          If you didn't expect this email, please contact your Postar administrator.
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Failed to send re-onboarding email:", error);
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+}

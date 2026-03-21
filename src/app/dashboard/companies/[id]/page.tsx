@@ -14,6 +14,7 @@ import { PeppolStatusBadge } from "@/components/dashboard/peppol-status-badge";
 import { DeactivateButton } from "./deactivate-button";
 import { PeppolActivateButton } from "./peppol-activate-button";
 import { DeactivateCompanyButton } from "./deactivate-company-button";
+import { SendReonboardingRequest } from "./send-reonboarding-request";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -225,6 +226,15 @@ export default async function CompanyDetailPage({
           </Table>
         </div>
       </div>
+
+      {/* Re-onboarding request - Super admin only, deactivated companies */}
+      {role === "super_admin" && isDeactivated && (
+        <SendReonboardingRequest
+          companyId={company.id}
+          companyName={company.legal_name ?? company.dic}
+          defaultEmail={company.company_email ?? ""}
+        />
+      )}
 
       {/* Danger Zone - Super admin only */}
       {role === "super_admin" && !isDeactivated && (

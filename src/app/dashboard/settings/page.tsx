@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getUserWithRole } from "@/lib/dal";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProfileForm } from "./profile-form";
+import { PfsActivationLinkForm } from "./pfs-activation-link-form";
 
 export default async function SettingsPage() {
   const data = await getUserWithRole();
@@ -66,6 +67,22 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {profile.is_super_admin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>PFS Activation Link</CardTitle>
+            <CardDescription>
+              The link sent to genesis admins when requesting them to trigger the PFS webhook for company re-onboarding.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PfsActivationLinkForm
+              currentLink={profile.pfs_activation_link ?? ""}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

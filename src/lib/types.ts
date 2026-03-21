@@ -6,6 +6,7 @@ export interface UserProfile {
   avatar_url: string | null;
   phone: string | null;
   is_super_admin: boolean;
+  pfs_activation_link: string | null;
   onboarded_at: string | null;
   created_at: string;
 }
