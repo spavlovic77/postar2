@@ -190,3 +190,104 @@ export async function getAllCompanies() {
 
   return data ?? [];
 }
+
+export async function getCompanyWithMembers(companyId: string) {
+  const admin = getSupabaseAdmin();
+
+  const [companyRes, membersRes] = await Promise.all([
+    admin.from("companies").select("*").eq("id", companyId).single(),
+    admin
+      .from("company_memberships")
+      .select("*, profile:profiles(*)")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  return {
+    company: companyRes.data,
+    members: membersRes.data ?? [],
+  };
+}
+
+export async function getCompaniesWithMemberCounts(companyIds?: string[]) {
+  const admin = getSupabaseAdmin();
+
+  let query = admin.from("companies").select("*").order("created_at", { ascending: false });
+  if (companyIds) {
+    query = query.in("id", companyIds);
+  }
+  const { data: companies } = await query;
+
+  const ids = (companies ?? []).map((c: Company) => c.id);
+  let memberCounts: Record<string, number> = {};
+
+  if (ids.length > 0) {
+    const { data: allMembers } = await admin
+      .from("company_memberships")
+      .select("company_id")
+      .in("company_id", ids)
+      .eq("status", "active");
+
+    for (const m of allMembers ?? []) {
+      memberCounts[m.company_id] = (memberCounts[m.company_id] ?? 0) + 1;
+    }
+  }
+
+  return { companies: companies ?? [], memberCounts };
+}
+
+export async function getAllUsers() {
+  const admin = getSupabaseAdmin();
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  const { data: memberships } = await admin
+    .from("company_memberships")
+    .select("*, company:companies(id, dic, legal_name)")
+    .eq("status", "active");
+
+  // Get emails from auth
+  const { data: { users: authUsers } } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+
+  const emailMap: Record<string, string> = {};
+  for (const u of authUsers ?? []) {
+    if (u.email) emailMap[u.id] = u.email;
+  }
+
+  const membershipsByUser: Record<string, typeof memberships> = {};
+  for (const m of memberships ?? []) {
+    if (!membershipsByUser[m.user_id]) membershipsByUser[m.user_id] = [];
+    membershipsByUser[m.user_id]!.push(m);
+  }
+
+  return (profiles ?? []).map((p: UserProfile) => ({
+    ...p,
+    email: emailMap[p.id] ?? null,
+    memberships: membershipsByUser[p.id] ?? [],
+  }));
+}
+
+export async function getInvitations(params: {
+  isSuperAdmin: boolean;
+  userId?: string;
+  companyIds?: string[];
+}) {
+  const admin = getSupabaseAdmin();
+  let query = admin
+    .from("invitations")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (!params.isSuperAdmin) {
+    query = query.eq("invited_by", params.userId!);
+  }
+
+  const { data } = await query;
+  return data ?? [];
+}
