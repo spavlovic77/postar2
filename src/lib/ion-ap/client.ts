@@ -145,6 +145,41 @@ export async function listIdentifiers(
 }
 
 // ============================================================
+// Receive Triggers
+// ============================================================
+
+export async function createReceiveTrigger(
+  orgId: number,
+  params: {
+    name: string;
+    triggerType: "API_CALL" | "SEND_EMAIL";
+    enabled: boolean;
+  }
+): Promise<{ id: number }> {
+  return request<{ id: number }>(
+    "POST",
+    `/organizations/${orgId}/receive-triggers/`,
+    {
+      name: params.name,
+      trigger_type: params.triggerType,
+      enabled: params.enabled,
+    }
+  );
+}
+
+export async function createReceiveTriggerOption(
+  orgId: number,
+  triggerId: number,
+  params: { name: string; value: string }
+): Promise<{ id: number }> {
+  return request<{ id: number }>(
+    "POST",
+    `/organizations/${orgId}/receive-triggers/${triggerId}/options/`,
+    { name: params.name, value: params.value }
+  );
+}
+
+// ============================================================
 // Discovery
 // ============================================================
 

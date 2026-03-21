@@ -10,6 +10,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text, text);
 
+drop table if exists documents cascade;
 drop table if exists department_memberships cascade;
 drop table if exists departments cascade;
 drop table if exists verification_codes cascade;
@@ -23,6 +24,8 @@ drop function if exists create_audit_partition(text);
 drop function if exists archive_audit_partition(text);
 drop table if exists audit_logs cascade;
 
+drop type if exists document_direction;
+drop type if exists document_status;
 drop type if exists ion_ap_status;
 drop type if exists audit_severity;
 drop type if exists verification_channel;
@@ -80,6 +83,8 @@ $$ language plpgsql security definer set search_path = public;
 -- ----------------------
 -- Companies
 -- ----------------------
+create type document_direction as enum ('received', 'sent');
+create type document_status as enum ('new', 'read', 'assigned', 'processed');
 create type ion_ap_status as enum ('pending', 'active', 'error');
 
 create table companies (
@@ -180,6 +185,42 @@ create table department_memberships (
 
 create index idx_department_memberships_user on department_memberships (user_id);
 create index idx_department_memberships_department on department_memberships (department_id);
+
+-- ----------------------
+-- Documents (received and sent Peppol invoices/credit notes)
+-- ----------------------
+create table documents (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  department_id uuid references departments(id) on delete set null,
+  assigned_to_company_id uuid references companies(id) on delete set null,
+
+  -- Direction and status
+  direction document_direction not null,
+  status document_status not null default 'new',
+
+  -- ion-AP transaction data
+  ion_ap_transaction_id integer not null,
+  transaction_uuid text,
+
+  -- Document metadata
+  document_type text,
+  document_id text,
+  sender_identifier text,
+  receiver_identifier text,
+
+  -- Content
+  xml_content text,
+
+  -- Timestamps from ion-AP
+  peppol_created_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index idx_documents_company on documents (company_id);
+create index idx_documents_assigned on documents (assigned_to_company_id);
+create index idx_documents_direction on documents (direction, status);
+create index idx_documents_ion_ap on documents (ion_ap_transaction_id);
 
 -- ----------------------
 -- Verification Codes (6-digit OTP for email/SMS)
@@ -292,6 +333,7 @@ alter table company_memberships enable row level security;
 alter table invitations enable row level security;
 alter table pfs_verifications enable row level security;
 alter table verification_codes enable row level security;
+alter table documents enable row level security;
 alter table departments enable row level security;
 alter table department_memberships enable row level security;
 alter table audit_logs enable row level security;
@@ -367,6 +409,25 @@ create policy "No direct access to pfs_verifications"
 create policy "No direct access to verification_codes"
   on verification_codes for select
   using (false);
+
+-- Documents: visible to company members + super admins
+create policy "Members can view documents of their companies"
+  on documents for select
+  using (
+    exists (
+      select 1 from company_memberships
+      where (company_memberships.company_id = documents.company_id
+             or company_memberships.company_id = documents.assigned_to_company_id)
+        and company_memberships.user_id = auth.uid()
+        and company_memberships.status = 'active'
+    )
+  );
+
+create policy "Super admins can view all documents"
+  on documents for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
 
 -- Departments: visible to company members + super admins
 create policy "Members can view departments of their companies"

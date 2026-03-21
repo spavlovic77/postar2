@@ -8,6 +8,12 @@ const NAV_ITEMS: NavigationItem[] = [
     roles: ["super_admin", "company_admin", "accountant"],
   },
   {
+    label: "Inbox",
+    href: "/dashboard/inbox",
+    icon: "Inbox",
+    roles: ["super_admin", "company_admin", "accountant"],
+  },
+  {
     label: "Companies",
     href: "/dashboard/companies",
     icon: "Building2",

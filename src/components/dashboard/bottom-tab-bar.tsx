@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Inbox,
   Building2,
   Users,
   Webhook,
@@ -15,6 +16,7 @@ import type { NavigationItem } from "@/lib/types";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
+  Inbox,
   Building2,
   Users,
   Webhook,

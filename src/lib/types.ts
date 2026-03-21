@@ -63,6 +63,27 @@ export interface PfsVerification {
   created_at: string;
 }
 
+export type DocumentDirection = "received" | "sent";
+export type DocumentStatus = "new" | "read" | "assigned" | "processed";
+
+export interface Document {
+  id: string;
+  company_id: string;
+  department_id: string | null;
+  assigned_to_company_id: string | null;
+  direction: DocumentDirection;
+  status: DocumentStatus;
+  ion_ap_transaction_id: number;
+  transaction_uuid: string | null;
+  document_type: string | null;
+  document_id: string | null;
+  sender_identifier: string | null;
+  receiver_identifier: string | null;
+  xml_content: string | null;
+  peppol_created_at: string | null;
+  created_at: string;
+}
+
 export interface Department {
   id: string;
   company_id: string;

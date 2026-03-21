@@ -1,5 +1,10 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { createOrganization, createIdentifier } from "./client";
+import {
+  createOrganization,
+  createIdentifier,
+  createReceiveTrigger,
+  createReceiveTriggerOption,
+} from "./client";
 import { audit } from "@/lib/audit";
 
 /**
@@ -42,7 +47,29 @@ export async function ensureCompanyActivated(companyId: string): Promise<number>
       publishReceivePeppolbis: true,
     });
 
-    // 3. Update company record
+    // 3. Set up receive trigger (webhook to Postar)
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app"}/api/webhooks/peppol-receive`;
+
+    const trigger = await createReceiveTrigger(org.id, {
+      name: "Forward to Postar",
+      triggerType: "API_CALL",
+      enabled: true,
+    });
+
+    await createReceiveTriggerOption(org.id, trigger.id, {
+      name: "url",
+      value: webhookUrl,
+    });
+    await createReceiveTriggerOption(org.id, trigger.id, {
+      name: "method",
+      value: "POST",
+    });
+    await createReceiveTriggerOption(org.id, trigger.id, {
+      name: "post_data",
+      value: "fetch-url-transaction",
+    });
+
+    // 4. Update company record
     await supabase
       .from("companies")
       .update({

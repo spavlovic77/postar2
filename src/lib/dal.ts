@@ -6,6 +6,7 @@ import type {
   Company,
   CompanyMembership,
   Department,
+  Document,
 } from "./types";
 
 export interface UserWithRole {
@@ -334,4 +335,94 @@ export async function getUserDepartments(userId: string) {
     .eq("user_id", userId);
 
   return data ?? [];
+}
+
+// ============================================================
+// Documents (Inbox)
+// ============================================================
+
+export async function getDocuments(params: {
+  companyIds: string[];
+  direction?: "received" | "sent";
+  status?: string;
+  companyId?: string | null;
+  isSuperAdmin: boolean;
+  limit?: number;
+  offset?: number;
+}) {
+  const admin = getSupabaseAdmin();
+  let query = admin
+    .from("documents")
+    .select("*, company:companies(id, dic, legal_name)", { count: "exact" })
+    .order("peppol_created_at", { ascending: false });
+
+  if (!params.isSuperAdmin && params.companyIds.length > 0) {
+    query = query.in("company_id", params.companyIds);
+  }
+
+  if (params.companyId) {
+    query = query.eq("company_id", params.companyId);
+  }
+
+  if (params.direction) {
+    query = query.eq("direction", params.direction);
+  }
+
+  if (params.status) {
+    query = query.eq("status", params.status);
+  }
+
+  query = query.range(
+    params.offset ?? 0,
+    (params.offset ?? 0) + (params.limit ?? 50) - 1
+  );
+
+  const { data, count } = await query;
+  return { documents: data ?? [], total: count ?? 0 };
+}
+
+export async function getDocument(documentId: string) {
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("documents")
+    .select("*, company:companies(id, dic, legal_name)")
+    .eq("id", documentId)
+    .single();
+
+  return data;
+}
+
+export async function updateDocumentStatus(
+  documentId: string,
+  status: "new" | "read" | "assigned" | "processed"
+) {
+  const admin = getSupabaseAdmin();
+  await admin.from("documents").update({ status }).eq("id", documentId);
+}
+
+export async function getInboxCounts(companyIds: string[], isSuperAdmin: boolean) {
+  const admin = getSupabaseAdmin();
+
+  let unreadQuery = admin
+    .from("documents")
+    .select("id", { count: "exact", head: true })
+    .eq("direction", "received")
+    .eq("status", "new");
+
+  let totalQuery = admin
+    .from("documents")
+    .select("id", { count: "exact", head: true })
+    .eq("direction", "received");
+
+  if (!isSuperAdmin && companyIds.length > 0) {
+    unreadQuery = unreadQuery.in("company_id", companyIds);
+    totalQuery = totalQuery.in("company_id", companyIds);
+  }
+
+  const [unread, total] = await Promise.all([unreadQuery, totalQuery]);
+
+  return {
+    unread: unread.count ?? 0,
+    total: total.count ?? 0,
+  };
 }

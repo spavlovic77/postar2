@@ -126,18 +126,22 @@ describe("ion-AP Client", () => {
 
 describe("Lazy Activation", () => {
   it("activates a pending company on ion-AP", async () => {
+    const jsonResponse = (data: any) => ({
+      ok: true,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve(data),
+    });
+
     // Mock create org
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ id: 42, name: "Test", country: "SK", identifiers: [] }),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 42, name: "Test", country: "SK", identifiers: [] }));
     // Mock create identifier
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ id: 99, identifier: "0245:1234567890", verified: true }),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 99, identifier: "0245:1234567890", verified: true }));
+    // Mock create receive trigger
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 1 }));
+    // Mock create trigger options (url, method, post_data)
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 1 }));
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 2 }));
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 3 }));
 
     const { ensureCompanyActivated } = await import("@/lib/ion-ap/activate");
     const orgId = await ensureCompanyActivated("company-1");
