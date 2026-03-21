@@ -56,6 +56,22 @@ export interface PfsVerification {
   created_at: string;
 }
 
+export interface Department {
+  id: string;
+  company_id: string;
+  parent_id: string | null;
+  name: string;
+  created_at: string;
+}
+
+export interface DepartmentMembership {
+  id: string;
+  user_id: string;
+  department_id: string;
+  created_at: string;
+  department?: Department;
+}
+
 export interface NavigationItem {
   label: string;
   href: string;

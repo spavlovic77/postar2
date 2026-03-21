@@ -322,3 +322,69 @@ export function auditSuperAdminGranted(params: {
     },
   });
 }
+
+export function auditDepartmentCreated(params: {
+  actorId: string;
+  actorEmail: string;
+  departmentName: string;
+  companyId: string;
+  companyDic?: string | null;
+  parentId?: string | null;
+}) {
+  audit({
+    eventId: "DEPARTMENT_CREATED",
+    eventName: "Department created",
+    actorId: params.actorId,
+    actorEmail: params.actorEmail,
+    companyId: params.companyId,
+    companyDic: params.companyDic ?? undefined,
+    details: {
+      departmentName: params.departmentName,
+      parentId: params.parentId ?? null,
+    },
+  });
+}
+
+export function auditDepartmentMemberAdded(params: {
+  actorId: string;
+  actorEmail: string;
+  userId: string;
+  departmentName: string;
+  companyId: string;
+  companyDic?: string | null;
+}) {
+  audit({
+    eventId: "DEPARTMENT_MEMBER_ADDED",
+    eventName: "User added to department",
+    actorId: params.actorId,
+    actorEmail: params.actorEmail,
+    companyId: params.companyId,
+    companyDic: params.companyDic ?? undefined,
+    details: {
+      userId: params.userId,
+      departmentName: params.departmentName,
+    },
+  });
+}
+
+export function auditDepartmentMemberRemoved(params: {
+  actorId: string;
+  actorEmail: string;
+  userId: string;
+  departmentName: string;
+  companyId: string;
+  companyDic?: string | null;
+}) {
+  audit({
+    eventId: "DEPARTMENT_MEMBER_REMOVED",
+    eventName: "User removed from department",
+    actorId: params.actorId,
+    actorEmail: params.actorEmail,
+    companyId: params.companyId,
+    companyDic: params.companyDic ?? undefined,
+    details: {
+      userId: params.userId,
+      departmentName: params.departmentName,
+    },
+  });
+}

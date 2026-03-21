@@ -5,6 +5,9 @@ import { createMockStore, createMockSupabaseAdmin } from "./mocks/supabase";
 let store = createMockStore();
 let mockAdmin = createMockSupabaseAdmin(store);
 
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+
 vi.mock("@/lib/supabase/admin", () => ({
   getSupabaseAdmin: () => mockAdmin,
 }));

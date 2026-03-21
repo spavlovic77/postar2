@@ -5,6 +5,7 @@ import type {
   UserProfile,
   Company,
   CompanyMembership,
+  Department,
 } from "./types";
 
 export interface UserWithRole {
@@ -289,5 +290,48 @@ export async function getInvitations(params: {
   }
 
   const { data } = await query;
+  return data ?? [];
+}
+
+// ============================================================
+// Departments
+// ============================================================
+
+export async function getCompanyDepartments(companyId: string) {
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("departments")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("name", { ascending: true });
+
+  return data ?? [];
+}
+
+export async function getDepartmentWithMembers(departmentId: string) {
+  const admin = getSupabaseAdmin();
+
+  const [deptRes, membersRes] = await Promise.all([
+    admin.from("departments").select("*").eq("id", departmentId).single(),
+    admin
+      .from("department_memberships")
+      .select("*, profile:profiles(*)")
+      .eq("department_id", departmentId)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  return {
+    department: deptRes.data,
+    members: membersRes.data ?? [],
+  };
+}
+
+export async function getUserDepartments(userId: string) {
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("department_memberships")
+    .select("*, department:departments(*, company:companies(id, dic, legal_name))")
+    .eq("user_id", userId);
+
   return data ?? [];
 }

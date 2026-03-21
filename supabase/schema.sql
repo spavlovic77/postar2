@@ -10,6 +10,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text, text);
 
+drop table if exists department_memberships cascade;
+drop table if exists departments cascade;
 drop table if exists verification_codes cascade;
 drop table if exists invitations cascade;
 drop table if exists company_memberships cascade;
@@ -143,6 +145,35 @@ create index idx_invitations_token on invitations (token);
 create index idx_invitations_email on invitations (email);
 
 -- ----------------------
+-- Departments (per company, optional nesting)
+-- ----------------------
+create table departments (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  parent_id uuid references departments(id) on delete set null,
+  name text not null,
+  created_at timestamptz not null default now(),
+  unique (company_id, name)
+);
+
+create index idx_departments_company on departments (company_id);
+create index idx_departments_parent on departments (parent_id);
+
+-- ----------------------
+-- Department Memberships (user ↔ department, many-to-many)
+-- ----------------------
+create table department_memberships (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  department_id uuid not null references departments(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (user_id, department_id)
+);
+
+create index idx_department_memberships_user on department_memberships (user_id);
+create index idx_department_memberships_department on department_memberships (department_id);
+
+-- ----------------------
 -- Verification Codes (6-digit OTP for email/SMS)
 -- ----------------------
 create table verification_codes (
@@ -253,6 +284,8 @@ alter table company_memberships enable row level security;
 alter table invitations enable row level security;
 alter table pfs_verifications enable row level security;
 alter table verification_codes enable row level security;
+alter table departments enable row level security;
+alter table department_memberships enable row level security;
 alter table audit_logs enable row level security;
 
 -- Profiles
@@ -326,6 +359,43 @@ create policy "No direct access to pfs_verifications"
 create policy "No direct access to verification_codes"
   on verification_codes for select
   using (false);
+
+-- Departments: visible to company members + super admins
+create policy "Members can view departments of their companies"
+  on departments for select
+  using (
+    exists (
+      select 1 from company_memberships
+      where company_memberships.company_id = departments.company_id
+        and company_memberships.user_id = auth.uid()
+        and company_memberships.status = 'active'
+    )
+  );
+
+create policy "Super admins can view all departments"
+  on departments for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
+
+-- Department Memberships: visible to company members + super admins
+create policy "Members can view department memberships of their companies"
+  on department_memberships for select
+  using (
+    exists (
+      select 1 from departments
+      join company_memberships on company_memberships.company_id = departments.company_id
+      where departments.id = department_memberships.department_id
+        and company_memberships.user_id = auth.uid()
+        and company_memberships.status = 'active'
+    )
+  );
+
+create policy "Super admins can view all department memberships"
+  on department_memberships for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
 
 -- Audit Logs
 create policy "Super admins can view all audit logs"

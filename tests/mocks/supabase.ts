@@ -1,10 +1,10 @@
-import { vi } from "vitest";
-
 // In-memory store for test data
 export interface MockStore {
   profiles: Record<string, any>;
   companies: Record<string, any>;
   companyMemberships: any[];
+  departments: any[];
+  departmentMemberships: any[];
   invitations: any[];
   pfsVerifications: any[];
   verificationCodes: any[];
@@ -17,6 +17,8 @@ export function createMockStore(): MockStore {
     profiles: {},
     companies: {},
     companyMemberships: [],
+    departments: [],
+    departmentMemberships: [],
     invitations: [],
     pfsVerifications: [],
     verificationCodes: [],
@@ -95,6 +97,8 @@ export function createMockSupabaseAdmin(store: MockStore) {
     profiles: () => Object.values(store.profiles),
     companies: () => Object.values(store.companies),
     company_memberships: () => store.companyMemberships,
+    departments: () => store.departments,
+    department_memberships: () => store.departmentMemberships,
     invitations: () => store.invitations,
     pfs_verifications: () => store.pfsVerifications,
     verification_codes: () => store.verificationCodes,
@@ -114,6 +118,8 @@ export function createMockSupabaseAdmin(store: MockStore) {
             if (table === "profiles") store.profiles[withId.id] = withId;
             else if (table === "companies") store.companies[withId.id] = withId;
             else if (table === "company_memberships") store.companyMemberships.push(withId);
+            else if (table === "departments") store.departments.push(withId);
+            else if (table === "department_memberships") store.departmentMemberships.push(withId);
             else if (table === "invitations") {
               withId.token = withId.token ?? crypto.randomUUID();
               store.invitations.push(withId);
@@ -163,24 +169,31 @@ export function createMockSupabaseAdmin(store: MockStore) {
           return { error: null };
         },
         delete: () => ({
-          eq: (field: string, value: any) => ({
-            is: (_f: string, _v: any) => {
-              if (table === "verification_codes") {
-                store.verificationCodes = store.verificationCodes.filter(
-                  (c: any) => !(c[field] === value && c.verified_at === null)
-                );
-              }
-              return { error: null };
-            },
-            error: null,
-          }),
+          eq: (field: string, value: any) => {
+            if (table === "department_memberships") {
+              store.departmentMemberships = store.departmentMemberships.filter(
+                (m: any) => m[field] !== value
+              );
+            }
+            return {
+              is: (_f: string, _v: any) => {
+                if (table === "verification_codes") {
+                  store.verificationCodes = store.verificationCodes.filter(
+                    (c: any) => !(c[field] === value && c.verified_at === null)
+                  );
+                }
+                return { error: null };
+              },
+              error: null,
+            };
+          },
         }),
       };
     },
-    rpc: vi.fn((_name: string, _params: any) => ({ error: null })),
+    rpc: (_name: string, _params: any) => ({ error: null }),
     auth: {
       admin: {
-        createUser: vi.fn(({ email, password, email_confirm }: any) => {
+        createUser: ({ email, password, email_confirm }: any) => {
           const existing = store.authUsers.find((u: any) => u.email === email);
           if (existing) {
             return {
@@ -197,24 +210,24 @@ export function createMockSupabaseAdmin(store: MockStore) {
           };
           store.authUsers.push(user);
           return { data: { user }, error: null };
-        }),
-        listUsers: vi.fn(() => ({
+        },
+        listUsers: () => ({
           data: { users: store.authUsers },
-        })),
-        updateUserById: vi.fn((id: string, updates: any) => {
+        }),
+        updateUserById: (id: string, updates: any) => {
           const user = store.authUsers.find((u: any) => u.id === id);
           if (user && updates.email_confirm) {
             user.email_confirmed_at = new Date().toISOString();
           }
           return { error: null };
-        }),
-        getUserById: vi.fn((id: string) => ({
+        },
+        getUserById: (id: string) => ({
           data: { user: store.authUsers.find((u: any) => u.id === id) ?? null },
-        })),
-        generateLink: vi.fn(() => ({
+        }),
+        generateLink: () => ({
           data: { properties: { hashed_token: "test-hashed-token" } },
           error: null,
-        })),
+        }),
       },
     },
   };
