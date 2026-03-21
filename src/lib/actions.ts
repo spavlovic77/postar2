@@ -15,6 +15,7 @@ import {
   auditDepartmentMemberAdded,
   auditDepartmentMemberRemoved,
 } from "@/lib/audit";
+import { ensureCompanyActivated, getPeppolIdentifier } from "@/lib/ion-ap";
 
 async function getAuthUser() {
   const supabase = await createClient();
@@ -374,4 +375,51 @@ export async function removeDepartmentMember(membershipId: string) {
 
   revalidatePath("/dashboard/companies");
   return { success: true };
+}
+
+// ============================================================
+// Peppol Activation
+// ============================================================
+
+export async function activateCompanyOnPeppol(companyId: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  // Verify permission: must be company admin or super admin
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    if (!(await verifyCompanyAdmin(user.id, companyId))) {
+      return { error: "Only company admins can activate companies on Peppol" };
+    }
+  }
+
+  // Check current status
+  const { data: company } = await admin
+    .from("companies")
+    .select("ion_ap_status, dic")
+    .eq("id", companyId)
+    .single();
+
+  if (!company) return { error: "Company not found" };
+
+  if (company.ion_ap_status === "active") {
+    return { error: "Company is already active on Peppol" };
+  }
+
+  try {
+    await ensureCompanyActivated(companyId);
+    revalidatePath("/dashboard/companies");
+    revalidatePath(`/dashboard/companies/${companyId}`);
+    return { success: true, peppolId: getPeppolIdentifier(company.dic) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Activation failed";
+    revalidatePath("/dashboard/companies");
+    revalidatePath(`/dashboard/companies/${companyId}`);
+    return { error: message };
+  }
 }

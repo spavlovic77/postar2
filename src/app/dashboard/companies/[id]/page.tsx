@@ -10,7 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PeppolStatusBadge } from "@/components/dashboard/peppol-status-badge";
 import { DeactivateButton } from "./deactivate-button";
+import { PeppolActivateButton } from "./peppol-activate-button";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -31,7 +33,6 @@ export default async function CompanyDetailPage({
   const { id } = await params;
   const { role, user, memberships } = data;
 
-  // Check access
   if (role !== "super_admin") {
     const hasAccess = memberships.some((m) => m.company_id === id);
     if (!hasAccess) notFound();
@@ -40,15 +41,18 @@ export default async function CompanyDetailPage({
   const { company, members } = await getCompanyWithMembers(id);
   if (!company) notFound();
 
-  // Determine if current user can deactivate members
   const myMembership = memberships.find((m) => m.company_id === id);
   const canManageMembers =
-    role === "super_admin" ||
-    (myMembership?.role === "company_admin");
+    role === "super_admin" || myMembership?.role === "company_admin";
+  const canActivatePeppol =
+    company.ion_ap_status !== "active" && canManageMembers;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{company.legal_name ?? company.dic}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">{company.legal_name ?? company.dic}</h1>
+        <PeppolStatusBadge status={company.ion_ap_status} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -61,18 +65,22 @@ export default async function CompanyDetailPage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Email</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Peppol ID</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">{company.company_email ?? "-"}</p>
+            {company.ion_ap_status === "active" ? (
+              <p className="font-mono text-sm">0245:{company.dic}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Not registered</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Phone</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Email</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">{company.company_phone ?? "-"}</p>
+            <p className="text-sm">{company.company_email ?? "-"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -87,6 +95,48 @@ export default async function CompanyDetailPage({
         </Card>
       </div>
 
+      {/* Peppol Activation */}
+      {canActivatePeppol && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Peppol Network</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {company.ion_ap_status === "error" && company.ion_ap_error && (
+              <p className="text-sm text-destructive">{company.ion_ap_error}</p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Register this company on the Peppol network to send and receive electronic invoices.
+              The Peppol identifier will be <span className="font-mono font-medium">0245:{company.dic}</span>.
+            </p>
+            <PeppolActivateButton companyId={company.id} />
+          </CardContent>
+        </Card>
+      )}
+
+      {company.ion_ap_status === "active" && company.ion_ap_activated_at && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Peppol Network</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <p className="text-sm">
+              <span className="text-muted-foreground">Peppol ID:</span>{" "}
+              <span className="font-mono font-medium">0245:{company.dic}</span>
+            </p>
+            <p className="text-sm">
+              <span className="text-muted-foreground">Activated:</span>{" "}
+              {formatDate(company.ion_ap_activated_at)}
+            </p>
+            <p className="text-sm">
+              <span className="text-muted-foreground">ion-AP Org ID:</span>{" "}
+              <span className="font-mono">{company.ion_ap_org_id}</span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Members */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Members</h2>
         <div className="rounded-lg border">
@@ -114,9 +164,7 @@ export default async function CompanyDetailPage({
                 members.map((m) => {
                   const profile = (m as { profile: { full_name: string | null } }).profile;
                   const canDeactivate =
-                    canManageMembers &&
-                    m.status === "active" &&
-                    m.user_id !== user.id;
+                    canManageMembers && m.status === "active" && m.user_id !== user.id;
 
                   return (
                     <TableRow key={m.id}>
@@ -151,9 +199,7 @@ export default async function CompanyDetailPage({
                       </TableCell>
                       {canManageMembers && (
                         <TableCell>
-                          {canDeactivate && (
-                            <DeactivateButton membershipId={m.id} />
-                          )}
+                          {canDeactivate && <DeactivateButton membershipId={m.id} />}
                         </TableCell>
                       )}
                     </TableRow>

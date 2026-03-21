@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserWithRole, getCompaniesWithMemberCounts } from "@/lib/dal";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Users } from "lucide-react";
+import { PeppolStatusBadge } from "@/components/dashboard/peppol-status-badge";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -43,8 +43,8 @@ export default async function CompaniesPage() {
             <TableRow>
               <TableHead>Company</TableHead>
               <TableHead>DIC</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead className="hidden md:table-cell">Phone</TableHead>
+              <TableHead>Peppol</TableHead>
+              <TableHead className="hidden md:table-cell">Email</TableHead>
               <TableHead>Members</TableHead>
               <TableHead className="hidden lg:table-cell">Created</TableHead>
             </TableRow>
@@ -68,9 +68,11 @@ export default async function CompaniesPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{c.dic}</TableCell>
-                  <TableCell className="text-sm">{c.company_email ?? "-"}</TableCell>
+                  <TableCell>
+                    <PeppolStatusBadge status={c.ion_ap_status} />
+                  </TableCell>
                   <TableCell className="hidden text-sm md:table-cell">
-                    {c.company_phone ?? "-"}
+                    {c.company_email ?? "-"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm">

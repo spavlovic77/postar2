@@ -1,6 +1,7 @@
 import { Building2, Users, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PeppolStatusBadge } from "./peppol-status-badge";
 import type { Company, CompanyMembership } from "@/lib/types";
 
 interface Props {
@@ -36,9 +37,12 @@ export function CompanyAdminDashboard({
                     </Badge>
                   )}
                 </div>
-                <p className="font-mono text-xs text-muted-foreground">
-                  DIC: {company.dic}
-                </p>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    DIC: {company.dic}
+                  </span>
+                  <PeppolStatusBadge status={company.ion_ap_status} />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-4 text-sm text-muted-foreground">
