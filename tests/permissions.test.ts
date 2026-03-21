@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockStore, createMockSupabaseAdmin } from "./mocks/supabase";
 
-let store: ReturnType<typeof createMockStore>;
-let mockAdmin: ReturnType<typeof createMockSupabaseAdmin>;
+// Shared state
+let store = createMockStore();
+let mockAdmin = createMockSupabaseAdmin(store);
 
 vi.mock("@/lib/supabase/admin", () => ({
   getSupabaseAdmin: () => mockAdmin,
@@ -29,26 +30,18 @@ vi.mock("@/lib/audit", () => ({
   auditOnboarded: vi.fn(),
 }));
 
-beforeEach(() => {
-  vi.resetModules();
-  store = createMockStore();
-  mockAdmin = createMockSupabaseAdmin(store);
-});
-
 describe("Permission checks", () => {
+  beforeEach(() => {
+    store = createMockStore();
+    mockAdmin = createMockSupabaseAdmin(store);
+  });
+
   describe("deactivateMembership", () => {
     it("super admin can deactivate anyone", async () => {
-      store.profiles["current-user"] = {
-        id: "current-user",
-        is_super_admin: true,
-      };
+      store.profiles["current-user"] = { id: "current-user", is_super_admin: true };
       store.companyMemberships.push({
-        id: "m-1",
-        user_id: "other-user",
-        company_id: "c-1",
-        role: "company_admin",
-        is_genesis: true,
-        status: "active",
+        id: "m-1", user_id: "other-user", company_id: "c-1",
+        role: "company_admin", is_genesis: true, status: "active",
         company: { dic: "1234567890" },
       });
 
@@ -58,28 +51,10 @@ describe("Permission checks", () => {
     });
 
     it("genesis admin can deactivate non-genesis admin", async () => {
-      store.profiles["current-user"] = {
-        id: "current-user",
-        is_super_admin: false,
-      };
+      store.profiles["current-user"] = { id: "current-user", is_super_admin: false };
       store.companyMemberships.push(
-        {
-          id: "my-m",
-          user_id: "current-user",
-          company_id: "c-1",
-          role: "company_admin",
-          is_genesis: true,
-          status: "active",
-        },
-        {
-          id: "m-target",
-          user_id: "other-user",
-          company_id: "c-1",
-          role: "company_admin",
-          is_genesis: false,
-          status: "active",
-          company: { dic: "1234567890" },
-        }
+        { id: "my-m", user_id: "current-user", company_id: "c-1", role: "company_admin", is_genesis: true, status: "active" },
+        { id: "m-target", user_id: "other-user", company_id: "c-1", role: "company_admin", is_genesis: false, status: "active", company: { dic: "1234567890" } }
       );
 
       const { deactivateMembership } = await import("@/lib/actions");
@@ -88,28 +63,10 @@ describe("Permission checks", () => {
     });
 
     it("non-genesis admin cannot deactivate genesis admin", async () => {
-      store.profiles["current-user"] = {
-        id: "current-user",
-        is_super_admin: false,
-      };
+      store.profiles["current-user"] = { id: "current-user", is_super_admin: false };
       store.companyMemberships.push(
-        {
-          id: "my-m",
-          user_id: "current-user",
-          company_id: "c-1",
-          role: "company_admin",
-          is_genesis: false,
-          status: "active",
-        },
-        {
-          id: "m-genesis",
-          user_id: "genesis-user",
-          company_id: "c-1",
-          role: "company_admin",
-          is_genesis: true,
-          status: "active",
-          company: { dic: "1234567890" },
-        }
+        { id: "my-m", user_id: "current-user", company_id: "c-1", role: "company_admin", is_genesis: false, status: "active" },
+        { id: "m-genesis", user_id: "genesis-user", company_id: "c-1", role: "company_admin", is_genesis: true, status: "active", company: { dic: "1234567890" } }
       );
 
       const { deactivateMembership } = await import("@/lib/actions");
@@ -118,58 +75,22 @@ describe("Permission checks", () => {
     });
 
     it("non-genesis admin cannot deactivate other admins", async () => {
-      store.profiles["current-user"] = {
-        id: "current-user",
-        is_super_admin: false,
-      };
+      store.profiles["current-user"] = { id: "current-user", is_super_admin: false };
       store.companyMemberships.push(
-        {
-          id: "my-m",
-          user_id: "current-user",
-          company_id: "c-1",
-          role: "company_admin",
-          is_genesis: false,
-          status: "active",
-        },
-        {
-          id: "m-other-admin",
-          user_id: "other-admin",
-          company_id: "c-1",
-          role: "company_admin",
-          is_genesis: false,
-          status: "active",
-          company: { dic: "1234567890" },
-        }
+        { id: "my-m", user_id: "current-user", company_id: "c-1", role: "company_admin", is_genesis: false, status: "active" },
+        { id: "m-other", user_id: "other-admin", company_id: "c-1", role: "company_admin", is_genesis: false, status: "active", company: { dic: "1234567890" } }
       );
 
       const { deactivateMembership } = await import("@/lib/actions");
-      const result = await deactivateMembership("m-other-admin");
+      const result = await deactivateMembership("m-other");
       expect(result.error).toContain("genesis admin or super admin");
     });
 
     it("accountant cannot deactivate anyone", async () => {
-      store.profiles["current-user"] = {
-        id: "current-user",
-        is_super_admin: false,
-      };
+      store.profiles["current-user"] = { id: "current-user", is_super_admin: false };
       store.companyMemberships.push(
-        {
-          id: "my-m",
-          user_id: "current-user",
-          company_id: "c-1",
-          role: "accountant",
-          is_genesis: false,
-          status: "active",
-        },
-        {
-          id: "m-target",
-          user_id: "other-user",
-          company_id: "c-1",
-          role: "accountant",
-          is_genesis: false,
-          status: "active",
-          company: { dic: "1234567890" },
-        }
+        { id: "my-m", user_id: "current-user", company_id: "c-1", role: "accountant", is_genesis: false, status: "active" },
+        { id: "m-target", user_id: "other-user", company_id: "c-1", role: "accountant", is_genesis: false, status: "active", company: { dic: "1234567890" } }
       );
 
       const { deactivateMembership } = await import("@/lib/actions");

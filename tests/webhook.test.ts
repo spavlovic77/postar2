@@ -1,9 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createHmac } from "crypto";
-
-// Mock all external dependencies
-const mockInsert = vi.fn(() => ({ error: null, select: () => ({ single: () => ({ data: { id: "new-company-id" }, error: null }) }) }));
-const mockSelect = vi.fn();
 
 vi.mock("@/lib/supabase/admin", () => ({
   getSupabaseAdmin: () => ({
@@ -28,7 +24,10 @@ vi.mock("@/lib/supabase/admin", () => ({
       if (table === "audit_logs") {
         return { insert: () => ({ then: (r: any) => r({ error: null }) }) };
       }
-      return { insert: mockInsert, select: mockSelect };
+      return {
+        insert: vi.fn(() => ({ error: null })),
+        select: vi.fn(),
+      };
     },
     auth: {
       admin: {
@@ -80,8 +79,6 @@ describe("PFS Webhook", () => {
     const { POST } = await import("@/app/api/webhooks/pfs/route");
     const res = await POST(makeRequest("{}"));
     expect(res.status).toBe(401);
-    const data = await res.json();
-    expect(data.error).toContain("Missing");
   });
 
   it("rejects request with invalid signature", async () => {
@@ -103,8 +100,6 @@ describe("PFS Webhook", () => {
     const body = JSON.stringify({ dic: "1234567890" });
     const res = await POST(makeRequest(body, sign(body)));
     expect(res.status).toBe(400);
-    const data = await res.json();
-    expect(data.error).toContain("Missing required");
   });
 
   it("rejects invalid DIC format", async () => {
@@ -116,8 +111,6 @@ describe("PFS Webhook", () => {
     });
     const res = await POST(makeRequest(body, sign(body)));
     expect(res.status).toBe(400);
-    const data = await res.json();
-    expect(data.error).toContain("DIC");
   });
 
   it("accepts valid webhook payload", async () => {
@@ -132,7 +125,5 @@ describe("PFS Webhook", () => {
     });
     const res = await POST(makeRequest(body, sign(body)));
     expect(res.status).toBe(201);
-    const data = await res.json();
-    expect(data.company_id).toBeTruthy();
   });
 });

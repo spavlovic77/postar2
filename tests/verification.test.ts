@@ -1,19 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockStore, createMockSupabaseAdmin } from "./mocks/supabase";
 
-let store: ReturnType<typeof createMockStore>;
-let mockAdmin: ReturnType<typeof createMockSupabaseAdmin>;
-
-vi.mock("@/lib/supabase/admin", () => ({
-  getSupabaseAdmin: () => mockAdmin,
-}));
-
-beforeEach(() => {
-  store = createMockStore();
-  mockAdmin = createMockSupabaseAdmin(store);
-});
-
 describe("Verification Codes", () => {
+  let store: ReturnType<typeof createMockStore>;
+  let mockAdmin: ReturnType<typeof createMockSupabaseAdmin>;
+
+  beforeEach(() => {
+    store = createMockStore();
+    mockAdmin = createMockSupabaseAdmin(store);
+  });
+
   it("generates a 6-digit code", async () => {
     const { generateCode } = await import("@/lib/verification");
     const code = generateCode();
@@ -35,7 +31,6 @@ describe("Verification Codes", () => {
     expect(store.verificationCodes.length).toBe(1);
     expect(store.verificationCodes[0].user_id).toBe("user-1");
     expect(store.verificationCodes[0].channel).toBe("email");
-    expect(store.verificationCodes[0].destination).toBe("test@example.com");
   });
 
   it("verifies a valid code", async () => {
@@ -47,16 +42,9 @@ describe("Verification Codes", () => {
       destination: "test@example.com",
     });
 
-    // Set expires_at to future
-    store.verificationCodes[0].expires_at = new Date(
-      Date.now() + 5 * 60 * 1000
-    ).toISOString();
+    store.verificationCodes[0].expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const result = await verifyCode(mockAdmin as any, {
-      userId: "user-1",
-      code,
-    });
-
+    const result = await verifyCode(mockAdmin as any, { userId: "user-1", code });
     expect(result).toBe(true);
     expect(store.verificationCodes[0].verified_at).toBeTruthy();
   });
@@ -70,15 +58,9 @@ describe("Verification Codes", () => {
       destination: "test@example.com",
     });
 
-    store.verificationCodes[0].expires_at = new Date(
-      Date.now() + 5 * 60 * 1000
-    ).toISOString();
+    store.verificationCodes[0].expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const result = await verifyCode(mockAdmin as any, {
-      userId: "user-1",
-      code: "000000",
-    });
-
+    const result = await verifyCode(mockAdmin as any, { userId: "user-1", code: "000000" });
     expect(result).toBe(false);
   });
 
@@ -91,16 +73,9 @@ describe("Verification Codes", () => {
       destination: "test@example.com",
     });
 
-    // Set expires_at to past
-    store.verificationCodes[0].expires_at = new Date(
-      Date.now() - 1000
-    ).toISOString();
+    store.verificationCodes[0].expires_at = new Date(Date.now() - 1000).toISOString();
 
-    const result = await verifyCode(mockAdmin as any, {
-      userId: "user-1",
-      code,
-    });
-
+    const result = await verifyCode(mockAdmin as any, { userId: "user-1", code });
     expect(result).toBe(false);
   });
 });

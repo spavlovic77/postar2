@@ -8,25 +8,16 @@ process.env.PFS_WEBHOOK_SECRET = "test-webhook-secret";
 process.env.RESEND_API_KEY = "re_test_key";
 process.env.RESEND_FROM_EMAIL = "test@postar.app";
 
-// Mock next/headers
+// Global mocks for Next.js modules
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(() => ({
-    getAll: vi.fn(() => []),
-    set: vi.fn(),
-  })),
+  cookies: vi.fn(() => ({ getAll: vi.fn(() => []), set: vi.fn() })),
 }));
 
-// Mock next/navigation
 vi.mock("next/navigation", () => ({
-  redirect: vi.fn((url: string) => {
-    throw new Error(`REDIRECT:${url}`);
-  }),
-  notFound: vi.fn(() => {
-    throw new Error("NOT_FOUND");
-  }),
+  redirect: vi.fn((url: string) => { throw new Error(`REDIRECT:${url}`); }),
+  notFound: vi.fn(() => { throw new Error("NOT_FOUND"); }),
 }));
 
-// Mock next/cache
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
