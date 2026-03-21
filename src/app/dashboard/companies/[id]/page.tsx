@@ -13,6 +13,7 @@ import {
 import { PeppolStatusBadge } from "@/components/dashboard/peppol-status-badge";
 import { DeactivateButton } from "./deactivate-button";
 import { PeppolActivateButton } from "./peppol-activate-button";
+import { DeactivateCompanyButton } from "./deactivate-company-button";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -44,14 +45,28 @@ export default async function CompanyDetailPage({
   const myMembership = memberships.find((m) => m.company_id === id);
   const canManageMembers =
     role === "super_admin" || myMembership?.role === "company_admin";
+  const isDeactivated = company.status === "deactivated";
   const canActivatePeppol =
-    company.ion_ap_status !== "active" && canManageMembers;
+    !isDeactivated && company.ion_ap_status !== "active" && canManageMembers;
 
   return (
     <div className="space-y-6">
+      {isDeactivated && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="font-medium text-destructive">This company has been deactivated</p>
+          <p className="text-sm text-destructive/80">
+            Deactivated on {company.deactivated_at ? new Date(company.deactivated_at).toLocaleDateString("sk-SK") : "unknown"}.
+            All memberships and documents have been archived. Onboarding must be repeated to reactivate.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{company.legal_name ?? company.dic}</h1>
-        <PeppolStatusBadge status={company.ion_ap_status} />
+        <div className="flex items-center gap-2">
+          {isDeactivated && <Badge variant="destructive">Deactivated</Badge>}
+          {!isDeactivated && <PeppolStatusBadge status={company.ion_ap_status} />}
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -210,6 +225,25 @@ export default async function CompanyDetailPage({
           </Table>
         </div>
       </div>
+
+      {/* Danger Zone - Super admin only */}
+      {role === "super_admin" && !isDeactivated && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Deactivating this company will remove it from the Peppol network, deactivate all members,
+              and archive all documents. This action cannot be reversed.
+            </p>
+            <DeactivateCompanyButton
+              companyId={company.id}
+              companyName={company.legal_name ?? company.dic}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

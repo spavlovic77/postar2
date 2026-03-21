@@ -10,6 +10,7 @@ export interface UserProfile {
   created_at: string;
 }
 
+export type CompanyStatus = "active" | "deactivated";
 export type IonApStatus = "pending" | "active" | "error";
 
 export interface Company {
@@ -19,6 +20,8 @@ export interface Company {
   company_email: string | null;
   company_phone: string | null;
   pfs_created_at: string;
+  status: CompanyStatus;
+  deactivated_at: string | null;
   ion_ap_org_id: number | null;
   ion_ap_identifier_id: number | null;
   ion_ap_status: IonApStatus;

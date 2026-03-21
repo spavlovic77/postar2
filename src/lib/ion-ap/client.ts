@@ -93,6 +93,29 @@ export async function getOrganization(orgId: number): Promise<IonApOrganization>
   return request<IonApOrganization>("GET", `/organizations/${orgId}/`);
 }
 
+export async function updateOrganization(
+  orgId: number,
+  params: {
+    name?: string;
+    country?: string;
+    publishInSmp?: boolean;
+  }
+): Promise<IonApOrganization> {
+  const body: Record<string, unknown> = {};
+  if (params.name !== undefined) body.name = params.name;
+  if (params.country !== undefined) body.country = params.country;
+  if (params.publishInSmp !== undefined) body.publish_in_smp = params.publishInSmp;
+
+  return request<IonApOrganization>("PATCH", `/organizations/${orgId}/`, body);
+}
+
+export async function deleteIdentifier(
+  orgId: number,
+  identifierId: number
+): Promise<void> {
+  return request<void>("DELETE", `/organizations/${orgId}/identifiers/${identifierId}/`);
+}
+
 export async function listOrganizations(params?: {
   filterName?: string;
   filterIdentifier?: string;

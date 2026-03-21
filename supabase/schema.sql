@@ -24,6 +24,7 @@ drop function if exists create_audit_partition(text);
 drop function if exists archive_audit_partition(text);
 drop table if exists audit_logs cascade;
 
+drop type if exists company_status;
 drop type if exists document_direction;
 drop type if exists document_status;
 drop type if exists ion_ap_status;
@@ -85,6 +86,7 @@ $$ language plpgsql security definer set search_path = public;
 -- ----------------------
 create type document_direction as enum ('received', 'sent');
 create type document_status as enum ('new', 'read', 'assigned', 'processed');
+create type company_status as enum ('active', 'deactivated');
 create type ion_ap_status as enum ('pending', 'active', 'error');
 
 create table companies (
@@ -94,6 +96,8 @@ create table companies (
   company_email text,
   company_phone text,
   pfs_created_at timestamptz not null,
+  status company_status not null default 'active',
+  deactivated_at timestamptz,
   ion_ap_org_id integer,
   ion_ap_identifier_id integer,
   ion_ap_status ion_ap_status not null default 'pending',

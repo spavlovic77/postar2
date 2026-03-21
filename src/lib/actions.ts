@@ -16,6 +16,8 @@ import {
   auditDepartmentMemberRemoved,
 } from "@/lib/audit";
 import { ensureCompanyActivated, getPeppolIdentifier } from "@/lib/ion-ap";
+import { updateOrganization, deleteIdentifier } from "@/lib/ion-ap/client";
+import { audit } from "@/lib/audit";
 
 async function getAuthUser() {
   const supabase = await createClient();
@@ -422,4 +424,95 @@ export async function activateCompanyOnPeppol(companyId: string) {
     revalidatePath(`/dashboard/companies/${companyId}`);
     return { error: message };
   }
+}
+
+export async function deactivateCompany(companyId: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  // Super admin only
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    return { error: "Only super admins can deactivate companies" };
+  }
+
+  const { data: company } = await admin
+    .from("companies")
+    .select("*")
+    .eq("id", companyId)
+    .single();
+
+  if (!company) return { error: "Company not found" };
+
+  if (company.status === "deactivated") {
+    return { error: "Company is already deactivated" };
+  }
+
+  // 1. Unpublish from SMP on ion-AP (if activated)
+  if (company.ion_ap_org_id && company.ion_ap_status === "active") {
+    try {
+      await updateOrganization(company.ion_ap_org_id, {
+        publishInSmp: false,
+      });
+
+      // Remove identifier from SMP
+      if (company.ion_ap_identifier_id) {
+        await deleteIdentifier(company.ion_ap_org_id, company.ion_ap_identifier_id);
+      }
+    } catch (err) {
+      console.error("Failed to unpublish from ion-AP:", err);
+      // Continue with deactivation even if ion-AP fails
+    }
+  }
+
+  // 2. Deactivate all company memberships
+  await admin
+    .from("company_memberships")
+    .update({ status: "inactive" })
+    .eq("company_id", companyId)
+    .eq("status", "active");
+
+  // 3. Archive documents (mark as processed)
+  await admin
+    .from("documents")
+    .update({ status: "processed" })
+    .eq("company_id", companyId)
+    .in("status", ["new", "read", "assigned"]);
+
+  // 4. Update company status
+  await admin
+    .from("companies")
+    .update({
+      status: "deactivated",
+      deactivated_at: new Date().toISOString(),
+      ion_ap_status: "pending",
+    })
+    .eq("id", companyId);
+
+  audit({
+    eventId: "COMPANY_DEACTIVATED",
+    eventName: "Company deactivated",
+    severity: "warning",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId,
+    companyDic: company.dic,
+    details: {
+      ionApOrgId: company.ion_ap_org_id,
+      membershipsDeactivated: true,
+      documentsArchived: true,
+      smpUnpublished: !!company.ion_ap_org_id,
+    },
+  });
+
+  revalidatePath("/dashboard/companies");
+  revalidatePath(`/dashboard/companies/${companyId}`);
+  revalidatePath("/dashboard/inbox");
+  revalidatePath("/dashboard/users");
+  return { success: true };
 }
