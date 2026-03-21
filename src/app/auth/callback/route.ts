@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { auditSignIn } from "@/lib/audit";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -42,6 +43,14 @@ export async function GET(request: Request) {
             user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
           user_avatar_url: user.user_metadata?.avatar_url ?? null,
           user_phone: null,
+        });
+
+        const provider = user.app_metadata?.provider as string;
+        auditSignIn({
+          userId: user.id,
+          email: user.email ?? "",
+          method: provider === "apple" ? "apple" : "google",
+          request,
         });
       }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { auditInvitationAccepted, auditSignIn } from "@/lib/audit";
 
 export async function GET(
   request: Request,
@@ -122,6 +123,24 @@ export async function GET(
     .from("invitations")
     .update({ accepted_at: new Date().toISOString() })
     .eq("id", invitation.id);
+
+  auditSignIn({
+    userId: user.id,
+    email: user.email ?? "",
+    method: "magic_link",
+    request,
+  });
+
+  const companyIds: string[] = invitation.company_ids ?? [];
+  for (const cid of companyIds) {
+    auditInvitationAccepted({
+      userId: user.id,
+      email: user.email ?? "",
+      role: invitation.role,
+      companyId: cid,
+      request,
+    });
+  }
 
   return NextResponse.redirect(`${origin}/`);
 }

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createVerificationCode } from "@/lib/verification";
 import { sendVerificationCodeEmail } from "@/lib/email";
 import { sendSmsCode } from "@/lib/sms";
+import { auditOtpSent } from "@/lib/audit";
 
 export async function POST(request: Request) {
   try {
@@ -103,6 +104,14 @@ export async function POST(request: Request) {
     } else {
       await sendSmsCode({ to: phone, code });
     }
+
+    auditOtpSent({
+      userId,
+      email,
+      channel,
+      destination: channel === "email" ? email : phone,
+      request,
+    });
 
     // Return masked phone for existing users (so UI can show "Send to ***1234")
     return NextResponse.json({

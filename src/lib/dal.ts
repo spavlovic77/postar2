@@ -147,6 +147,40 @@ export async function getCompanyAdminData(userId: string) {
   };
 }
 
+export async function getAuditLogs(params: {
+  userId?: string;
+  companyId?: string | null;
+  isSuperAdmin: boolean;
+  companyIds?: string[];
+  limit?: number;
+  offset?: number;
+}) {
+  const admin = getSupabaseAdmin();
+  let query = admin
+    .from("audit_logs")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false });
+
+  if (!params.isSuperAdmin && params.companyIds?.length) {
+    // Non-super-admin: only logs for their companies or their own actions
+    query = query.or(
+      `company_id.in.(${params.companyIds.join(",")}),actor_id.eq.${params.userId}`
+    );
+  }
+
+  if (params.companyId) {
+    query = query.eq("company_id", params.companyId);
+  }
+
+  query = query.range(
+    params.offset ?? 0,
+    (params.offset ?? 0) + (params.limit ?? 50) - 1
+  );
+
+  const { data, count } = await query;
+  return { logs: data ?? [], total: count ?? 0 };
+}
+
 export async function getAllCompanies() {
   const admin = getSupabaseAdmin();
   const { data } = await admin

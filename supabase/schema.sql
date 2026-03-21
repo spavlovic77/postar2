@@ -17,6 +17,11 @@ drop table if exists companies cascade;
 drop table if exists pfs_verifications cascade;
 drop table if exists profiles cascade;
 
+drop function if exists create_audit_partition(text);
+drop function if exists archive_audit_partition(text);
+drop table if exists audit_logs cascade;
+
+drop type if exists audit_severity;
 drop type if exists verification_channel;
 drop type if exists invitation_role;
 drop type if exists membership_status;
@@ -30,6 +35,7 @@ delete from auth.users;
 -- ----------------------
 -- Enums
 -- ----------------------
+create type audit_severity as enum ('info', 'warning', 'error');
 create type company_role as enum ('company_admin', 'accountant');
 create type membership_status as enum ('active', 'inactive');
 create type invitation_role as enum ('super_admin', 'company_admin', 'accountant');
@@ -153,6 +159,92 @@ create table verification_codes (
 create index idx_verification_codes_user on verification_codes (user_id);
 
 -- ----------------------
+-- Audit Logs (partitioned by month for easy archiving)
+-- CEF format: CEF:0|Postar|Postar|1.0|{event_id}|{event_name}|{severity}|{extensions}
+-- ----------------------
+create table audit_logs (
+  id uuid not null default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+
+  -- CEF fields
+  event_id text not null,
+  event_name text not null,
+  severity audit_severity not null default 'info',
+
+  -- Correlation
+  actor_id uuid,
+  actor_email text,
+  company_id uuid,
+  company_dic text,
+
+  -- CEF extension fields
+  source_ip text,
+  user_agent text,
+  details jsonb default '{}',
+
+  -- CEF formatted string (pre-rendered for SIEM export)
+  cef text not null,
+
+  primary key (id, created_at)
+) partition by range (created_at);
+
+create index idx_audit_logs_actor on audit_logs (actor_id, created_at);
+create index idx_audit_logs_company on audit_logs (company_id, created_at);
+create index idx_audit_logs_company_dic on audit_logs (company_dic, created_at);
+create index idx_audit_logs_event on audit_logs (event_id, created_at);
+
+-- Function to create monthly partitions
+-- Usage: select create_audit_partition('2026-03');
+create or replace function create_audit_partition(month_str text)
+returns void as $$
+declare
+  start_date date;
+  end_date date;
+  partition_name text;
+begin
+  start_date := (month_str || '-01')::date;
+  end_date := start_date + interval '1 month';
+  partition_name := 'audit_logs_' || to_char(start_date, 'YYYY_MM');
+
+  execute format(
+    'create table if not exists %I partition of audit_logs for values from (%L) to (%L)',
+    partition_name, start_date, end_date
+  );
+end;
+$$ language plpgsql;
+
+-- Function to archive (detach) a monthly partition
+-- Detaches it into a standalone table: audit_logs_YYYY_MM_archive
+-- You can then export and drop it at your convenience.
+-- Usage: select archive_audit_partition('2026-03');
+create or replace function archive_audit_partition(month_str text)
+returns text as $$
+declare
+  partition_name text;
+  archive_name text;
+begin
+  partition_name := 'audit_logs_' || replace(month_str, '-', '_');
+  archive_name := partition_name || '_archive';
+
+  execute format('alter table audit_logs detach partition %I', partition_name);
+  execute format('alter table %I rename to %I', partition_name, archive_name);
+
+  return archive_name;
+end;
+$$ language plpgsql;
+
+-- Create partitions for current month + next 6 months
+do $$
+declare
+  m int;
+begin
+  for m in 0..6 loop
+    perform create_audit_partition(to_char(now() + (m || ' months')::interval, 'YYYY-MM'));
+  end loop;
+end;
+$$;
+
+-- ----------------------
 -- Row Level Security
 -- ----------------------
 alter table profiles enable row level security;
@@ -161,6 +253,7 @@ alter table company_memberships enable row level security;
 alter table invitations enable row level security;
 alter table pfs_verifications enable row level security;
 alter table verification_codes enable row level security;
+alter table audit_logs enable row level security;
 
 -- Profiles
 create policy "Users can read own profile"
@@ -233,6 +326,29 @@ create policy "No direct access to pfs_verifications"
 create policy "No direct access to verification_codes"
   on verification_codes for select
   using (false);
+
+-- Audit Logs
+create policy "Super admins can view all audit logs"
+  on audit_logs for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
+
+create policy "Members can view audit logs for their companies"
+  on audit_logs for select
+  using (
+    audit_logs.company_id is not null
+    and exists (
+      select 1 from company_memberships
+      where company_memberships.company_id = audit_logs.company_id
+        and company_memberships.user_id = auth.uid()
+        and company_memberships.status = 'active'
+    )
+  );
+
+create policy "Users can view their own audit logs"
+  on audit_logs for select
+  using (actor_id = auth.uid());
 
 -- ============================================================
 -- Seed Super Admin

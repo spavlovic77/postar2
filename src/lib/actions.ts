@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { auditOnboarded } from "@/lib/audit";
 
 export async function completeOnboarding() {
   const supabase = await createClient();
@@ -17,6 +18,8 @@ export async function completeOnboarding() {
     .from("profiles")
     .update({ onboarded_at: new Date().toISOString() })
     .eq("id", user.id);
+
+  auditOnboarded({ userId: user.id, email: user.email ?? "" });
 
   redirect("/dashboard");
 }

@@ -12,6 +12,7 @@ import {
   Building2,
   Users,
   Webhook,
+  ScrollText,
   Settings,
 } from "lucide-react";
 import type { NavigationItem } from "@/lib/types";
@@ -21,6 +22,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2,
   Users,
   Webhook,
+  ScrollText,
   Settings,
 };
 

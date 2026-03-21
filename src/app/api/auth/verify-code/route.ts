@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { verifyCode } from "@/lib/verification";
+import { auditOtpVerified, auditSignIn } from "@/lib/audit";
 
 export async function POST(request: Request) {
   try {
@@ -93,6 +94,9 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    auditOtpVerified({ userId, email: user?.email ?? "", request });
+    auditSignIn({ userId, email: user?.email ?? "", method: "otp", request });
 
     return NextResponse.json({ message: "Verified and signed in" });
   } catch (err) {

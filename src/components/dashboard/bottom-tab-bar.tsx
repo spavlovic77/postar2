@@ -7,6 +7,7 @@ import {
   Building2,
   Users,
   Webhook,
+  ScrollText,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2,
   Users,
   Webhook,
+  ScrollText,
   Settings,
 };
 

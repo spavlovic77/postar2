@@ -3,6 +3,7 @@ import { timingSafeEqual, createHmac } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createInvitation, getInviteUrl } from "@/lib/invitations";
 import { sendInvitationEmail } from "@/lib/email";
+import { auditWebhookReceived, auditInvitationCreated } from "@/lib/audit";
 
 function verifySignature(rawBody: string, signature: string): boolean {
   const secrets = (process.env.PFS_WEBHOOK_SECRET ?? "").split(",");
@@ -112,6 +113,14 @@ export async function POST(request: Request) {
     companyId = newCompany.id;
   }
 
+  auditWebhookReceived({
+    dic,
+    companyId,
+    verificationToken: verification_token,
+    isNewCompany: !existingCompany,
+    request,
+  });
+
   // 3. Send genesis admin invitation (if company_email provided)
   if (company_email) {
     try {
@@ -123,6 +132,13 @@ export async function POST(request: Request) {
       });
 
       if (result && !result.alreadyExists) {
+        auditInvitationCreated({
+          inviteeEmail: company_email,
+          role: "company_admin",
+          companyId,
+          companyDic: dic,
+          isGenesis: true,
+        });
         const baseUrl = request.headers.get("x-forwarded-proto")
           ? `${request.headers.get("x-forwarded-proto")}://${request.headers.get("host")}`
           : new URL(request.url).origin;

@@ -26,6 +26,12 @@ const NAV_ITEMS: NavigationItem[] = [
     roles: ["super_admin"],
   },
   {
+    label: "Audit Log",
+    href: "/dashboard/audit",
+    icon: "ScrollText",
+    roles: ["super_admin", "company_admin", "accountant"],
+  },
+  {
     label: "Settings",
     href: "/dashboard/settings",
     icon: "Settings",
