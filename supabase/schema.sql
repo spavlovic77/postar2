@@ -23,6 +23,7 @@ drop function if exists create_audit_partition(text);
 drop function if exists archive_audit_partition(text);
 drop table if exists audit_logs cascade;
 
+drop type if exists ion_ap_status;
 drop type if exists audit_severity;
 drop type if exists verification_channel;
 drop type if exists invitation_role;
@@ -79,6 +80,8 @@ $$ language plpgsql security definer set search_path = public;
 -- ----------------------
 -- Companies
 -- ----------------------
+create type ion_ap_status as enum ('pending', 'active', 'error');
+
 create table companies (
   id uuid primary key default gen_random_uuid(),
   dic text not null unique check (dic ~ '^\d{10}$'),
@@ -86,6 +89,11 @@ create table companies (
   company_email text,
   company_phone text,
   pfs_created_at timestamptz not null,
+  ion_ap_org_id integer,
+  ion_ap_identifier_id integer,
+  ion_ap_status ion_ap_status not null default 'pending',
+  ion_ap_error text,
+  ion_ap_activated_at timestamptz,
   created_at timestamptz not null default now()
 );
 
