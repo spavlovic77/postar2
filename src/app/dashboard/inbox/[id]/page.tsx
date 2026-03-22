@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect, notFound } from "next/navigation";
 import { getUserWithRole, getDocument, updateDocumentStatus } from "@/lib/dal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

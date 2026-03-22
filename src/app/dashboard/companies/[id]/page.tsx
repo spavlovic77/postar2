@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect, notFound } from "next/navigation";
 import { getUserWithRole, getCompanyWithMembers } from "@/lib/dal";
 import { Badge } from "@/components/ui/badge";
