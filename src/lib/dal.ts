@@ -167,11 +167,16 @@ export async function getAuditLogs(params: {
     .select("*", { count: "exact" })
     .order("created_at", { ascending: false });
 
-  if (!params.isSuperAdmin && params.companyIds?.length) {
-    // Non-super-admin: only logs for their companies or their own actions
-    query = query.or(
-      `company_id.in.(${params.companyIds.join(",")}),actor_id.eq.${params.userId}`
-    );
+  if (!params.isSuperAdmin) {
+    if (params.companyIds && params.companyIds.length > 0) {
+      // Show logs for their companies or their own actions
+      query = query.or(
+        `company_id.in.(${params.companyIds.join(",")}),actor_id.eq.${params.userId}`
+      );
+    } else {
+      // No companies — only show their own actions
+      query = query.eq("actor_id", params.userId!);
+    }
   }
 
   if (params.companyId) {
