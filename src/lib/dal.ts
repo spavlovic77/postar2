@@ -81,11 +81,15 @@ export async function getSuperAdminStats() {
 
 export async function getRecentWebhooks(limit = 10) {
   const admin = getSupabaseAdmin();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("pfs_verifications")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (error) {
+    console.error("Failed to fetch webhooks:", error);
+  }
 
   return data ?? [];
 }
