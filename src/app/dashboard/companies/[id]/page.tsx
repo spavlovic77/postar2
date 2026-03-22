@@ -52,7 +52,7 @@ export default async function CompanyDetailPage({
     role === "super_admin" || myMembership?.role === "company_admin";
   const isDeactivated = company.status === "deactivated";
   const canActivatePeppol =
-    !isDeactivated && company.ion_ap_status !== "active" && canManageMembers;
+    !isDeactivated && company.ion_ap_status !== "active" && role === "super_admin";
   const hasActiveGenesis = members.some(
     (m) => m.is_genesis && m.status === "active" && m.role === "company_admin"
   );
