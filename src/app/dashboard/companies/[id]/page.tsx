@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect, notFound } from "next/navigation";
-import { getUserWithRole, getCompanyWithMembers } from "@/lib/dal";
+import { getUserWithRole, getCompanyWithMembers, getCompanyDepartmentsWithMembers } from "@/lib/dal";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -19,6 +19,7 @@ import { DeactivateCompanyButton } from "./deactivate-company-button";
 import { ReactivateCompanyForm } from "./reactivate-company-form";
 import { EditCompanyDialog } from "./edit-company-dialog";
 import { SendGenesisInvitation } from "./send-genesis-invitation";
+import { DepartmentManager } from "@/components/dashboard/department-manager";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -44,7 +45,10 @@ export default async function CompanyDetailPage({
     if (!hasAccess) notFound();
   }
 
-  const { company, members } = await getCompanyWithMembers(id);
+  const [{ company, members }, deptData] = await Promise.all([
+    getCompanyWithMembers(id),
+    getCompanyDepartmentsWithMembers(id),
+  ]);
   if (!company) notFound();
 
   const myMembership = memberships.find((m) => m.company_id === id);
@@ -176,6 +180,18 @@ export default async function CompanyDetailPage({
         <SendGenesisInvitation
           companyId={company.id}
           defaultEmail={company.company_email ?? ""}
+        />
+      )}
+
+      {/* Departments */}
+      {!isDeactivated && (
+        <DepartmentManager
+          companyId={company.id}
+          departments={deptData.departments}
+          membersByDept={deptData.membersByDept}
+          unassignedUserIds={deptData.unassignedUserIds}
+          allMembers={deptData.allMembers}
+          canManage={canManageMembers}
         />
       )}
 

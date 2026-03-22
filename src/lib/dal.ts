@@ -411,6 +411,76 @@ export async function getDepartmentWithMembers(departmentId: string) {
   };
 }
 
+export async function getCompanyDepartmentsWithMembers(companyId: string) {
+  const admin = getSupabaseAdmin();
+
+  const { data: departments } = await admin
+    .from("departments")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("name", { ascending: true });
+
+  const deptIds = (departments ?? []).map((d) => d.id);
+
+  let deptMembers: any[] = [];
+  if (deptIds.length > 0) {
+    const { data } = await admin
+      .from("department_memberships")
+      .select("*")
+      .in("department_id", deptIds);
+    deptMembers = data ?? [];
+  }
+
+  const { data: companyMembers } = await admin
+    .from("company_memberships")
+    .select("user_id")
+    .eq("company_id", companyId)
+    .eq("status", "active");
+
+  const companyMemberIds = (companyMembers ?? []).map((m) => m.user_id);
+
+  let allMembers: { id: string; fullName: string | null; email: string | null }[] = [];
+
+  if (companyMemberIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", companyMemberIds);
+
+    const { data: { users: authUsers } } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+
+    const emailsMap: Record<string, string> = {};
+    for (const u of authUsers ?? []) {
+      if (u.email) emailsMap[u.id] = u.email;
+    }
+
+    allMembers = (profiles ?? []).map((p) => ({
+      id: p.id,
+      fullName: p.full_name,
+      email: emailsMap[p.id] ?? null,
+    }));
+  }
+
+  const membersByDept: Record<string, string[]> = {};
+  for (const dm of deptMembers) {
+    if (!membersByDept[dm.department_id]) membersByDept[dm.department_id] = [];
+    membersByDept[dm.department_id].push(dm.user_id);
+  }
+
+  const assignedUserIds = new Set(deptMembers.map((dm: any) => dm.user_id));
+  const unassignedUserIds = companyMemberIds.filter((id: string) => !assignedUserIds.has(id));
+
+  return {
+    departments: departments ?? [],
+    membersByDept,
+    unassignedUserIds,
+    allMembers,
+  };
+}
+
 export async function getUserDepartments(userId: string) {
   const admin = getSupabaseAdmin();
   const { data } = await admin
