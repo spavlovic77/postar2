@@ -556,11 +556,27 @@ export async function getDocuments(params: {
 
 export async function getDocument(documentId: string) {
   const admin = getSupabaseAdmin();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("documents")
-    .select("*, company:companies(id, dic, legal_name)")
+    .select("*")
     .eq("id", documentId)
     .single();
+
+  if (error) {
+    console.error("Failed to fetch document:", error);
+    return null;
+  }
+
+  // Fetch company separately
+  if (data?.company_id) {
+    const { data: company } = await admin
+      .from("companies")
+      .select("id, dic, legal_name")
+      .eq("id", data.company_id)
+      .single();
+
+    return { ...data, company };
+  }
 
   return data;
 }
