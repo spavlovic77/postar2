@@ -17,15 +17,21 @@ export async function POST(request: Request) {
 
     if (contentType.includes("x-www-form-urlencoded")) {
       const formData = await request.formData();
-      transactionUrl = formData.get("data") as string;
+      transactionUrl = (formData.get("data") ?? formData.get("document") ?? formData.get("url")) as string;
     } else if (contentType.includes("application/json")) {
       const body = await request.json();
-      transactionUrl = body.data ?? body.url ?? null;
+      transactionUrl = body.data ?? body.document ?? body.url ?? null;
     } else {
-      return NextResponse.json(
-        { error: "Unsupported content type" },
-        { status: 400 }
-      );
+      // Try parsing as text — might be a plain URL
+      const text = await request.text();
+      if (text.includes("receive-transactions")) {
+        transactionUrl = text.trim();
+      } else {
+        return NextResponse.json(
+          { error: "Unsupported content type" },
+          { status: 400 }
+        );
+      }
     }
 
     if (!transactionUrl) {

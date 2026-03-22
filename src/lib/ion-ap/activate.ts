@@ -88,6 +88,10 @@ export async function ensureCompanyActivated(
       name: "post_data",
       value: "fetch-url-transaction",
     });
+    await createReceiveTriggerOption(org.id, trigger.id, {
+      name: "post_field_name",
+      value: "data",
+    });
 
     // 4. Update company record
     const companyUpdates: Record<string, unknown> = {
