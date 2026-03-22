@@ -255,7 +255,16 @@ export async function listSendTransactions(params?: {
 export async function getSendTransactionDocument(
   id: number
 ): Promise<string> {
-  return request<string>("GET", `/send-transactions/${id}/document/`);
+  const token = await getIonApApiToken();
+  const baseUrl = await getIonApBaseUrl();
+  const res = await fetch(`${baseUrl}${API_PREFIX}/send-transactions/${id}/document`, {
+    headers: {
+      Authorization: `Token ${token}`,
+      Accept: "application/xml",
+    },
+  });
+  if (!res.ok) throw new Error(`ion-AP GET /send-transactions/${id}/document failed (${res.status}): ${await res.text()}`);
+  return res.text();
 }
 
 export async function getSendTransactionPdf(id: number): Promise<ArrayBuffer> {
@@ -306,7 +315,16 @@ export async function listReceiveTransactions(params?: {
 export async function getReceiveTransactionDocument(
   id: number
 ): Promise<string> {
-  return request<string>("GET", `/receive-transactions/${id}/document/`);
+  const token = await getIonApApiToken();
+  const baseUrl = await getIonApBaseUrl();
+  const res = await fetch(`${baseUrl}${API_PREFIX}/receive-transactions/${id}/document`, {
+    headers: {
+      Authorization: `Token ${token}`,
+      Accept: "application/xml",
+    },
+  });
+  if (!res.ok) throw new Error(`ion-AP GET /receive-transactions/${id}/document failed (${res.status}): ${await res.text()}`);
+  return res.text();
 }
 
 export async function getReceiveTransactionPdf(id: number): Promise<ArrayBuffer> {
