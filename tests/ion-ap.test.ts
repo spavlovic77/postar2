@@ -76,7 +76,7 @@ describe("ion-AP Client", () => {
     expect(mockFetch).toHaveBeenCalledOnce();
 
     const [url, opts] = mockFetch.mock.calls[0];
-    expect(url).toContain("/api/v2/organizations/");
+    expect(url).toContain("/api/v2/organizations");
     expect(opts.method).toBe("POST");
 
     const body = JSON.parse(opts.body);
