@@ -60,8 +60,6 @@ export default async function WebhooksPage({
           { key: "dic", label: "DIC", type: "search", placeholder: "DIC..." },
           { key: "company_name", label: "Company", type: "search", placeholder: "Company name..." },
           { key: "email", label: "Email", type: "search", placeholder: "Email..." },
-          { key: "from", label: "From", type: "search", placeholder: "From (YYYY-MM-DD)" },
-          { key: "to", label: "To", type: "search", placeholder: "To (YYYY-MM-DD)" },
         ]}
       />
 

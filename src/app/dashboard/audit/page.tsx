@@ -83,8 +83,6 @@ export default async function AuditPage({
           { key: "event", label: "Event type", type: "search", placeholder: "Event ID..." },
           { key: "dic", label: "DIC", type: "search", placeholder: "Company DIC..." },
           { key: "actor", label: "Actor", type: "search", placeholder: "Actor email..." },
-          { key: "from", label: "From", type: "search", placeholder: "From (YYYY-MM-DD)" },
-          { key: "to", label: "To", type: "search", placeholder: "To (YYYY-MM-DD)" },
         ]}
       />
 
