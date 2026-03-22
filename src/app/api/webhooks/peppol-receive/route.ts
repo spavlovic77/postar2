@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
   getReceiveTransaction,
@@ -13,7 +14,7 @@ import { audit } from "@/lib/audit";
  * the API resource URL for the receive transaction.
  *
  * We fetch the transaction details and XML document from ion-AP,
- * then store it in our documents table.
+ * store the XML in Vercel Blob, and save metadata in Supabase.
  */
 export async function POST(request: Request) {
   try {
@@ -28,8 +29,6 @@ export async function POST(request: Request) {
       const body = await request.json();
       transactionUrl = body.data ?? body.url ?? null;
     } else {
-      // Might receive raw XML (post_data: "document")
-      // For now, we only support fetch-url-transaction
       return NextResponse.json(
         { error: "Unsupported content type" },
         { status: 400 }
@@ -43,7 +42,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Extract transaction ID from URL (e.g., .../receive-transactions/123/)
+    // Extract transaction ID from URL
     const idMatch = transactionUrl.match(/receive-transactions\/(\d+)/);
     if (!idMatch) {
       return NextResponse.json(
@@ -57,12 +56,21 @@ export async function POST(request: Request) {
     // Fetch transaction details from ion-AP
     const transaction = await getReceiveTransaction(transactionId);
 
-    // Fetch the XML document
-    let xmlContent: string | null = null;
+    // Fetch the XML document and store in Vercel Blob
+    let blobUrl: string | null = null;
     try {
-      xmlContent = await getReceiveTransactionDocument(transactionId);
-    } catch {
-      // XML fetch may fail for some document types, continue without it
+      const xmlContent = await getReceiveTransactionDocument(transactionId);
+      if (xmlContent) {
+        const filename = `peppol/received/${transactionId}-${transaction.document_element ?? "document"}-${Date.now()}.xml`;
+        const blob = await put(filename, xmlContent, {
+          contentType: "application/xml",
+          access: "public",
+        });
+        blobUrl = blob.url;
+      }
+    } catch (err) {
+      console.error("Failed to fetch/store XML document:", err);
+      // Continue without XML — metadata is still valuable
     }
 
     const supabase = getSupabaseAdmin();
@@ -82,8 +90,6 @@ export async function POST(request: Request) {
     }
 
     if (!companyId) {
-      // Try to find by ion_ap_org_id via the receiver
-      // This is a fallback — in most cases the DIC lookup will work
       console.error(
         `Could not find company for receiver: ${transaction.receiver_identifier}`
       );
@@ -93,7 +99,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check for duplicate (same ion_ap_transaction_id)
+    // Check for duplicate
     const { data: existing } = await supabase
       .from("documents")
       .select("id")
@@ -119,7 +125,7 @@ export async function POST(request: Request) {
       document_id: transaction.document_id,
       sender_identifier: transaction.sender_identifier,
       receiver_identifier: transaction.receiver_identifier,
-      xml_content: xmlContent,
+      blob_url: blobUrl,
       peppol_created_at: transaction.created_on,
     });
 
@@ -141,6 +147,7 @@ export async function POST(request: Request) {
         documentType: transaction.document_element,
         documentId: transaction.document_id,
         senderIdentifier: transaction.sender_identifier,
+        blobUrl,
       },
     });
 

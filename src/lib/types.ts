@@ -83,7 +83,7 @@ export interface Document {
   document_id: string | null;
   sender_identifier: string | null;
   receiver_identifier: string | null;
-  xml_content: string | null;
+  blob_url: string | null;
   peppol_created_at: string | null;
   created_at: string;
 }

@@ -214,8 +214,8 @@ create table documents (
   sender_identifier text,
   receiver_identifier text,
 
-  -- Content
-  xml_content text,
+  -- Content (XML stored in Vercel Blob)
+  blob_url text,
 
   -- Timestamps from ion-AP
   peppol_created_at timestamptz,

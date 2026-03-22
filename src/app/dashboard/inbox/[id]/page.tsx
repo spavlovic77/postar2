@@ -5,6 +5,7 @@ import { getUserWithRole, getDocument, updateDocumentStatus } from "@/lib/dal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DocumentActions } from "./document-actions";
+import { XmlViewer } from "./xml-viewer";
 import { audit } from "@/lib/audit";
 
 function formatDate(date: string) {
@@ -138,15 +139,21 @@ export default async function DocumentDetailPage({
         </Card>
       </div>
 
-      {doc.xml_content && (
+      {doc.blob_url && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>XML Document</CardTitle>
+            <a
+              href={doc.blob_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              Download XML
+            </a>
           </CardHeader>
           <CardContent>
-            <pre className="max-h-96 overflow-auto rounded-lg bg-muted p-4 text-xs font-mono">
-              {doc.xml_content}
-            </pre>
+            <XmlViewer url={doc.blob_url} />
           </CardContent>
         </Card>
       )}
