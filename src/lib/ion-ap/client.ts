@@ -38,7 +38,9 @@ async function request<T>(
   body?: unknown,
   contentType?: "json" | "xml"
 ): Promise<T> {
-  const url = `${BASE_URL}${API_PREFIX}${path}`;
+  // Strip trailing slashes — ion-AP returns 404 with them
+  const cleanPath = path.replace(/\/+$/, "").replace(/\/+\?/, "?");
+  const url = `${BASE_URL}${API_PREFIX}${cleanPath}`;
   const headers = contentType === "xml" ? xmlHeaders() : getHeaders();
 
   const res = await fetch(url, {
@@ -257,7 +259,7 @@ export async function getSendTransactionDocument(
 
 export async function getSendTransactionPdf(id: number): Promise<ArrayBuffer> {
   const token = process.env.ION_AP_API_TOKEN;
-  const res = await fetch(`${BASE_URL}${API_PREFIX}/send-transactions/${id}/pdf/`, {
+  const res = await fetch(`${BASE_URL}${API_PREFIX}/send-transactions/${id}/pdf`, {
     headers: {
       Authorization: `Token ${token}`,
       Accept: "application/pdf",
@@ -307,7 +309,7 @@ export async function getReceiveTransactionDocument(
 
 export async function getReceiveTransactionPdf(id: number): Promise<ArrayBuffer> {
   const token = process.env.ION_AP_API_TOKEN;
-  const res = await fetch(`${BASE_URL}${API_PREFIX}/receive-transactions/${id}/pdf/`, {
+  const res = await fetch(`${BASE_URL}${API_PREFIX}/receive-transactions/${id}/pdf`, {
     headers: {
       Authorization: `Token ${token}`,
       Accept: "application/pdf",
