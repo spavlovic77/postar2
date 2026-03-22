@@ -84,8 +84,9 @@ export async function GET(
   // Upsert profile FIRST (memberships FK depends on it)
   await supabase.rpc("upsert_profile", {
     user_id: user.id,
-    user_full_name: null,
-    user_avatar_url: null,
+    user_full_name:
+      user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
+    user_avatar_url: user.user_metadata?.avatar_url ?? null,
     user_phone: null,
   });
 

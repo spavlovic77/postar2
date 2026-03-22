@@ -205,16 +205,21 @@ export default async function CompanyDetailPage({
                 </TableRow>
               ) : (
                 members.map((m) => {
-                  const profile = (m as { profile: { full_name: string | null } }).profile;
+                  const profile = (m as any).profile;
+                  const memberEmail = (m as any).email;
+                  const displayName = profile?.full_name || memberEmail || "Unnamed";
                   const canDeactivate =
                     canManageMembers && m.status === "active" && m.user_id !== user.id;
 
                   return (
                     <TableRow key={m.id}>
                       <TableCell>
-                        <span className="font-medium">
-                          {profile?.full_name ?? "Unnamed"}
-                        </span>
+                        <div>
+                          <span className="font-medium">{displayName}</span>
+                          {profile?.full_name && memberEmail && (
+                            <p className="text-xs text-muted-foreground">{memberEmail}</p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

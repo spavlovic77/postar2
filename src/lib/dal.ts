@@ -218,6 +218,8 @@ export async function getCompanyWithMembers(companyId: string) {
   const userIds = members.map((m) => m.user_id).filter(Boolean);
 
   let profilesMap: Record<string, any> = {};
+  let emailsMap: Record<string, string> = {};
+
   if (userIds.length > 0) {
     const { data: profiles } = await admin
       .from("profiles")
@@ -227,11 +229,22 @@ export async function getCompanyWithMembers(companyId: string) {
     for (const p of profiles ?? []) {
       profilesMap[p.id] = p;
     }
+
+    // Fetch emails from auth
+    const { data: { users: authUsers } } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+
+    for (const u of authUsers ?? []) {
+      if (u.email) emailsMap[u.id] = u.email;
+    }
   }
 
   const membersWithProfiles = members.map((m) => ({
     ...m,
     profile: profilesMap[m.user_id] ?? null,
+    email: emailsMap[m.user_id] ?? null,
   }));
 
   return {
