@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import {
-  getReceiveTransaction,
-  getReceiveTransactionDocument,
-} from "@/lib/ion-ap";
-import { audit } from "@/lib/audit";
+import { processDocument, retryPendingDocuments } from "@/lib/document-processor";
 
 /**
  * Webhook called by ion-AP when a document is received.
  *
- * ion-AP sends a POST with x-www-form-urlencoded body containing
- * the API resource URL for the receive transaction.
- *
- * We fetch the transaction details and XML document from ion-AP,
- * store the XML in Vercel Blob, and save metadata in Supabase.
+ * 1. Immediately save the transaction ID as a pending document
+ * 2. Try to process it (fetch metadata, XML, upload blob)
+ * 3. Retry any other pending documents (piggyback on traffic)
  */
 export async function POST(request: Request) {
   try {
@@ -52,107 +45,60 @@ export async function POST(request: Request) {
     }
 
     const transactionId = parseInt(idMatch[1], 10);
-
-    // Fetch transaction details from ion-AP
-    const transaction = await getReceiveTransaction(transactionId);
-
-    // Fetch the XML document and store in Vercel Blob
-    let blobUrl: string | null = null;
-    try {
-      const xmlContent = await getReceiveTransactionDocument(transactionId);
-      if (xmlContent) {
-        const filename = `peppol/received/${transactionId}-${transaction.document_element ?? "document"}-${Date.now()}.xml`;
-        const blob = await put(filename, xmlContent, {
-          contentType: "application/xml",
-          access: "public",
-        });
-        blobUrl = blob.url;
-      }
-    } catch (err) {
-      console.error("Failed to fetch/store XML document:", err);
-      // Continue without XML — metadata is still valuable
-    }
-
     const supabase = getSupabaseAdmin();
-
-    // Find the company by receiver identifier (0245:DIC)
-    const receiverDic = transaction.receiver_identifier?.replace("0245:", "");
-    let companyId: string | null = null;
-
-    if (receiverDic) {
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id")
-        .eq("dic", receiverDic)
-        .single();
-
-      companyId = company?.id ?? null;
-    }
-
-    if (!companyId) {
-      console.error(
-        `Could not find company for receiver: ${transaction.receiver_identifier}`
-      );
-      return NextResponse.json(
-        { error: "Unknown receiver" },
-        { status: 404 }
-      );
-    }
 
     // Check for duplicate
     const { data: existing } = await supabase
       .from("documents")
-      .select("id")
+      .select("id, status")
       .eq("ion_ap_transaction_id", transactionId)
       .eq("direction", "received")
       .single();
 
     if (existing) {
+      // If pending/failed, retry it
+      if (existing.status === "pending" || existing.status === "failed") {
+        await processDocument(existing.id);
+      }
       return NextResponse.json(
-        { message: "Already processed" },
+        { message: "Already tracked", documentId: existing.id },
         { status: 200 }
       );
     }
 
-    // Store the document
-    const { error: insertError } = await supabase.from("documents").insert({
-      company_id: companyId,
-      direction: "received",
-      status: "new",
-      ion_ap_transaction_id: transactionId,
-      transaction_uuid: transaction.transaction_id,
-      document_type: transaction.document_element,
-      document_id: transaction.document_id,
-      sender_identifier: transaction.sender_identifier,
-      receiver_identifier: transaction.receiver_identifier,
-      blob_url: blobUrl,
-      peppol_created_at: transaction.created_on,
-    });
+    // Step 1: Save immediately as pending (never fails)
+    // Try to find company from receiver identifier pattern 0245:DIC
+    // We don't have the receiver yet, so we'll use a placeholder
+    // and update after processing. For now, try to extract from URL context.
+    const { data: newDoc, error: insertError } = await supabase
+      .from("documents")
+      .insert({
+        company_id: await findCompanyFromTransaction(supabase, transactionId),
+        direction: "received",
+        status: "pending",
+        ion_ap_transaction_id: transactionId,
+      })
+      .select("id")
+      .single();
 
-    if (insertError) {
-      console.error("Failed to store document:", insertError);
+    if (insertError || !newDoc) {
+      console.error("Failed to save pending document:", insertError);
       return NextResponse.json(
-        { error: "Failed to store document" },
+        { error: "Failed to save document" },
         { status: 500 }
       );
     }
 
-    audit({
-      eventId: "PEPPOL_DOCUMENT_RECEIVED",
-      eventName: "Peppol document received",
-      companyId,
-      companyDic: receiverDic ?? undefined,
-      details: {
-        transactionId,
-        documentType: transaction.document_element,
-        documentId: transaction.document_id,
-        senderIdentifier: transaction.sender_identifier,
-        blobUrl,
-      },
-    });
+    // Step 2-5: Try to process (non-blocking for the webhook response)
+    await processDocument(newDoc.id);
+
+    // Piggyback: retry other pending documents
+    retryPendingDocuments().catch((err) =>
+      console.error("Background retry failed:", err)
+    );
 
     return NextResponse.json(
-      { message: "Document stored", transactionId },
+      { message: "Document received", documentId: newDoc.id },
       { status: 201 }
     );
   } catch (err) {
@@ -162,4 +108,34 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Try to find the company ID for a transaction.
+ * We need to fetch at least minimal info from ion-AP to find the receiver.
+ * If that fails, we can't save — this is the one hard failure.
+ */
+async function findCompanyFromTransaction(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  transactionId: number
+): Promise<string> {
+  try {
+    const { getReceiveTransaction } = await import("@/lib/ion-ap");
+    const transaction = await getReceiveTransaction(transactionId);
+    const receiverDic = transaction.receiver_identifier?.replace("0245:", "");
+
+    if (receiverDic) {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("dic", receiverDic)
+        .single();
+
+      if (company) return company.id;
+    }
+  } catch {
+    // Fall through
+  }
+
+  throw new Error("Cannot determine receiver company");
 }

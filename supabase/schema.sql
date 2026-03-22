@@ -86,7 +86,7 @@ $$ language plpgsql security definer set search_path = public;
 -- Companies
 -- ----------------------
 create type document_direction as enum ('received', 'sent');
-create type document_status as enum ('new', 'read', 'assigned', 'processed');
+create type document_status as enum ('pending', 'processing', 'new', 'read', 'assigned', 'processed', 'failed');
 create type company_status as enum ('active', 'deactivated');
 create type ion_ap_status as enum ('pending', 'active', 'error');
 
@@ -202,7 +202,7 @@ create table documents (
 
   -- Direction and status
   direction document_direction not null,
-  status document_status not null default 'new',
+  status document_status not null default 'pending',
 
   -- ion-AP transaction data
   ion_ap_transaction_id integer not null,
@@ -216,6 +216,11 @@ create table documents (
 
   -- Content (XML stored in Vercel Blob)
   blob_url text,
+
+  -- Retry tracking
+  retry_count integer not null default 0,
+  last_error text,
+  last_retry_at timestamptz,
 
   -- Timestamps from ion-AP
   peppol_created_at timestamptz,

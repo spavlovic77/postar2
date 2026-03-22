@@ -9,8 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, MailOpen, Mail, FileDown } from "lucide-react";
-import { markDocumentUnread } from "./actions";
+import { MoreHorizontal, Mail, FileDown, RefreshCw } from "lucide-react";
+import { markDocumentUnread, retryDocument } from "./actions";
 
 interface Props {
   documentId: string;
@@ -29,9 +29,18 @@ export function DocumentActions({ documentId, status, ionApTransactionId }: Prop
     router.refresh();
   };
 
+  const handleRetry = async () => {
+    setIsLoading(true);
+    await retryDocument(documentId);
+    setIsLoading(false);
+    router.refresh();
+  };
+
   const handleDownloadPdf = () => {
     window.open(`/api/documents/${documentId}/pdf`, "_blank");
   };
+
+  const isPendingOrFailed = status === "pending" || status === "failed";
 
   return (
     <DropdownMenu>
@@ -39,16 +48,24 @@ export function DocumentActions({ documentId, status, ionApTransactionId }: Prop
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {status !== "new" && (
+        {isPendingOrFailed && (
+          <DropdownMenuItem onClick={handleRetry} disabled={isLoading}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry Processing
+          </DropdownMenuItem>
+        )}
+        {status !== "new" && status !== "pending" && status !== "failed" && (
           <DropdownMenuItem onClick={handleMarkUnread} disabled={isLoading}>
             <Mail className="mr-2 h-4 w-4" />
             Mark as unread
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={handleDownloadPdf}>
-          <FileDown className="mr-2 h-4 w-4" />
-          Download PDF
-        </DropdownMenuItem>
+        {!isPendingOrFailed && (
+          <DropdownMenuItem onClick={handleDownloadPdf}>
+            <FileDown className="mr-2 h-4 w-4" />
+            Download PDF
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

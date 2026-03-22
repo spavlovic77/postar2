@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Mail, MailOpen, FileText } from "lucide-react";
+import { Mail, MailOpen, FileText, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatDate(date: string) {
@@ -100,15 +100,24 @@ export default async function InboxPage({
             <TableBody>
               {documents.map((doc) => {
                 const isUnread = doc.status === "new";
+                const isPending = doc.status === "pending" || doc.status === "processing";
+                const isFailed = doc.status === "failed";
                 const company = (doc as any).company;
 
                 return (
                   <TableRow
                     key={doc.id}
-                    className={cn(isUnread && "bg-muted/30")}
+                    className={cn(
+                      isUnread && "bg-muted/30",
+                      isFailed && "bg-destructive/5"
+                    )}
                   >
                     <TableCell className="pr-0">
-                      {isUnread ? (
+                      {isFailed ? (
+                        <AlertCircle className="h-4 w-4 text-destructive" />
+                      ) : isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : isUnread ? (
                         <Mail className="h-4 w-4 text-primary" />
                       ) : (
                         <MailOpen className="h-4 w-4 text-muted-foreground" />

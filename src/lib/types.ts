@@ -68,7 +68,7 @@ export interface PfsVerification {
 }
 
 export type DocumentDirection = "received" | "sent";
-export type DocumentStatus = "new" | "read" | "assigned" | "processed";
+export type DocumentStatus = "pending" | "processing" | "new" | "read" | "assigned" | "processed" | "failed";
 
 export interface Document {
   id: string;
@@ -84,6 +84,9 @@ export interface Document {
   sender_identifier: string | null;
   receiver_identifier: string | null;
   blob_url: string | null;
+  retry_count: number;
+  last_error: string | null;
+  last_retry_at: string | null;
   peppol_created_at: string | null;
   created_at: string;
 }
