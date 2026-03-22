@@ -33,7 +33,7 @@ export function BottomTabBar({ items }: Props) {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
-      <div className="flex h-14 items-center justify-around">
+      <div className="flex h-12 items-center justify-around">
         {items.map((item) => {
           const Icon = ICONS[item.icon];
           const isActive =
@@ -46,14 +46,13 @@ export function BottomTabBar({ items }: Props) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1 text-[10px]",
+                "flex items-center justify-center p-3",
                 isActive
                   ? "text-foreground"
                   : "text-muted-foreground"
               )}
             >
               {Icon && <Icon className="h-5 w-5" />}
-              <span>{item.label}</span>
             </Link>
           );
         })}
