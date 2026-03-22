@@ -204,14 +204,39 @@ export async function getCompanyWithMembers(companyId: string) {
     admin.from("companies").select("*").eq("id", companyId).single(),
     admin
       .from("company_memberships")
-      .select("*, profile:profiles(*)")
+      .select("*")
       .eq("company_id", companyId)
       .order("created_at", { ascending: true }),
   ]);
 
+  if (membersRes.error) {
+    console.error("Failed to fetch members:", membersRes.error);
+  }
+
+  // Fetch profiles separately to avoid join issues
+  const members = membersRes.data ?? [];
+  const userIds = members.map((m) => m.user_id).filter(Boolean);
+
+  let profilesMap: Record<string, any> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("*")
+      .in("id", userIds);
+
+    for (const p of profiles ?? []) {
+      profilesMap[p.id] = p;
+    }
+  }
+
+  const membersWithProfiles = members.map((m) => ({
+    ...m,
+    profile: profilesMap[m.user_id] ?? null,
+  }));
+
   return {
     company: companyRes.data,
-    members: membersRes.data ?? [],
+    members: membersWithProfiles,
   };
 }
 

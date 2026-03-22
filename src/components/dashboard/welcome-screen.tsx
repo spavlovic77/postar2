@@ -26,8 +26,8 @@ export function WelcomeScreen({ fullName, role, companies }: Props) {
   const handleClick = async () => {
     setIsLoading(true);
     await completeOnboarding();
-    router.push("/dashboard");
-    router.refresh();
+    // Hard navigation to bypass Next.js cache
+    window.location.href = "/dashboard";
   };
 
   return (
