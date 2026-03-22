@@ -10,19 +10,24 @@ export function DeactivateButton({ membershipId }: { membershipId: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleDeactivate = async () => {
     setIsLoading(true);
+    setError(null);
     const result = await deactivateMembership(membershipId);
     setIsLoading(false);
 
     if (result.error) {
-      alert(result.error);
+      setError(result.error);
     } else {
       router.refresh();
     }
   };
 
   return (
+    <>
+    {error && <p className="text-xs text-destructive">{error}</p>}
     <ConfirmAction
       title="Deactivate Member"
       description="This member will lose access to this company. Are you sure?"
@@ -35,5 +40,6 @@ export function DeactivateButton({ membershipId }: { membershipId: string }) {
         </Button>
       }
     />
+    </>
   );
 }
