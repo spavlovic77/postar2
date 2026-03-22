@@ -73,23 +73,44 @@ export async function POST(request: Request) {
     const companyIds: string[] = invitation.company_ids ?? [];
 
     for (const companyId of companyIds) {
-      const { error } = await supabase
+      const { data: existing } = await supabase
         .from("company_memberships")
-        .upsert(
-          {
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("company_id", companyId)
+        .single();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("company_memberships")
+          .update({
+            role: invitation.role,
+            is_genesis: invitation.is_genesis ?? false,
+            status: "active",
+            invited_by: invitation.invited_by,
+          })
+          .eq("id", existing.id);
+
+        if (error) {
+          console.error(`Failed to update membership for company ${companyId}:`, error);
+          return NextResponse.json({ error: "Server error" }, { status: 500 });
+        }
+      } else {
+        const { error } = await supabase
+          .from("company_memberships")
+          .insert({
             user_id: user.id,
             company_id: companyId,
             role: invitation.role,
             is_genesis: invitation.is_genesis ?? false,
             status: "active",
             invited_by: invitation.invited_by,
-          },
-          { onConflict: "user_id,company_id" }
-        );
+          });
 
-      if (error) {
-        console.error(`Failed to create membership for company ${companyId}:`, error);
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        if (error) {
+          console.error(`Failed to create membership for company ${companyId}:`, error);
+          return NextResponse.json({ error: "Server error" }, { status: 500 });
+        }
       }
     }
   }

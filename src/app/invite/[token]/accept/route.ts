@@ -98,22 +98,45 @@ export async function GET(
   } else {
     const companyIds: string[] = invitation.company_ids ?? [];
     for (const companyId of companyIds) {
-      const { error: memberError } = await supabase
+      // Check if membership already exists
+      const { data: existing } = await supabase
         .from("company_memberships")
-        .upsert(
-          {
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("company_id", companyId)
+        .single();
+
+      if (existing) {
+        // Update existing membership
+        const { error: updateError } = await supabase
+          .from("company_memberships")
+          .update({
+            role: invitation.role,
+            is_genesis: invitation.is_genesis ?? false,
+            status: "active",
+            invited_by: invitation.invited_by,
+          })
+          .eq("id", existing.id);
+
+        if (updateError) {
+          console.error(`Failed to update membership for company ${companyId}:`, updateError);
+        }
+      } else {
+        // Insert new membership
+        const { error: insertError } = await supabase
+          .from("company_memberships")
+          .insert({
             user_id: user.id,
             company_id: companyId,
             role: invitation.role,
             is_genesis: invitation.is_genesis ?? false,
             status: "active",
             invited_by: invitation.invited_by,
-          },
-          { onConflict: "user_id,company_id" }
-        );
+          });
 
-      if (memberError) {
-        console.error(`Failed to create membership for company ${companyId}:`, memberError);
+        if (insertError) {
+          console.error(`Failed to create membership for company ${companyId}:`, insertError);
+        }
       }
     }
   }
