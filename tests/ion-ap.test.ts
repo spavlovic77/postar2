@@ -2,19 +2,34 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 
 vi.mock("@/lib/supabase/admin", () => ({
   getSupabaseAdmin: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: () => ({ data: (globalThis as any).__companyState, error: null }),
+    from: (table: string) => {
+      if (table === "pfs_verifications") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: () => ({
+                  single: () => ({ data: { verification_token: "test-token-123" }, error: null }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => ({ data: (globalThis as any).__companyState, error: null }),
+          }),
         }),
-      }),
-      update: (updates: any) => ({
-        eq: () => {
-          Object.assign((globalThis as any).__companyState, updates);
-          return { error: null };
-        },
-      }),
-    }),
+        update: (updates: any) => ({
+          eq: () => {
+            Object.assign((globalThis as any).__companyState, updates);
+            return { error: null };
+          },
+        }),
+      };
+    },
   }),
 }));
 

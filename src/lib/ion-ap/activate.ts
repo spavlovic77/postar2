@@ -7,15 +7,23 @@ import {
 } from "./client";
 import { audit } from "@/lib/audit";
 
+interface ActivationOverrides {
+  legalName?: string;
+  companyEmail?: string;
+}
+
 /**
- * Lazily activate a company on ion-AP.
+ * Activate a company on ion-AP.
  *
- * Creates the organization and identifier on ion-AP if not already active.
- * Called before the first send or receive operation for a company.
+ * Creates the organization, identifier, and receive trigger.
+ * Uses the most recent verification_token as ion-AP reference.
  *
  * Returns the ion-AP org ID, or throws if activation fails.
  */
-export async function ensureCompanyActivated(companyId: string): Promise<number> {
+export async function ensureCompanyActivated(
+  companyId: string,
+  overrides?: ActivationOverrides
+): Promise<number> {
   const supabase = getSupabaseAdmin();
 
   const { data: company } = await supabase
@@ -31,13 +39,25 @@ export async function ensureCompanyActivated(companyId: string): Promise<number>
     return company.ion_ap_org_id;
   }
 
+  // Get most recent verification_token for this DIC
+  const { data: latestVerification } = await supabase
+    .from("pfs_verifications")
+    .select("verification_token")
+    .eq("dic", company.dic)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  const reference = latestVerification?.verification_token ?? company.dic;
+  const orgName = overrides?.legalName ?? company.legal_name ?? `Company ${company.dic}`;
+
   try {
     // 1. Create organization on ion-AP
     const org = await createOrganization({
-      name: company.legal_name ?? `Company ${company.dic}`,
+      name: orgName,
       country: "SK",
       publishInSmp: true,
-      reference: company.dic,
+      reference,
     });
 
     // 2. Create identifier (0245:DIC)
@@ -70,16 +90,21 @@ export async function ensureCompanyActivated(companyId: string): Promise<number>
     });
 
     // 4. Update company record
-    await supabase
-      .from("companies")
-      .update({
-        ion_ap_org_id: org.id,
-        ion_ap_identifier_id: identifier.id,
-        ion_ap_status: "active",
-        ion_ap_error: null,
-        ion_ap_activated_at: new Date().toISOString(),
-      })
-      .eq("id", companyId);
+    const companyUpdates: Record<string, unknown> = {
+      ion_ap_org_id: org.id,
+      ion_ap_identifier_id: identifier.id,
+      ion_ap_status: "active",
+      ion_ap_error: null,
+      ion_ap_activated_at: new Date().toISOString(),
+      status: "active",
+      deactivated_at: null,
+    };
+
+    // Apply overrides to company record
+    if (overrides?.legalName) companyUpdates.legal_name = overrides.legalName;
+    if (overrides?.companyEmail) companyUpdates.company_email = overrides.companyEmail;
+
+    await supabase.from("companies").update(companyUpdates).eq("id", companyId);
 
     audit({
       eventId: "PEPPOL_COMPANY_ACTIVATED",
@@ -90,6 +115,8 @@ export async function ensureCompanyActivated(companyId: string): Promise<number>
         ionApOrgId: org.id,
         ionApIdentifierId: identifier.id,
         peppolIdentifier: `0245:${company.dic}`,
+        reference,
+        reactivation: company.status === "deactivated",
       },
     });
 
@@ -97,7 +124,6 @@ export async function ensureCompanyActivated(companyId: string): Promise<number>
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
 
-    // Store error for visibility
     await supabase
       .from("companies")
       .update({
