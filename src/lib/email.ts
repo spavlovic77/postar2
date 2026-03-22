@@ -1,7 +1,12 @@
 import { Resend } from "resend";
+import { getResendFromEmail } from "@/lib/settings";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
+}
+
+async function getFromEmail(): Promise<string> {
+  return `Postar <${await getResendFromEmail()}>`;
 }
 
 export async function sendVerificationCodeEmail(params: {
@@ -12,7 +17,7 @@ export async function sendVerificationCodeEmail(params: {
   const digits = params.code.split("");
 
   const { error } = await resend.emails.send({
-    from: `Postar <${process.env.RESEND_FROM_EMAIL!}>`,
+    from: await getFromEmail(),
     to: params.to,
     subject: `${params.code} is your Postar verification code`,
     html: `
@@ -58,7 +63,7 @@ export async function sendInvitationEmail(params: {
 
   const resend = getResend();
   const { error } = await resend.emails.send({
-    from: `Postar <${process.env.RESEND_FROM_EMAIL!}>`,
+    from: await getFromEmail(),
     to: params.to,
     subject: `You've been invited to Postar as ${roleLabel}`,
     html: `
@@ -93,7 +98,7 @@ export async function sendOnboardingEmail(params: {
     : "";
 
   const { error } = await resend.emails.send({
-    from: `Postar <${process.env.RESEND_FROM_EMAIL!}>`,
+    from: await getFromEmail(),
     to: params.to,
     subject: "Get started with Postar — Register your company",
     html: `
@@ -124,7 +129,7 @@ export async function sendReonboardingEmail(params: {
 }): Promise<void> {
   const resend = getResend();
   const { error } = await resend.emails.send({
-    from: `Postar <${process.env.RESEND_FROM_EMAIL!}>`,
+    from: await getFromEmail(),
     to: params.to,
     subject: `Action required: Re-onboard ${params.companyName} on Postar`,
     html: `

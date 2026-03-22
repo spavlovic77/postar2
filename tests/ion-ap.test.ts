@@ -37,6 +37,11 @@ vi.mock("@/lib/audit", () => ({
   audit: vi.fn(),
 }));
 
+vi.mock("@/lib/settings", () => ({
+  getIonApBaseUrl: vi.fn(() => Promise.resolve("https://test.ion-ap.net")),
+  getIonApApiToken: vi.fn(() => Promise.resolve("test-ion-ap-token")),
+}));
+
 const mockCompany = {
   id: "company-1",
   dic: "1234567890",

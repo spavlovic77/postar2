@@ -10,6 +10,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text, text);
 
+drop table if exists system_settings cascade;
 drop table if exists documents cascade;
 drop table if exists department_memberships cascade;
 drop table if exists departments cascade;
@@ -81,6 +82,26 @@ begin
     phone = coalesce(excluded.phone, profiles.phone);
 end;
 $$ language plpgsql security definer set search_path = public;
+
+-- ----------------------
+-- System Settings (key-value, super admin editable)
+-- ----------------------
+create table system_settings (
+  key text primary key,
+  value text not null,
+  description text,
+  updated_by uuid references profiles(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+-- Seed default settings
+insert into system_settings (key, value, description) values
+  ('resend_from_email', 'noreply@yourdomain.com', 'Sender email address for all outgoing emails'),
+  ('pfs_webhook_secret', '', 'HMAC secret for PFS webhook signature verification (comma-separated for rotation)'),
+  ('pfs_activation_link', '', 'URL sent to customers for PFS portal onboarding'),
+  ('ion_ap_base_url', 'https://test.ion-ap.net', 'ion-AP API base URL'),
+  ('ion_ap_api_token', '', 'ion-AP super admin API token'),
+  ('twilio_phone_number', '', 'Twilio phone number for SMS OTP');
 
 -- ----------------------
 -- Companies
@@ -337,6 +358,7 @@ $$;
 -- ----------------------
 -- Row Level Security
 -- ----------------------
+alter table system_settings enable row level security;
 alter table profiles enable row level security;
 alter table companies enable row level security;
 alter table company_memberships enable row level security;
@@ -347,6 +369,19 @@ alter table documents enable row level security;
 alter table departments enable row level security;
 alter table department_memberships enable row level security;
 alter table audit_logs enable row level security;
+
+-- System Settings (super admin only)
+create policy "Super admins can view system settings"
+  on system_settings for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
+
+create policy "Super admins can update system settings"
+  on system_settings for update
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
 
 -- Profiles
 create policy "Users can read own profile"

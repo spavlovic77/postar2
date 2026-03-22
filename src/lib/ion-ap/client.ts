@@ -6,12 +6,12 @@ import type {
   IonApPaginatedResponse,
   IonApParticipantPresence,
 } from "./types";
+import { getIonApBaseUrl, getIonApApiToken } from "@/lib/settings";
 
-const BASE_URL = process.env.ION_AP_BASE_URL ?? "https://test.ion-ap.net";
 const API_PREFIX = "/api/v2";
 
-function getHeaders(): Record<string, string> {
-  const token = process.env.ION_AP_API_TOKEN;
+async function getHeaders(): Promise<Record<string, string>> {
+  const token = await getIonApApiToken();
   if (!token) throw new Error("ION_AP_API_TOKEN is not configured");
 
   return {
@@ -21,8 +21,8 @@ function getHeaders(): Record<string, string> {
   };
 }
 
-function xmlHeaders(): Record<string, string> {
-  const token = process.env.ION_AP_API_TOKEN;
+async function xmlHeaders(): Promise<Record<string, string>> {
+  const token = await getIonApApiToken();
   if (!token) throw new Error("ION_AP_API_TOKEN is not configured");
 
   return {
@@ -38,10 +38,11 @@ async function request<T>(
   body?: unknown,
   contentType?: "json" | "xml"
 ): Promise<T> {
+  const baseUrl = await getIonApBaseUrl();
   // Strip trailing slashes — ion-AP returns 404 with them
   const cleanPath = path.replace(/\/+$/, "").replace(/\/+\?/, "?");
-  const url = `${BASE_URL}${API_PREFIX}${cleanPath}`;
-  const headers = contentType === "xml" ? xmlHeaders() : getHeaders();
+  const url = `${baseUrl}${API_PREFIX}${cleanPath}`;
+  const headers = contentType === "xml" ? await xmlHeaders() : await getHeaders();
 
   const res = await fetch(url, {
     method,
@@ -258,8 +259,9 @@ export async function getSendTransactionDocument(
 }
 
 export async function getSendTransactionPdf(id: number): Promise<ArrayBuffer> {
-  const token = process.env.ION_AP_API_TOKEN;
-  const res = await fetch(`${BASE_URL}${API_PREFIX}/send-transactions/${id}/pdf`, {
+  const token = await getIonApApiToken();
+  const baseUrl = await getIonApBaseUrl();
+  const res = await fetch(`${baseUrl}${API_PREFIX}/send-transactions/${id}/pdf`, {
     headers: {
       Authorization: `Token ${token}`,
       Accept: "application/pdf",
@@ -308,8 +310,9 @@ export async function getReceiveTransactionDocument(
 }
 
 export async function getReceiveTransactionPdf(id: number): Promise<ArrayBuffer> {
-  const token = process.env.ION_AP_API_TOKEN;
-  const res = await fetch(`${BASE_URL}${API_PREFIX}/receive-transactions/${id}/pdf`, {
+  const token = await getIonApApiToken();
+  const baseUrl = await getIonApBaseUrl();
+  const res = await fetch(`${baseUrl}${API_PREFIX}/receive-transactions/${id}/pdf`, {
     headers: {
       Authorization: `Token ${token}`,
       Accept: "application/pdf",

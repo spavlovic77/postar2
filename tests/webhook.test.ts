@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { createHmac } from "crypto";
 
+vi.mock("@/lib/settings", () => ({
+  getPfsWebhookSecret: vi.fn(() => Promise.resolve("test-webhook-secret")),
+}));
+
 vi.mock("@/lib/supabase/admin", () => ({
   getSupabaseAdmin: () => ({
     from: (table: string) => {

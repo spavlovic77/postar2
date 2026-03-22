@@ -3,9 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { updateSetting, invalidateSettingsCache } from "@/lib/settings";
 import { audit } from "@/lib/audit";
 
-export async function updatePfsActivationLink(formData: FormData) {
+const ALLOWED_KEYS = [
+  "resend_from_email",
+  "pfs_webhook_secret",
+  "pfs_activation_link",
+  "ion_ap_base_url",
+  "ion_ap_api_token",
+  "twilio_phone_number",
+];
+
+export async function updateSystemSettings(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,22 +32,27 @@ export async function updatePfsActivationLink(formData: FormData) {
     .single();
 
   if (!profile?.is_super_admin) {
-    return { error: "Only super admins can update this setting" };
+    return { error: "Only super admins can update system settings" };
   }
 
-  const pfsLink = (formData.get("pfsLink") as string) || null;
+  const changes: Record<string, string> = {};
 
-  await admin
-    .from("profiles")
-    .update({ pfs_activation_link: pfsLink })
-    .eq("id", user.id);
+  for (const key of ALLOWED_KEYS) {
+    const value = formData.get(key) as string;
+    if (value !== null && value !== undefined) {
+      await updateSetting(key, value, user.id);
+      changes[key] = key.includes("secret") || key.includes("token") ? "***" : value;
+    }
+  }
+
+  invalidateSettingsCache();
 
   audit({
-    eventId: "PFS_LINK_UPDATED",
-    eventName: "PFS activation link updated",
+    eventId: "SYSTEM_SETTINGS_UPDATED",
+    eventName: "System settings updated",
     actorId: user.id,
     actorEmail: user.email ?? undefined,
-    details: { pfsActivationLink: pfsLink },
+    details: changes,
   });
 
   revalidatePath("/dashboard/settings");

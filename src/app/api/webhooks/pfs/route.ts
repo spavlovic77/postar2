@@ -3,10 +3,12 @@ import { timingSafeEqual, createHmac } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createInvitation, getInviteUrl } from "@/lib/invitations";
 import { sendInvitationEmail } from "@/lib/email";
+import { getPfsWebhookSecret } from "@/lib/settings";
 import { auditWebhookReceived, auditInvitationCreated } from "@/lib/audit";
 
-function verifySignature(rawBody: string, signature: string): boolean {
-  const secrets = (process.env.PFS_WEBHOOK_SECRET ?? "").split(",");
+async function verifySignature(rawBody: string, signature: string): Promise<boolean> {
+  const secretValue = await getPfsWebhookSecret();
+  const secrets = secretValue.split(",");
 
   for (const secret of secrets) {
     const expected = createHmac("sha256", secret.trim())
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
 
   const rawBody = await request.text();
 
-  if (!verifySignature(rawBody, signature)) {
+  if (!(await verifySignature(rawBody, signature))) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

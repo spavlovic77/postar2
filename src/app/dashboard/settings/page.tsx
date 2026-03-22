@@ -1,15 +1,24 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { getUserWithRole } from "@/lib/dal";
+import { getSystemSettings } from "@/lib/settings";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProfileForm } from "./profile-form";
-import { PfsActivationLinkForm } from "./pfs-activation-link-form";
+import { SystemSettingsForm } from "./system-settings-form";
 
 export default async function SettingsPage() {
   const data = await getUserWithRole();
   if (!data) redirect("/");
 
   const { profile, role, user, companies } = data;
+
+  // Fetch system settings for super admin
+  let systemSettings: Record<string, string> = {};
+  if (profile.is_super_admin) {
+    systemSettings = await getSystemSettings();
+  }
 
   return (
     <div className="space-y-6">
@@ -71,15 +80,15 @@ export default async function SettingsPage() {
       {profile.is_super_admin && (
         <Card>
           <CardHeader>
-            <CardTitle>PFS Activation Link</CardTitle>
+            <CardTitle>System Settings</CardTitle>
             <CardDescription>
-              The link sent to genesis admins when requesting them to trigger the PFS webhook for company re-onboarding.
+              Configure integration credentials and business settings.
+              Changes take effect immediately without redeploying.
+              Secrets and tokens are masked in audit logs.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <PfsActivationLinkForm
-              currentLink={profile.pfs_activation_link ?? ""}
-            />
+            <SystemSettingsForm currentValues={systemSettings} />
           </CardContent>
         </Card>
       )}

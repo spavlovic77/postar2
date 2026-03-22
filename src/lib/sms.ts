@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import { getTwilioPhoneNumber } from "@/lib/settings";
 
 export async function sendSmsCode(params: {
   to: string;
@@ -9,9 +10,11 @@ export async function sendSmsCode(params: {
     process.env.TWILIO_AUTH_TOKEN!
   );
 
+  const fromNumber = await getTwilioPhoneNumber();
+
   await client.messages.create({
     body: `Your Postar verification code is: ${params.code}`,
-    from: process.env.TWILIO_PHONE_NUMBER!,
+    from: fromNumber,
     to: params.to,
   });
 }

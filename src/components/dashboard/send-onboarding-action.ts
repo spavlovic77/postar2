@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { sendOnboardingEmail } from "@/lib/email";
+import { getPfsActivationLink } from "@/lib/settings";
 import { audit } from "@/lib/audit";
 
 export async function sendOnboardingRequest(formData: FormData) {
@@ -17,7 +18,7 @@ export async function sendOnboardingRequest(formData: FormData) {
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("is_super_admin, pfs_activation_link")
+    .select("is_super_admin")
     .eq("id", user.id)
     .single();
 
@@ -25,8 +26,9 @@ export async function sendOnboardingRequest(formData: FormData) {
     return { error: "Only super admins can send onboarding requests" };
   }
 
-  if (!profile.pfs_activation_link) {
-    return { error: "PFS activation link is not configured. Set it in Settings first." };
+  const activationLink = await getPfsActivationLink();
+  if (!activationLink) {
+    return { error: "PFS activation link is not configured. Set it in System Settings first." };
   }
 
   const recipientEmail = formData.get("recipientEmail") as string;
@@ -40,7 +42,7 @@ export async function sendOnboardingRequest(formData: FormData) {
     await sendOnboardingEmail({
       to: recipientEmail,
       companyName,
-      activationLink: profile.pfs_activation_link,
+      activationLink,
     });
 
     audit({
@@ -48,11 +50,7 @@ export async function sendOnboardingRequest(formData: FormData) {
       eventName: "Onboarding request sent to new customer",
       actorId: user.id,
       actorEmail: user.email ?? undefined,
-      details: {
-        recipientEmail,
-        companyName,
-        activationLink: profile.pfs_activation_link,
-      },
+      details: { recipientEmail, companyName, activationLink },
     });
 
     return { success: true };
