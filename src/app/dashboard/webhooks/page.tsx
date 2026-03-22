@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString("sk-SK", {
@@ -23,18 +24,26 @@ function formatDate(date: string) {
   });
 }
 
-export default async function WebhooksPage() {
+export default async function WebhooksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ offset?: string }>;
+}) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
   if (data.role !== "super_admin") redirect("/dashboard");
 
-  const webhooks = await getRecentWebhooks(100);
+  const params = await searchParams;
+  const offset = parseInt(params.offset ?? "0", 10);
+  const pageSize = 25;
+
+  const { webhooks, total } = await getRecentWebhooks(pageSize, offset);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Webhooks Log</h1>
-        <Badge variant="secondary">{webhooks.length} entries</Badge>
+        <Badge variant="secondary">{total} entries</Badge>
       </div>
 
       <div className="rounded-lg border">
@@ -77,6 +86,8 @@ export default async function WebhooksPage() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls total={total} pageSize={pageSize} currentOffset={offset} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getUserWithRole, getAuditLogs } from "@/lib/dal";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   Table,
   TableBody,
@@ -32,7 +33,7 @@ const SEVERITY_STYLES = {
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; offset?: string }>;
 }) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
@@ -40,6 +41,8 @@ export default async function AuditPage({
   const { role, user, memberships } = data;
   const params = await searchParams;
   const companyFilter = params.company ?? null;
+  const offset = parseInt(params.offset ?? "0", 10);
+  const pageSize = 25;
 
   const companyIds = memberships.map((m) => m.company_id);
 
@@ -48,7 +51,8 @@ export default async function AuditPage({
     companyId: companyFilter,
     isSuperAdmin: role === "super_admin",
     companyIds,
-    limit: 100,
+    limit: pageSize,
+    offset,
   });
 
   return (
@@ -114,6 +118,8 @@ export default async function AuditPage({
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls total={total} pageSize={pageSize} currentOffset={offset} />
     </div>
   );
 }

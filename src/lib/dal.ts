@@ -79,19 +79,19 @@ export async function getSuperAdminStats() {
   };
 }
 
-export async function getRecentWebhooks(limit = 10) {
+export async function getRecentWebhooks(limit = 10, offset = 0) {
   const admin = getSupabaseAdmin();
-  const { data, error } = await admin
+  const { data, error, count } = await admin
     .from("pfs_verifications")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("Failed to fetch webhooks:", error);
   }
 
-  return data ?? [];
+  return { webhooks: data ?? [], total: count ?? 0 };
 }
 
 export async function getRecentInvitations(limit = 10) {
