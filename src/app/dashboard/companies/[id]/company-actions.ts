@@ -174,3 +174,78 @@ export async function updateCompanyDetails(formData: FormData) {
   revalidatePath(`/dashboard/companies/${companyId}`);
   return { success: true };
 }
+
+export async function updateMemberRoles(membershipId: string, roles: string[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getSupabaseAdmin();
+
+  const { data: membership } = await admin
+    .from("company_memberships")
+    .select("user_id, company_id, roles, is_genesis")
+    .eq("id", membershipId)
+    .single();
+
+  if (!membership) return { error: "Membership not found" };
+
+  // Check permissions
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  const isSuperAdmin = profile?.is_super_admin ?? false;
+
+  if (!isSuperAdmin) {
+    const { data: myMembership } = await admin
+      .from("company_memberships")
+      .select("roles, is_genesis")
+      .eq("user_id", user.id)
+      .eq("company_id", membership.company_id)
+      .eq("status", "active")
+      .single();
+
+    if (!myMembership) return { error: "You don't have access to this company" };
+
+    const myRoles: string[] = myMembership.roles ?? [];
+
+    if (!myRoles.includes("company_admin") && !myRoles.includes("operator")) {
+      return { error: "You don't have permission to edit roles" };
+    }
+
+    if (roles.includes("company_admin") && !myMembership.is_genesis) {
+      return { error: "Only genesis admin or super admin can assign the Company Admin role" };
+    }
+  }
+
+  if (roles.length === 0) return { error: "At least one role is required" };
+
+  await admin
+    .from("company_memberships")
+    .update({ roles })
+    .eq("id", membershipId);
+
+  audit({
+    eventId: "MEMBER_ROLES_UPDATED",
+    eventName: "Member roles updated",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId: membership.company_id,
+    details: {
+      membershipId,
+      userId: membership.user_id,
+      oldRoles: membership.roles,
+      newRoles: roles,
+    },
+  });
+
+  revalidatePath("/dashboard/companies");
+  revalidatePath(`/dashboard/companies/${membership.company_id}`);
+  return { success: true };
+}

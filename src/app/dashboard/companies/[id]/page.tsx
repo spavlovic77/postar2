@@ -19,6 +19,7 @@ import { DeactivateCompanyButton } from "./deactivate-company-button";
 import { ReactivateCompanyForm } from "./reactivate-company-form";
 import { EditCompanyDialog } from "./edit-company-dialog";
 import { SendGenesisInvitation } from "./send-genesis-invitation";
+import { EditRolesDialog } from "./edit-roles-dialog";
 import { DepartmentManager } from "@/components/dashboard/department-manager";
 
 function formatDate(date: string) {
@@ -246,6 +247,13 @@ export default async function CompanyDetailPage({
                             <Badge variant="secondary" className="text-xs">
                               Genesis
                             </Badge>
+                          )}
+                          {canManageMembers && m.user_id !== user.id && (
+                            <EditRolesDialog
+                              membershipId={m.id}
+                              currentRoles={m.roles ?? []}
+                              memberName={displayName}
+                            />
                           )}
                         </div>
                       </TableCell>
