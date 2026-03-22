@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { ensureCompanyActivated } from "@/lib/ion-ap";
 import { createInvitation, getInviteUrl } from "@/lib/invitations";
 import { sendInvitationEmail } from "@/lib/email";
-import { audit, auditInvitationCreated } from "@/lib/audit";
+import { audit, auditInvitationCreated, auditProfileUpdated } from "@/lib/audit";
 
 export async function reactivateCompany(formData: FormData) {
   const supabase = await createClient();
@@ -104,6 +104,70 @@ export async function reactivateCompany(formData: FormData) {
       genesisEmail,
       legalName: legalName || company.legal_name,
     },
+  });
+
+  revalidatePath("/dashboard/companies");
+  revalidatePath(`/dashboard/companies/${companyId}`);
+  return { success: true };
+}
+
+export async function updateCompanyDetails(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getSupabaseAdmin();
+  const companyId = formData.get("companyId") as string;
+
+  if (!companyId) return { error: "Company ID is required" };
+
+  // Check permission: super admin or company admin
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    const { data: membership } = await admin
+      .from("company_memberships")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("company_id", companyId)
+      .eq("role", "company_admin")
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return { error: "Only company admins can edit company details" };
+    }
+  }
+
+  const updates: Record<string, string | null> = {};
+  const legalName = formData.get("legalName") as string;
+  const companyEmail = formData.get("companyEmail") as string;
+  const companyPhone = formData.get("companyPhone") as string;
+
+  if (legalName !== undefined) updates.legal_name = legalName || null;
+  if (companyEmail !== undefined) updates.company_email = companyEmail || null;
+  if (companyPhone !== undefined) updates.company_phone = companyPhone || null;
+
+  if (Object.keys(updates).length === 0) {
+    return { error: "No changes" };
+  }
+
+  await admin.from("companies").update(updates).eq("id", companyId);
+
+  audit({
+    eventId: "COMPANY_UPDATED",
+    eventName: "Company details updated",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId,
+    details: updates,
   });
 
   revalidatePath("/dashboard/companies");

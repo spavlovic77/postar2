@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getUserWithRole, getCompaniesWithMemberCounts } from "@/lib/dal";
 import {
   Table,
@@ -11,8 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users } from "lucide-react";
+import { Users, ChevronRight } from "lucide-react";
 import { PeppolStatusBadge } from "@/components/dashboard/peppol-status-badge";
+import { CompanyRow } from "./company-row";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -49,43 +49,19 @@ export default async function CompaniesPage() {
               <TableHead className="hidden md:table-cell">Email</TableHead>
               <TableHead>Members</TableHead>
               <TableHead className="hidden lg:table-cell">Created</TableHead>
+              <TableHead className="w-[40px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {companies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No companies found
                 </TableCell>
               </TableRow>
             ) : (
               companies.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <Link
-                      href={`/dashboard/companies/${c.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {c.legal_name ?? "-"}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{c.dic}</TableCell>
-                  <TableCell>
-                    <PeppolStatusBadge status={c.ion_ap_status} />
-                  </TableCell>
-                  <TableCell className="hidden text-sm md:table-cell">
-                    {c.company_email ?? "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      {memberCounts[c.id] ?? 0}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden text-sm lg:table-cell">
-                    {formatDate(c.created_at)}
-                  </TableCell>
-                </TableRow>
+                <CompanyRow key={c.id} company={c} memberCount={memberCounts[c.id] ?? 0} />
               ))
             )}
           </TableBody>

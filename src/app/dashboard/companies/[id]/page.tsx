@@ -17,6 +17,7 @@ import { DeactivateButton } from "./deactivate-button";
 import { PeppolActivateButton } from "./peppol-activate-button";
 import { DeactivateCompanyButton } from "./deactivate-company-button";
 import { ReactivateCompanyForm } from "./reactivate-company-form";
+import { EditCompanyDialog } from "./edit-company-dialog";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -65,7 +66,17 @@ export default async function CompanyDetailPage({
       )}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{company.legal_name ?? company.dic}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">{company.legal_name ?? company.dic}</h1>
+          {canManageMembers && !isDeactivated && (
+            <EditCompanyDialog
+              companyId={company.id}
+              legalName={company.legal_name ?? ""}
+              companyEmail={company.company_email ?? ""}
+              companyPhone={company.company_phone ?? ""}
+            />
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {isDeactivated && <Badge variant="destructive">Deactivated</Badge>}
           {!isDeactivated && <PeppolStatusBadge status={company.ion_ap_status} />}
