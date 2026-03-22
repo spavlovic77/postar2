@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 
 interface TestCase {
   id: string;
@@ -140,10 +141,8 @@ export function TestTracker() {
   };
 
   const resetAll = () => {
-    if (confirm("Reset all test results?")) {
-      setChecked({});
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    setChecked({});
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const totalTests = TEST_GROUPS.reduce((sum, g) => sum + g.tests.length, 0);
@@ -162,12 +161,18 @@ export function TestTracker() {
           <Badge variant="secondary" className="text-sm">
             {passedTests} / {totalTests}
           </Badge>
-          <button
-            onClick={resetAll}
-            className="text-xs text-muted-foreground underline hover:text-foreground"
-          >
-            Reset all
-          </button>
+          <ConfirmAction
+            title="Reset Test Results"
+            description="Clear all test progress? This cannot be undone."
+            confirmLabel="Reset"
+            confirmVariant="destructive"
+            onConfirm={resetAll}
+            trigger={
+              <button className="text-xs text-muted-foreground underline hover:text-foreground">
+                Reset all
+              </button>
+            }
+          />
         </div>
       </div>
 

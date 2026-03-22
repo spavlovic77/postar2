@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 import { RotateCcw } from "lucide-react";
 import { reactivateCompany } from "./company-actions";
 
@@ -24,19 +25,16 @@ export function ReactivateCompanyForm({
 }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!confirm("Reactivate this company on the Peppol network and send a genesis admin invitation?")) {
-      return;
-    }
+  const handleReactivate = async () => {
+    if (!formRef.current) return;
 
     setIsLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(formRef.current);
     formData.set("companyId", companyId);
 
     const result = await reactivateCompany(formData);
@@ -59,7 +57,7 @@ export function ReactivateCompanyForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="react-dic">DIC (read-only)</Label>
             <Input
@@ -121,14 +119,22 @@ export function ReactivateCompanyForm({
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <RotateCcw className="mr-2 h-4 w-4" />
-            )}
-            {isLoading ? "Reactivating..." : "Reactivate on Peppol"}
-          </Button>
+          <ConfirmAction
+            title="Reactivate Company"
+            description="This will re-register the company on the Peppol network and send a genesis admin invitation."
+            confirmLabel="Reactivate"
+            onConfirm={handleReactivate}
+            trigger={
+              <Button type="button" disabled={isLoading}>
+                {isLoading ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                {isLoading ? "Reactivating..." : "Reactivate on Peppol"}
+              </Button>
+            }
+          />
         </form>
       </CardContent>
     </Card>
