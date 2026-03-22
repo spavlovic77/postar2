@@ -74,7 +74,7 @@ export async function processDocument(documentId: string): Promise<boolean> {
         const filename = `peppol/received/${doc.ion_ap_transaction_id}-${transaction.document_element ?? "document"}-${Date.now()}.xml`;
         const blob = await put(filename, xmlContent, {
           contentType: "application/xml",
-          access: "public",
+          access: "private",
         });
         blobUrl = blob.url;
       }

@@ -144,7 +144,7 @@ export default async function DocumentDetailPage({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>XML Document</CardTitle>
             <a
-              href={doc.blob_url}
+              href={`/api/documents/${doc.id}/xml`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-muted-foreground underline hover:text-foreground"
@@ -153,7 +153,7 @@ export default async function DocumentDetailPage({
             </a>
           </CardHeader>
           <CardContent>
-            <XmlViewer url={doc.blob_url} />
+            <XmlViewer documentId={doc.id} />
           </CardContent>
         </Card>
       )}
