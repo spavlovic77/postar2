@@ -5,25 +5,25 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: "LayoutDashboard",
-    roles: ["super_admin", "company_admin", "accountant"],
+    roles: ["super_admin", "company_admin", "operator", "processor"],
   },
   {
     label: "Inbox",
     href: "/dashboard/inbox",
     icon: "Inbox",
-    roles: ["super_admin", "company_admin", "accountant"],
+    roles: ["super_admin", "company_admin", "operator", "processor"],
   },
   {
     label: "Companies",
     href: "/dashboard/companies",
     icon: "Building2",
-    roles: ["super_admin", "company_admin", "accountant"],
+    roles: ["super_admin", "company_admin", "operator", "processor"],
   },
   {
     label: "Users",
     href: "/dashboard/users",
     icon: "Users",
-    roles: ["super_admin", "company_admin"],
+    roles: ["super_admin", "company_admin", "operator"],
   },
   {
     label: "Webhooks",
@@ -35,13 +35,13 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Audit Log",
     href: "/dashboard/audit",
     icon: "ScrollText",
-    roles: ["super_admin", "company_admin", "accountant"],
+    roles: ["super_admin", "company_admin", "operator", "processor"],
   },
   {
     label: "Settings",
     href: "/dashboard/settings",
     icon: "Settings",
-    roles: ["super_admin", "company_admin", "accountant"],
+    roles: ["super_admin", "company_admin", "operator", "processor"],
   },
 ];
 

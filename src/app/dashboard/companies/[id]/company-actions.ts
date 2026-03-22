@@ -62,7 +62,7 @@ export async function reactivateCompany(formData: FormData) {
   try {
     const result = await createInvitation(admin, {
       email: genesisEmail,
-      role: "company_admin",
+      roles: ["company_admin"],
       companyIds: [companyId],
       isGenesis: true,
       invitedBy: user.id,
@@ -74,7 +74,7 @@ export async function reactivateCompany(formData: FormData) {
       await sendInvitationEmail({
         to: genesisEmail,
         inviteUrl: getInviteUrl(result.token, baseUrl),
-        role: "company_admin",
+        roles: ["company_admin"],
         companyNames: [legalName || company.legal_name || company.dic],
       });
 
@@ -82,7 +82,7 @@ export async function reactivateCompany(formData: FormData) {
         actorId: user.id,
         actorEmail: user.email,
         inviteeEmail: genesisEmail,
-        role: "company_admin",
+        roles: ["company_admin"],
         companyId,
         companyDic: company.dic,
         isGenesis: true,

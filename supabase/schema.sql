@@ -44,9 +44,9 @@ delete from auth.users;
 -- Enums
 -- ----------------------
 create type audit_severity as enum ('info', 'warning', 'error');
-create type company_role as enum ('company_admin', 'accountant');
+create type company_role as enum ('company_admin', 'operator', 'processor');
 create type membership_status as enum ('active', 'inactive');
-create type invitation_role as enum ('super_admin', 'company_admin', 'accountant');
+create type invitation_role as enum ('super_admin', 'company_admin', 'operator', 'processor');
 create type verification_channel as enum ('email', 'sms');
 
 -- ----------------------
@@ -153,7 +153,7 @@ create table company_memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   company_id uuid not null references companies(id) on delete cascade,
-  role company_role not null,
+  roles company_role[] not null default '{}',
   is_genesis boolean not null default false,
   status membership_status not null default 'active',
   invited_by uuid references profiles(id) on delete set null,
@@ -170,7 +170,7 @@ create index idx_company_memberships_company on company_memberships (company_id)
 create table invitations (
   id uuid primary key default gen_random_uuid(),
   email text not null,
-  role invitation_role not null,
+  roles invitation_role[] not null default '{}',
   company_ids uuid[] not null default '{}',
   is_genesis boolean not null default false,
   token text not null unique default encode(gen_random_bytes(32), 'hex'),

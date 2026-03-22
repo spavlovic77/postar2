@@ -10,7 +10,7 @@ import {
 } from "@/lib/dal";
 import { SuperAdminDashboard } from "@/components/dashboard/super-admin-dashboard";
 import { CompanyAdminDashboard } from "@/components/dashboard/company-admin-dashboard";
-import { AccountantDashboard } from "@/components/dashboard/accountant-dashboard";
+import { ProcessorDashboard } from "@/components/dashboard/processor-dashboard";
 
 export default async function DashboardPage() {
   const data = await getUserWithRole();
@@ -34,7 +34,7 @@ export default async function DashboardPage() {
     );
   }
 
-  if (role === "company_admin") {
+  if (role === "company_admin" || role === "operator") {
     const adminData = await getCompanyAdminData(user.id);
 
     return (
@@ -46,6 +46,6 @@ export default async function DashboardPage() {
     );
   }
 
-  // Accountant
-  return <AccountantDashboard companies={companies} />;
+  // Processor
+  return <ProcessorDashboard companies={companies} />;
 }

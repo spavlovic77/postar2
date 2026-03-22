@@ -54,8 +54,8 @@ export default async function SettingsPage() {
                 {role === "company_admin" && !profile.is_super_admin && (
                   <Badge variant="secondary">Company Admin</Badge>
                 )}
-                {role === "accountant" && (
-                  <Badge variant="outline">Accountant</Badge>
+                {role === "processor" && (
+                  <Badge variant="outline">Processor</Badge>
                 )}
               </div>
             </div>

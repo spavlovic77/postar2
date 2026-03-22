@@ -45,7 +45,7 @@ describe("Departments", () => {
         id: "m-1",
         user_id: "admin-user",
         company_id: "c-1",
-        role: "company_admin",
+        roles: ["company_admin"],
         status: "active",
       });
 
@@ -64,7 +64,7 @@ describe("Departments", () => {
         id: "m-1",
         user_id: "admin-user",
         company_id: "c-1",
-        role: "accountant",
+        roles: ["processor"],
         status: "active",
       });
 
@@ -109,7 +109,7 @@ describe("Departments", () => {
         id: "m-1",
         user_id: "admin-user",
         company_id: "c-1",
-        role: "company_admin",
+        roles: ["company_admin"],
         status: "active",
       });
 
@@ -120,7 +120,7 @@ describe("Departments", () => {
         id: "m-2",
         user_id: "user-2",
         company_id: "c-1",
-        role: "accountant",
+        roles: ["processor"],
         status: "active",
       });
 

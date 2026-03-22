@@ -173,7 +173,7 @@ export function auditInvitationCreated(params: {
   actorId?: string | null;
   actorEmail?: string | null;
   inviteeEmail: string;
-  role: string;
+  roles: string | string[];
   companyId?: string | null;
   companyDic?: string | null;
   isGenesis: boolean;
@@ -187,7 +187,7 @@ export function auditInvitationCreated(params: {
     companyDic: params.companyDic ?? undefined,
     details: {
       inviteeEmail: params.inviteeEmail,
-      role: params.role,
+      roles: params.roles,
       isGenesis: params.isGenesis,
     },
   });
@@ -196,7 +196,7 @@ export function auditInvitationCreated(params: {
 export function auditInvitationAccepted(params: {
   userId: string;
   email: string;
-  role: string;
+  roles: string | string[];
   companyId?: string | null;
   companyDic?: string | null;
   request?: Request;
@@ -209,7 +209,7 @@ export function auditInvitationAccepted(params: {
     actorEmail: params.email,
     companyId: params.companyId ?? undefined,
     companyDic: params.companyDic ?? undefined,
-    details: { role: params.role },
+    details: { roles: params.roles },
     ...meta,
   });
 }
@@ -218,7 +218,7 @@ export function auditMembershipCreated(params: {
   actorId?: string | null;
   userId: string;
   email: string;
-  role: string;
+  roles: string | string[];
   companyId: string;
   companyDic?: string | null;
   isGenesis: boolean;
@@ -232,7 +232,7 @@ export function auditMembershipCreated(params: {
     details: {
       userId: params.userId,
       email: params.email,
-      role: params.role,
+      roles: params.roles,
       isGenesis: params.isGenesis,
     },
   });

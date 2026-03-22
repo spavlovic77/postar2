@@ -49,6 +49,22 @@ function createQueryBuilder(data: any[]) {
       filtered = filtered.filter((r) => values.includes(getNestedValue(r, field)));
       return builder;
     },
+    contains: (field: string, values: any[]) => {
+      filtered = filtered.filter((r) => {
+        const arr = getNestedValue(r, field);
+        if (!Array.isArray(arr)) return false;
+        return values.every((v: any) => arr.includes(v));
+      });
+      return builder;
+    },
+    ilike: (field: string, pattern: string) => {
+      const search = pattern.replace(/%/g, "").toLowerCase();
+      filtered = filtered.filter((r) => {
+        const v = getNestedValue(r, field);
+        return typeof v === "string" && v.toLowerCase().includes(search);
+      });
+      return builder;
+    },
     is: (field: string, value: any) => {
       filtered = filtered.filter((r) => {
         const v = getNestedValue(r, field);

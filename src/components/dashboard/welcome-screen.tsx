@@ -16,7 +16,8 @@ interface Props {
 const ROLE_LABELS: Record<AppRole, string> = {
   super_admin: "Super Admin",
   company_admin: "Company Admin",
-  accountant: "Accountant",
+  operator: "Operator",
+  processor: "Processor",
 };
 
 export function WelcomeScreen({ fullName, role, companies }: Props) {

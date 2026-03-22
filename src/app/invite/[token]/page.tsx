@@ -13,7 +13,7 @@ export default async function InvitePage({ params }: Props) {
   // Fetch invitation details
   const { data: invitation } = await supabase
     .from("invitations")
-    .select("email, role, company_ids, is_genesis, expires_at, accepted_at")
+    .select("email, roles, company_ids, is_genesis, expires_at, accepted_at")
     .eq("token", token)
     .single();
 
@@ -65,12 +65,15 @@ export default async function InvitePage({ params }: Props) {
     );
   }
 
-  const roleLabel =
-    invitation.role === "super_admin"
-      ? "Super Admin"
-      : invitation.role === "company_admin"
-        ? "Company Admin"
-        : "Accountant";
+  const ROLE_LABELS: Record<string, string> = {
+    super_admin: "Super Admin",
+    company_admin: "Company Admin",
+    operator: "Operator",
+    processor: "Processor",
+  };
+  const roleLabel = (invitation.roles ?? [])
+    .map((r: string) => ROLE_LABELS[r] ?? r)
+    .join(", ");
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6">

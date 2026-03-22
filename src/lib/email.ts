@@ -49,15 +49,17 @@ export async function sendVerificationCodeEmail(params: {
 export async function sendInvitationEmail(params: {
   to: string;
   inviteUrl: string;
-  role: string;
+  roles: string | string[];
   companyNames: string[];
 }): Promise<void> {
-  const roleLabel =
-    params.role === "super_admin"
-      ? "Super Admin"
-      : params.role === "company_admin"
-        ? "Company Admin"
-        : "Accountant";
+  const rolesArr = Array.isArray(params.roles) ? params.roles : [params.roles];
+  const ROLE_LABELS: Record<string, string> = {
+    super_admin: "Super Admin",
+    company_admin: "Company Admin",
+    operator: "Operator",
+    processor: "Processor",
+  };
+  const roleLabel = rolesArr.map((r) => ROLE_LABELS[r] ?? r).join(", ");
 
   const companiesList = params.companyNames.join(", ");
 

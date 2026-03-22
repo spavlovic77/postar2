@@ -127,7 +127,7 @@ export function SuperAdminDashboard({
                       <TableCell className="text-sm">{inv.email}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {inv.role.replace("_", " ")}
+                          {inv.roles?.join(", ").replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell>

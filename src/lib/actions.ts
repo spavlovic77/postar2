@@ -47,11 +47,11 @@ export async function inviteUser(formData: FormData) {
   const admin = getSupabaseAdmin();
 
   const email = formData.get("email") as string;
-  const role = formData.get("role") as "company_admin" | "accountant";
+  const roles = (formData.getAll("roles") as string[]).filter(Boolean);
   const companyIds = (formData.getAll("companyIds") as string[]).filter(Boolean);
 
-  if (!email || !role || companyIds.length === 0) {
-    return { error: "Email, role, and at least one company are required" };
+  if (!email || roles.length === 0 || companyIds.length === 0) {
+    return { error: "Email, at least one role, and at least one company are required" };
   }
 
   // Verify the current user has permission to invite for these companies
@@ -66,7 +66,7 @@ export async function inviteUser(formData: FormData) {
       .from("company_memberships")
       .select("company_id")
       .eq("user_id", user.id)
-      .eq("role", "company_admin")
+      .contains("roles", ["company_admin"])
       .eq("status", "active");
 
     const userCompanyIds = (userMemberships ?? []).map((m) => m.company_id);
@@ -80,7 +80,7 @@ export async function inviteUser(formData: FormData) {
   try {
     const result = await createInvitation(admin, {
       email,
-      role,
+      roles,
       companyIds,
       invitedBy: user.id,
     });
@@ -105,7 +105,7 @@ export async function inviteUser(formData: FormData) {
     await sendInvitationEmail({
       to: email,
       inviteUrl: getInviteUrl(result.token, baseUrl),
-      role,
+      roles,
       companyNames,
     });
 
@@ -116,7 +116,7 @@ export async function inviteUser(formData: FormData) {
         actorId: user.id,
         actorEmail: user.email,
         inviteeEmail: email,
-        role,
+        roles,
         companyId: companyIds[i],
         companyDic: companyDics[i] ?? null,
         isGenesis: false,
@@ -157,13 +157,13 @@ export async function deactivateMembership(membershipId: string) {
     // Non-super-admin: must be company_admin for this company
     const { data: myMembership } = await admin
       .from("company_memberships")
-      .select("role, is_genesis")
+      .select("roles, is_genesis")
       .eq("user_id", user.id)
       .eq("company_id", membership.company_id)
       .eq("status", "active")
       .single();
 
-    if (!myMembership || myMembership.role !== "company_admin") {
+    if (!myMembership || !myMembership.roles?.includes("company_admin")) {
       return { error: "You don't have permission to deactivate this member" };
     }
 
@@ -173,7 +173,7 @@ export async function deactivateMembership(membershipId: string) {
     }
 
     // Non-genesis admin can't deactivate other admins
-    if (membership.role === "company_admin" && !myMembership.is_genesis) {
+    if (membership.roles?.includes("company_admin") && !myMembership.is_genesis) {
       return { error: "Only genesis admin or super admin can deactivate other admins" };
     }
   }
@@ -244,7 +244,7 @@ async function verifyCompanyAdmin(userId: string, companyId: string) {
     .select("role")
     .eq("user_id", userId)
     .eq("company_id", companyId)
-    .eq("role", "company_admin")
+    .contains("roles", ["company_admin"])
     .eq("status", "active")
     .single();
 
@@ -633,7 +633,7 @@ export async function resendInvitation(invitationId: string) {
   // Create a new invitation with the same details
   const result = await createInvitation(admin, {
     email: original.email,
-    role: original.role,
+    roles: original.roles,
     companyIds: original.company_ids ?? [],
     isGenesis: original.is_genesis,
     invitedBy: user.id,
@@ -660,7 +660,7 @@ export async function resendInvitation(invitationId: string) {
   await sendInvitationEmail({
     to: original.email,
     inviteUrl: getInviteUrl(result.token, baseUrl),
-    role: original.role,
+    roles: original.roles,
     companyNames,
   });
 
@@ -672,7 +672,7 @@ export async function resendInvitation(invitationId: string) {
     details: {
       originalInvitationId: invitationId,
       email: original.email,
-      role: original.role,
+      roles: original.roles,
       isGenesis: original.is_genesis,
     },
   });
@@ -713,7 +713,7 @@ export async function sendGenesisInvitation(formData: FormData) {
 
   const result = await createInvitation(admin, {
     email,
-    role: "company_admin",
+    roles: ["company_admin"],
     companyIds: [companyId],
     isGenesis: true,
     invitedBy: user.id,
@@ -730,7 +730,7 @@ export async function sendGenesisInvitation(formData: FormData) {
   await sendInvitationEmail({
     to: email,
     inviteUrl: getInviteUrl(result.token, baseUrl),
-    role: "company_admin",
+    roles: ["company_admin"],
     companyNames: [company.legal_name ?? company.dic],
   });
 
@@ -738,7 +738,7 @@ export async function sendGenesisInvitation(formData: FormData) {
     actorId: user.id,
     actorEmail: user.email,
     inviteeEmail: email,
-    role: "company_admin",
+    roles: ["company_admin"],
     companyId,
     companyDic: company.dic,
     isGenesis: true,

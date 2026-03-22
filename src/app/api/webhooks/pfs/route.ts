@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     try {
       const result = await createInvitation(supabase, {
         email: company_email,
-        role: "company_admin",
+        roles: ["company_admin"],
         companyIds: [companyId],
         isGenesis: true,
       });
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
       if (result && !result.alreadyExists) {
         auditInvitationCreated({
           inviteeEmail: company_email,
-          role: "company_admin",
+          roles: ["company_admin"],
           companyId,
           companyDic: dic,
           isGenesis: true,
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         await sendInvitationEmail({
           to: company_email,
           inviteUrl: getInviteUrl(result.token, baseUrl),
-          role: "company_admin",
+          roles: ["company_admin"],
           companyNames: [legalName ?? dic],
         });
       }

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface CreateInvitationParams {
   email: string;
-  role: "super_admin" | "company_admin" | "accountant";
+  roles: string[];
   companyIds: string[];
   isGenesis?: boolean;
   invitedBy?: string | null;
@@ -22,7 +22,7 @@ export async function createInvitation(
   supabase: SupabaseClient,
   params: CreateInvitationParams
 ): Promise<InvitationResult | null> {
-  const { email, role, companyIds, isGenesis = false, invitedBy = null } = params;
+  const { email, roles, companyIds, isGenesis = false, invitedBy = null } = params;
 
   // Look up user by email
   const { data: { users } } = await supabase.auth.admin.listUsers({
@@ -51,7 +51,7 @@ export async function createInvitation(
     const { error: createError } = await supabase.auth.admin.createUser({
       email,
       password: randomBytes(32).toString("hex"),
-      email_confirm: true, // Trust invited emails
+      email_confirm: true,
     });
 
     if (createError && !createError.message?.includes("already been registered")) {
@@ -63,7 +63,7 @@ export async function createInvitation(
     .from("invitations")
     .insert({
       email,
-      role,
+      roles,
       company_ids: companyIds,
       is_genesis: isGenesis,
       invited_by: invitedBy,

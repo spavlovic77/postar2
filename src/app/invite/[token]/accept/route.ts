@@ -91,7 +91,7 @@ export async function GET(
   });
 
   // Accept the invitation — create memberships
-  if (invitation.role === "super_admin") {
+  if (invitation.roles?.includes("super_admin")) {
     await supabase
       .from("profiles")
       .update({ is_super_admin: true })
@@ -112,7 +112,7 @@ export async function GET(
         const { error: updateError } = await supabase
           .from("company_memberships")
           .update({
-            role: invitation.role,
+            roles: (invitation.roles ?? []).filter((r: string) => r !== "super_admin") as any,
             is_genesis: invitation.is_genesis ?? false,
             status: "active",
             invited_by: invitation.invited_by,
@@ -129,7 +129,7 @@ export async function GET(
           .insert({
             user_id: user.id,
             company_id: companyId,
-            role: invitation.role,
+            roles: (invitation.roles ?? []).filter((r: string) => r !== "super_admin") as any,
             is_genesis: invitation.is_genesis ?? false,
             status: "active",
             invited_by: invitation.invited_by,
@@ -160,7 +160,7 @@ export async function GET(
     auditInvitationAccepted({
       userId: user.id,
       email: user.email ?? "",
-      role: invitation.role,
+      roles: (invitation.roles ?? []).filter((r: string) => r !== "super_admin") as any,
       companyId: cid,
       request,
     });

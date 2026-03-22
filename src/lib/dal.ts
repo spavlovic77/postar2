@@ -45,11 +45,17 @@ export async function getUserWithRole(): Promise<UserWithRole | null> {
     .map((m: CompanyMembership & { company: Company }) => m.company)
     .filter(Boolean);
 
-  let role: AppRole = "accountant";
+  // Determine highest role across all memberships
+  let role: AppRole = "processor";
   if (profile.is_super_admin) {
     role = "super_admin";
-  } else if (memberships?.some((m: CompanyMembership) => m.role === "company_admin")) {
-    role = "company_admin";
+  } else {
+    const allRoles = (memberships ?? []).flatMap((m: CompanyMembership) => m.roles ?? []);
+    if (allRoles.includes("company_admin")) {
+      role = "company_admin";
+    } else if (allRoles.includes("operator")) {
+      role = "operator";
+    }
   }
 
   return {
@@ -132,7 +138,6 @@ export async function getCompanyAdminData(userId: string) {
     .from("company_memberships")
     .select("*, company:companies(*)")
     .eq("user_id", userId)
-    .eq("role", "company_admin")
     .eq("status", "active");
 
   const companyIds = (memberships ?? []).map((m: CompanyMembership) => m.company_id);

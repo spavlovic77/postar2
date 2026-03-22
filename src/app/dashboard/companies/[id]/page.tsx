@@ -53,12 +53,12 @@ export default async function CompanyDetailPage({
 
   const myMembership = memberships.find((m) => m.company_id === id);
   const canManageMembers =
-    role === "super_admin" || myMembership?.role === "company_admin";
+    role === "super_admin" || (myMembership?.roles?.includes("company_admin") ?? false) || (myMembership?.roles?.includes("operator") ?? false);
   const isDeactivated = company.status === "deactivated";
   const canActivatePeppol =
     !isDeactivated && company.ion_ap_status !== "active" && role === "super_admin";
   const hasActiveGenesis = members.some(
-    (m) => m.is_genesis && m.status === "active" && m.role === "company_admin"
+    (m) => m.is_genesis && m.status === "active" && m.roles?.includes("company_admin")
   );
   const showGenesisInvite =
     role === "super_admin" && !isDeactivated && !hasActiveGenesis;
@@ -240,7 +240,7 @@ export default async function CompanyDetailPage({
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
-                            {m.role.replace("_", " ")}
+                            {m.roles?.join(", ").replace(/_/g, " ")}
                           </Badge>
                           {m.is_genesis && (
                             <Badge variant="secondary" className="text-xs">

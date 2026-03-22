@@ -34,7 +34,7 @@ export default async function UsersPage({
 
   const { role, user, companies, memberships } = data;
 
-  if (role === "accountant") redirect("/dashboard");
+  if (role === "processor") redirect("/dashboard");
 
   const [allUsers, invitations] = await Promise.all([
     role === "super_admin" ? getAllUsers() : getAllUsers(),
@@ -68,8 +68,8 @@ export default async function UsersPage({
       if (!nameMatch && !emailMatch) return false;
     }
     if (userRole === "super_admin" && !u.is_super_admin) return false;
-    if (userRole === "company_admin" && !u.memberships?.some((m: { role: string }) => m.role === "company_admin")) return false;
-    if (userRole === "accountant" && !u.memberships?.some((m: { role: string }) => m.role === "accountant")) return false;
+    if (userRole === "company_admin" && !u.memberships?.some((m: { roles?: string[] }) => m.roles?.includes("company_admin"))) return false;
+    if (userRole === "processor" && !u.memberships?.some((m: { roles?: string[] }) => m.roles?.includes("processor"))) return false;
     return true;
   });
 
@@ -90,7 +90,7 @@ export default async function UsersPage({
       ? companies
       : companies.filter((c) =>
           memberships.some(
-            (m) => m.company_id === c.id && m.role === "company_admin"
+            (m) => m.company_id === c.id && m.roles?.includes("company_admin")
           )
         );
 
@@ -116,7 +116,9 @@ export default async function UsersPage({
               options: [
                 { label: "Super Admin", value: "super_admin" },
                 { label: "Company Admin", value: "company_admin" },
-                { label: "Accountant", value: "accountant" },
+                { label: "Company Admin", value: "company_admin" },
+                { label: "Operator", value: "operator" },
+                { label: "Processor", value: "processor" },
               ],
             },
           ]}
@@ -144,9 +146,9 @@ export default async function UsersPage({
                       {u.is_super_admin && (
                         <Badge>Super Admin</Badge>
                       )}
-                      {u.memberships?.map((m: { id: string; role: string; is_genesis: boolean }) => (
+                      {u.memberships?.map((m: { id: string; roles?: string[]; is_genesis: boolean }) => (
                         <Badge key={m.id} variant="outline" className="text-xs">
-                          {m.role.replace("_", " ")}
+                          {m.roles?.join(", ").replace(/_/g, " ")}
                           {m.is_genesis ? " (genesis)" : ""}
                         </Badge>
                       ))}
@@ -218,7 +220,7 @@ export default async function UsersPage({
                       <TableCell className="text-sm">{inv.email}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {inv.role.replace("_", " ")}
+                          {inv.roles?.join(", ").replace(/_/g, " ")}
                           {inv.is_genesis ? " (genesis)" : ""}
                         </Badge>
                       </TableCell>

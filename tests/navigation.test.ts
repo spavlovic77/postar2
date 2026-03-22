@@ -27,7 +27,7 @@ describe("Navigation", () => {
 
   it("accountant sees limited nav items", async () => {
     const { getNavForRole } = await import("@/lib/navigation");
-    const items = getNavForRole("accountant");
+    const items = getNavForRole("processor");
     const labels = items.map((i) => i.label);
     expect(labels).toContain("Dashboard");
     expect(labels).toContain("Companies");

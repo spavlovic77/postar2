@@ -1,4 +1,5 @@
-export type AppRole = "super_admin" | "company_admin" | "accountant";
+export type AppRole = "super_admin" | "company_admin" | "operator" | "processor";
+export type CompanyRole = "company_admin" | "operator" | "processor";
 
 export interface UserProfile {
   id: string;
@@ -35,7 +36,7 @@ export interface CompanyMembership {
   id: string;
   user_id: string;
   company_id: string;
-  role: "company_admin" | "accountant";
+  roles: CompanyRole[];
   is_genesis: boolean;
   status: "active" | "inactive";
   invited_by: string | null;
@@ -46,7 +47,7 @@ export interface CompanyMembership {
 export interface Invitation {
   id: string;
   email: string;
-  role: "super_admin" | "company_admin" | "accountant";
+  roles: ("super_admin" | "company_admin" | "operator" | "processor")[];
   company_ids: string[];
   is_genesis: boolean;
   token: string;
