@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,13 @@ function CodeInput({
   disabled: boolean;
 }) {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Auto-focus first digit on mount
+  useEffect(() => {
+    if (!disabled) {
+      inputsRef.current[0]?.focus();
+    }
+  }, [disabled]);
 
   const handleChange = (index: number, char: string) => {
     if (!/^\d?$/.test(char)) return;
