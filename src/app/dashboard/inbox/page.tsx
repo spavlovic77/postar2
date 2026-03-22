@@ -2,12 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { getUserWithRole, getDocuments, getInboxCounts } from "@/lib/dal";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { InboxList } from "./inbox-list";
 
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
@@ -24,6 +25,9 @@ export default async function InboxPage({
       direction: "received",
       companyId: companyFilter,
       isSuperAdmin: role === "super_admin",
+      status: params.status || undefined,
+      documentType: params.type || undefined,
+      search: params.q || undefined,
       limit: pageSize,
     }),
     getInboxCounts(companyIds, role === "super_admin"),
@@ -35,12 +39,41 @@ export default async function InboxPage({
       : null;
 
   return (
-    <InboxList
-      initialDocuments={documents}
-      total={total}
-      unreadCount={counts.unread}
-      nextCursor={nextCursor}
-      companyFilter={companyFilter}
-    />
+    <div className="space-y-4">
+      <InboxList
+        initialDocuments={documents}
+        total={total}
+        unreadCount={counts.unread}
+        nextCursor={nextCursor}
+        companyFilter={companyFilter}
+        filters={
+          <FilterBar
+            filters={[
+              { key: "q", label: "Search", type: "search", placeholder: "Sender or document ID..." },
+              {
+                key: "status",
+                label: "Status",
+                type: "select",
+                options: [
+                  { label: "Unread", value: "new" },
+                  { label: "Read", value: "read" },
+                  { label: "Pending", value: "pending" },
+                  { label: "Failed", value: "failed" },
+                ],
+              },
+              {
+                key: "type",
+                label: "Type",
+                type: "select",
+                options: [
+                  { label: "Invoice", value: "Invoice" },
+                  { label: "Credit Note", value: "CreditNote" },
+                ],
+              },
+            ]}
+          />
+        }
+      />
+    </div>
   );
 }

@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   if (role === "super_admin") {
     const [stats, webhooksResult, recentInvitations] = await Promise.all([
       getSuperAdminStats(),
-      getRecentWebhooks(10),
+      getRecentWebhooks({ limit: 10 }),
       getRecentInvitations(),
     ]);
 

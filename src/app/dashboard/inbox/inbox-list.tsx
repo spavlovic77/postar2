@@ -46,6 +46,7 @@ interface Props {
   unreadCount: number;
   nextCursor: string | null;
   companyFilter: string | null;
+  filters?: React.ReactNode;
 }
 
 export function InboxList({
@@ -54,6 +55,7 @@ export function InboxList({
   unreadCount,
   nextCursor: initialCursor,
   companyFilter,
+  filters,
 }: Props) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [cursor, setCursor] = useState(initialCursor);
@@ -87,6 +89,8 @@ export function InboxList({
         </div>
         <span className="text-sm text-muted-foreground">{total} documents</span>
       </div>
+
+      {filters}
 
       {documents.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">

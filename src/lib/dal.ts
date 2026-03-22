@@ -79,13 +79,33 @@ export async function getSuperAdminStats() {
   };
 }
 
-export async function getRecentWebhooks(limit = 10, offset = 0) {
+export async function getRecentWebhooks(params: {
+  limit?: number;
+  offset?: number;
+  dic?: string;
+  company?: string;
+  email?: string;
+  dateFrom?: string;
+  dateTo?: string;
+} = {}) {
   const admin = getSupabaseAdmin();
-  const { data, error, count } = await admin
+  const limit = params.limit ?? 10;
+  const offset = params.offset ?? 0;
+
+  let query = admin
     .from("pfs_verifications")
     .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order("created_at", { ascending: false });
+
+  if (params.dic) query = query.ilike("dic", `%${params.dic}%`);
+  if (params.company) query = query.ilike("legal_name", `%${params.company}%`);
+  if (params.email) query = query.ilike("company_email", `%${params.email}%`);
+  if (params.dateFrom) query = query.gte("created_at", params.dateFrom);
+  if (params.dateTo) query = query.lte("created_at", `${params.dateTo}T23:59:59`);
+
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
 
   if (error) {
     console.error("Failed to fetch webhooks:", error);
@@ -158,6 +178,12 @@ export async function getAuditLogs(params: {
   companyId?: string | null;
   isSuperAdmin: boolean;
   companyIds?: string[];
+  severity?: string;
+  eventId?: string;
+  dic?: string;
+  actor?: string;
+  dateFrom?: string;
+  dateTo?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -169,19 +195,21 @@ export async function getAuditLogs(params: {
 
   if (!params.isSuperAdmin) {
     if (params.companyIds && params.companyIds.length > 0) {
-      // Show logs for their companies or their own actions
       query = query.or(
         `company_id.in.(${params.companyIds.join(",")}),actor_id.eq.${params.userId}`
       );
     } else {
-      // No companies — only show their own actions
       query = query.eq("actor_id", params.userId!);
     }
   }
 
-  if (params.companyId) {
-    query = query.eq("company_id", params.companyId);
-  }
+  if (params.companyId) query = query.eq("company_id", params.companyId);
+  if (params.severity) query = query.eq("severity", params.severity);
+  if (params.eventId) query = query.ilike("event_id", `%${params.eventId}%`);
+  if (params.dic) query = query.ilike("company_dic", `%${params.dic}%`);
+  if (params.actor) query = query.ilike("actor_email", `%${params.actor}%`);
+  if (params.dateFrom) query = query.gte("created_at", params.dateFrom);
+  if (params.dateTo) query = query.lte("created_at", `${params.dateTo}T23:59:59`);
 
   query = query.range(
     params.offset ?? 0,
@@ -258,13 +286,22 @@ export async function getCompanyWithMembers(companyId: string) {
   };
 }
 
-export async function getCompaniesWithMemberCounts(companyIds?: string[]) {
+export async function getCompaniesWithMemberCounts(params: {
+  companyIds?: string[];
+  name?: string;
+  dic?: string;
+  peppolStatus?: string;
+  companyStatus?: string;
+} = {}) {
   const admin = getSupabaseAdmin();
 
   let query = admin.from("companies").select("*").order("created_at", { ascending: false });
-  if (companyIds) {
-    query = query.in("id", companyIds);
-  }
+  if (params.companyIds) query = query.in("id", params.companyIds);
+  if (params.name) query = query.ilike("legal_name", `%${params.name}%`);
+  if (params.dic) query = query.ilike("dic", `%${params.dic}%`);
+  if (params.peppolStatus) query = query.eq("ion_ap_status", params.peppolStatus);
+  if (params.companyStatus) query = query.eq("status", params.companyStatus);
+
   const { data: companies } = await query;
 
   const ids = (companies ?? []).map((c: Company) => c.id);
@@ -394,6 +431,8 @@ export async function getDocuments(params: {
   status?: string;
   companyId?: string | null;
   isSuperAdmin: boolean;
+  search?: string;
+  documentType?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -413,6 +452,13 @@ export async function getDocuments(params: {
 
   if (params.direction) {
     query = query.eq("direction", params.direction);
+  }
+
+  if (params.documentType) query = query.eq("document_type", params.documentType);
+  if (params.search) {
+    query = query.or(
+      `sender_identifier.ilike.%${params.search}%,document_id.ilike.%${params.search}%`
+    );
   }
 
   if (params.status) {

@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getUserWithRole, getAuditLogs } from "@/lib/dal";
 import { Badge } from "@/components/ui/badge";
-import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   Table,
   TableBody,
@@ -12,6 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString("sk-SK", {
@@ -33,14 +34,13 @@ const SEVERITY_STYLES = {
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; offset?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
 
   const { role, user, memberships } = data;
   const params = await searchParams;
-  const companyFilter = params.company ?? null;
   const offset = parseInt(params.offset ?? "0", 10);
   const pageSize = 25;
 
@@ -48,19 +48,45 @@ export default async function AuditPage({
 
   const { logs, total } = await getAuditLogs({
     userId: user.id,
-    companyId: companyFilter,
+    companyId: params.company ?? null,
     isSuperAdmin: role === "super_admin",
     companyIds,
+    severity: params.severity,
+    eventId: params.event,
+    dic: params.dic,
+    actor: params.actor,
+    dateFrom: params.from,
+    dateTo: params.to,
     limit: pageSize,
     offset,
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Audit Log</h1>
         <span className="text-sm text-muted-foreground">{total} events</span>
       </div>
+
+      <FilterBar
+        filters={[
+          {
+            key: "severity",
+            label: "Severity",
+            type: "select",
+            options: [
+              { label: "Info", value: "info" },
+              { label: "Warning", value: "warning" },
+              { label: "Error", value: "error" },
+            ],
+          },
+          { key: "event", label: "Event type", type: "search", placeholder: "Event ID..." },
+          { key: "dic", label: "DIC", type: "search", placeholder: "Company DIC..." },
+          { key: "actor", label: "Actor", type: "search", placeholder: "Actor email..." },
+          { key: "from", label: "From", type: "search", placeholder: "From (YYYY-MM-DD)" },
+          { key: "to", label: "To", type: "search", placeholder: "To (YYYY-MM-DD)" },
+        ]}
+      />
 
       <div className="rounded-lg border">
         <Table>
@@ -77,10 +103,7 @@ export default async function AuditPage({
           <TableBody>
             {logs.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center text-muted-foreground"
-                >
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No audit events found
                 </TableCell>
               </TableRow>
@@ -103,12 +126,8 @@ export default async function AuditPage({
                       {log.severity}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
-                    {log.actor_email ?? "-"}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {log.company_dic ?? "-"}
-                  </TableCell>
+                  <TableCell className="text-sm">{log.actor_email ?? "-"}</TableCell>
+                  <TableCell className="font-mono text-sm">{log.company_dic ?? "-"}</TableCell>
                   <TableCell className="hidden text-xs lg:table-cell">
                     {log.source_ip ?? "-"}
                   </TableCell>

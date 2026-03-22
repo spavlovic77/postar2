@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { InviteUserDialog } from "./invite-user-dialog";
 import { ResendInvitationButton } from "./resend-invitation-button";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -22,9 +23,14 @@ function formatDate(date: string) {
   });
 }
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
+  const params = await searchParams;
 
   const { role, user, companies, memberships } = data;
 
@@ -52,6 +58,32 @@ export default async function UsersPage() {
             )
         );
 
+  // Apply search filters
+  const userSearch = params.user_search?.toLowerCase();
+  const userRole = params.user_role;
+  const filteredUsers = users.filter((u) => {
+    if (userSearch) {
+      const nameMatch = u.full_name?.toLowerCase().includes(userSearch);
+      const emailMatch = u.email?.toLowerCase().includes(userSearch);
+      if (!nameMatch && !emailMatch) return false;
+    }
+    if (userRole === "super_admin" && !u.is_super_admin) return false;
+    if (userRole === "company_admin" && !u.memberships?.some((m: { role: string }) => m.role === "company_admin")) return false;
+    if (userRole === "accountant" && !u.memberships?.some((m: { role: string }) => m.role === "accountant")) return false;
+    return true;
+  });
+
+  const invSearch = params.inv_search?.toLowerCase();
+  const invStatus = params.inv_status;
+  const now = new Date();
+  const filteredInvitations = invitations.filter((inv) => {
+    if (invSearch && !inv.email.toLowerCase().includes(invSearch)) return false;
+    if (invStatus === "accepted" && !inv.accepted_at) return false;
+    if (invStatus === "pending" && (inv.accepted_at || new Date(inv.expires_at) < now)) return false;
+    if (invStatus === "expired" && (inv.accepted_at || new Date(inv.expires_at) >= now)) return false;
+    return true;
+  });
+
   // Companies the current user can invite to
   const invitableCompanies =
     role === "super_admin"
@@ -74,6 +106,21 @@ export default async function UsersPage() {
       {/* Users Table */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Users</h2>
+        <FilterBar
+          filters={[
+            { key: "user_search", label: "Search", type: "search", placeholder: "Name or email..." },
+            {
+              key: "user_role",
+              label: "Role",
+              type: "select",
+              options: [
+                { label: "Super Admin", value: "super_admin" },
+                { label: "Company Admin", value: "company_admin" },
+                { label: "Accountant", value: "accountant" },
+              ],
+            },
+          ]}
+        />
         <div className="rounded-lg border">
           <Table>
             <TableHeader>
@@ -86,7 +133,7 @@ export default async function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">
                     {u.full_name ?? "Unnamed"}
@@ -130,6 +177,21 @@ export default async function UsersPage() {
       {/* Invitations Table */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Invitations</h2>
+        <FilterBar
+          filters={[
+            { key: "inv_search", label: "Search", type: "search", placeholder: "Email..." },
+            {
+              key: "inv_status",
+              label: "Status",
+              type: "select",
+              options: [
+                { label: "Pending", value: "pending" },
+                { label: "Accepted", value: "accepted" },
+                { label: "Expired", value: "expired" },
+              ],
+            },
+          ]}
+        />
         <div className="rounded-lg border">
           <Table>
             <TableHeader>
@@ -142,14 +204,14 @@ export default async function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invitations.length === 0 ? (
+              {filteredInvitations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={role === "super_admin" ? 5 : 4} className="text-center text-muted-foreground">
                     No invitations
                   </TableCell>
                 </TableRow>
               ) : (
-                invitations.map((inv) => {
+                filteredInvitations.map((inv) => {
                   const isExpiredOrPending = !inv.accepted_at;
                   return (
                     <TableRow key={inv.id}>

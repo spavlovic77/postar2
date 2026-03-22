@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString("sk-SK", {
@@ -27,7 +28,7 @@ function formatDate(date: string) {
 export default async function WebhooksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ offset?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
@@ -37,14 +38,32 @@ export default async function WebhooksPage({
   const offset = parseInt(params.offset ?? "0", 10);
   const pageSize = 25;
 
-  const { webhooks, total } = await getRecentWebhooks(pageSize, offset);
+  const { webhooks, total } = await getRecentWebhooks({
+    limit: pageSize,
+    offset,
+    dic: params.dic,
+    company: params.company_name,
+    email: params.email,
+    dateFrom: params.from,
+    dateTo: params.to,
+  });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Webhooks Log</h1>
         <Badge variant="secondary">{total} entries</Badge>
       </div>
+
+      <FilterBar
+        filters={[
+          { key: "dic", label: "DIC", type: "search", placeholder: "DIC..." },
+          { key: "company_name", label: "Company", type: "search", placeholder: "Company name..." },
+          { key: "email", label: "Email", type: "search", placeholder: "Email..." },
+          { key: "from", label: "From", type: "search", placeholder: "From (YYYY-MM-DD)" },
+          { key: "to", label: "To", type: "search", placeholder: "To (YYYY-MM-DD)" },
+        ]}
+      />
 
       <div className="rounded-lg border">
         <Table>
