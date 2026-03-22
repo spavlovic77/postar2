@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { completeOnboarding } from "@/lib/actions";
@@ -18,6 +20,16 @@ const ROLE_LABELS: Record<AppRole, string> = {
 };
 
 export function WelcomeScreen({ fullName, role, companies }: Props) {
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const handleClick = async () => {
+    setIsLoading(true);
+    await completeOnboarding();
+    router.push("/dashboard");
+    router.refresh();
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6">
       <div className="max-w-md space-y-4 text-center">
@@ -42,11 +54,9 @@ export function WelcomeScreen({ fullName, role, companies }: Props) {
         )}
       </div>
 
-      <form action={completeOnboarding}>
-        <Button size="lg" type="submit">
-          Go to Dashboard
-        </Button>
-      </form>
+      <Button size="lg" onClick={handleClick} disabled={isLoading}>
+        {isLoading ? "Loading..." : "Go to Dashboard"}
+      </Button>
     </div>
   );
 }

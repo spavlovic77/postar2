@@ -39,7 +39,7 @@ export async function completeOnboarding() {
 
   auditOnboarded({ userId: user.id, email: user.email ?? "" });
 
-  redirect("/dashboard");
+  return { success: true };
 }
 
 export async function inviteUser(formData: FormData) {
