@@ -207,17 +207,18 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         return;
       }
 
-      // Session was created server-side, just redirect/refresh
+      // Session was created server-side — hard navigate to avoid flash
       if (onSignedIn) {
         onSignedIn();
       } else if (redirectTo) {
-        router.push(redirectTo);
+        window.location.href = redirectTo;
       } else {
-        router.refresh();
+        window.location.href = "/dashboard";
       }
+      // Don't clear loading — let the redirect happen
+      return;
     } catch {
       setError("Verification failed. Please try again.");
-    } finally {
       setIsLoading(null);
     }
   };
@@ -256,6 +257,15 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
 
   // Step 3: Enter verification code
   if (step === "enter_code") {
+    if (isLoading === "verify") {
+      return (
+        <div className="flex flex-col items-center gap-6 py-8">
+          <span className="h-8 w-8 animate-spin rounded-full border-3 border-foreground border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Verifying...</p>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center gap-4">
         <div className="text-center">
@@ -264,10 +274,6 @@ export function AuthForm({ redirectTo, onSignedIn, defaultPhone }: AuthFormProps
         </div>
 
         <CodeInput value={code} onChange={setCode} onComplete={handleVerifyCode} disabled={isDisabled} />
-
-        {isLoading === "verify" && (
-          <span className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
