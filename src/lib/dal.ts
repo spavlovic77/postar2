@@ -514,7 +514,7 @@ export async function getDocuments(params: {
   const admin = getSupabaseAdmin();
   let query = admin
     .from("documents")
-    .select("*, company:companies(id, dic, legal_name)", { count: "exact" })
+    .select("*", { count: "exact" })
     .order("peppol_created_at", { ascending: false });
 
   if (!params.isSuperAdmin && params.companyIds.length > 0) {
@@ -545,7 +545,12 @@ export async function getDocuments(params: {
     (params.offset ?? 0) + (params.limit ?? 50) - 1
   );
 
-  const { data, count } = await query;
+  const { data, count, error } = await query;
+
+  if (error) {
+    console.error("Failed to fetch documents:", error);
+  }
+
   return { documents: data ?? [], total: count ?? 0 };
 }
 
