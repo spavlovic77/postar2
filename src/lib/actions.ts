@@ -379,6 +379,91 @@ export async function removeDepartmentMember(membershipId: string) {
   return { success: true };
 }
 
+export async function renameDepartment(departmentId: string, newName: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  const { data: dept } = await admin
+    .from("departments")
+    .select("company_id, name")
+    .eq("id", departmentId)
+    .single();
+
+  if (!dept) return { error: "Department not found" };
+
+  if (!(await verifyCompanyAdmin(user.id, dept.company_id))) {
+    return { error: "Only company admins can rename departments" };
+  }
+
+  const { error } = await admin
+    .from("departments")
+    .update({ name: newName })
+    .eq("id", departmentId);
+
+  if (error) {
+    if (error.message?.includes("unique")) {
+      return { error: "A department with this name already exists" };
+    }
+    return { error: "Failed to rename department" };
+  }
+
+  audit({
+    eventId: "DEPARTMENT_RENAMED",
+    eventName: "Department renamed",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId: dept.company_id,
+    details: { departmentId, oldName: dept.name, newName },
+  });
+
+  revalidatePath("/dashboard/companies");
+  return { success: true };
+}
+
+export async function deleteDepartment(departmentId: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  const { data: dept } = await admin
+    .from("departments")
+    .select("company_id, name, company:companies(dic)")
+    .eq("id", departmentId)
+    .single();
+
+  if (!dept) return { error: "Department not found" };
+
+  if (!(await verifyCompanyAdmin(user.id, dept.company_id))) {
+    return { error: "Only company admins can delete departments" };
+  }
+
+  // Check for child departments
+  const { data: children } = await admin
+    .from("departments")
+    .select("id")
+    .eq("parent_id", departmentId);
+
+  if (children && children.length > 0) {
+    return { error: "Cannot delete a department with sub-departments. Delete children first." };
+  }
+
+  await admin.from("department_memberships").delete().eq("department_id", departmentId);
+  await admin.from("departments").delete().eq("id", departmentId);
+
+  audit({
+    eventId: "DEPARTMENT_DELETED",
+    eventName: "Department deleted",
+    severity: "warning",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId: dept.company_id,
+    companyDic: (dept.company as any)?.dic ?? undefined,
+    details: { departmentId, name: dept.name },
+  });
+
+  revalidatePath("/dashboard/companies");
+  return { success: true };
+}
+
 // ============================================================
 // Peppol Activation
 // ============================================================

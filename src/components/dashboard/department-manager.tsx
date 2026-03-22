@@ -16,9 +16,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronRight, ChevronDown, Plus, X, FolderPlus, GripVertical, Users } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { useToast } from "@/components/ui/toast";
+import {
+  ChevronRight, ChevronDown, Plus, X, FolderPlus,
+  GripVertical, Users, MoreHorizontal, Pencil, Trash2, ArrowRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { addDepartmentMember, removeDepartmentMember, createDepartment } from "@/lib/actions";
+import {
+  addDepartmentMember, createDepartment,
+  renameDepartment, deleteDepartment,
+} from "@/lib/actions";
 import type { Department } from "@/lib/types";
 
 interface Member {
@@ -40,7 +54,7 @@ interface Props {
 function DraggableUser({ member, canDrag }: { member: Member; canDrag: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `user-${member.id}`,
-    data: { userId: member.id },
+    data: { userId: member.id, memberName: member.fullName || member.email },
     disabled: !canDrag,
   });
 
@@ -61,104 +75,17 @@ function DraggableUser({ member, canDrag }: { member: Member; canDrag: boolean }
   );
 }
 
-// Drop zone for a department
-function DepartmentDropZone({
-  department,
-  members,
-  allMembers,
-  children,
-  isSelected,
-  onSelect,
-  onRemoveMember,
-  onCreateSub,
-  canManage,
-  isExpanded,
-  onToggle,
-  hasChildren,
-  depth,
-}: {
-  department: Department | null; // null = unassigned
-  members: string[];
-  allMembers: Member[];
-  children?: React.ReactNode;
-  isSelected: boolean;
-  onSelect: () => void;
-  onRemoveMember: (userId: string, deptMembershipId?: string) => void;
-  onCreateSub?: () => void;
-  canManage: boolean;
-  isExpanded?: boolean;
-  onToggle?: () => void;
-  hasChildren?: boolean;
-  depth: number;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: department ? `dept-${department.id}` : "unassigned",
-    data: { departmentId: department?.id ?? null },
-  });
-
-  const memberObjects = members
-    .map((id) => allMembers.find((m) => m.id === id))
-    .filter(Boolean) as Member[];
-
-  const label = department?.name ?? "Unassigned";
-
-  return (
-    <div>
-      <div
-        ref={setNodeRef}
-        onClick={onSelect}
-        className={cn(
-          "flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer",
-          isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted",
-          isOver && "ring-2 ring-primary ring-offset-1 bg-primary/5"
-        )}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
-      >
-        {hasChildren ? (
-          <button onClick={(e) => { e.stopPropagation(); onToggle?.(); }} className="p-0.5">
-            {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-          </button>
-        ) : (
-          <span className="w-5" />
-        )}
-
-        {department ? (
-          <span className="flex-1 truncate font-medium">{label}</span>
-        ) : (
-          <span className="flex-1 truncate text-muted-foreground">{label}</span>
-        )}
-
-        <span className="text-xs text-muted-foreground">{memberObjects.length}</span>
-
-        {canManage && department && onCreateSub && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onCreateSub(); }}
-            className="p-0.5 text-muted-foreground hover:text-foreground"
-            title="Create sub-department"
-          >
-            <FolderPlus className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
-
-      {isExpanded && children}
-    </div>
-  );
-}
-
 // Create department inline form
 function CreateDepartmentForm({
   companyId,
   parentId,
   onClose,
+  onSuccess,
 }: {
   companyId: string;
   parentId: string | null;
   onClose: () => void;
+  onSuccess: (name: string) => void;
 }) {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -181,6 +108,7 @@ function CreateDepartmentForm({
     if (result.error) {
       setError(result.error);
     } else {
+      onSuccess(name.trim());
       setName("");
       onClose();
       router.refresh();
@@ -208,6 +136,36 @@ function CreateDepartmentForm({
   );
 }
 
+// Rename inline form
+function RenameForm({
+  currentName,
+  onSave,
+  onCancel,
+}: {
+  currentName: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(currentName);
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave(name.trim()); }}
+      className="flex items-center gap-1"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="h-7 text-sm"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
+      />
+      <Button type="submit" size="sm" className="h-7 px-2 text-xs">Save</Button>
+    </form>
+  );
+}
+
 export function DepartmentManager({
   companyId,
   departments,
@@ -222,8 +180,10 @@ export function DepartmentManager({
   );
   const [activeDragUserId, setActiveDragUserId] = useState<string | null>(null);
   const [creatingParentId, setCreatingParentId] = useState<string | null | undefined>(undefined);
+  const [renamingDeptId, setRenamingDeptId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -249,40 +209,71 @@ export function DepartmentManager({
     if (!over || !canManage) return;
 
     const userId = active.data.current?.userId;
+    const memberName = active.data.current?.memberName;
     const targetDeptId = over.data.current?.departmentId;
 
     if (!userId || !targetDeptId) return;
 
-    // Check if already in this department
     const deptMembers = membersByDept[targetDeptId] ?? [];
-    if (deptMembers.includes(userId)) return;
+    if (deptMembers.includes(userId)) {
+      toast("Already in this department", "error");
+      return;
+    }
 
     setIsProcessing(true);
     const formData = new FormData();
     formData.set("departmentId", targetDeptId);
     formData.set("userId", userId);
 
-    await addDepartmentMember(formData);
+    const result = await addDepartmentMember(formData);
     setIsProcessing(false);
-    router.refresh();
+
+    if (result.error) {
+      toast(result.error, "error");
+    } else {
+      const deptName = departments.find((d) => d.id === targetDeptId)?.name ?? "department";
+      toast(`${memberName ?? "User"} added to ${deptName}`);
+      router.refresh();
+    }
   };
 
   const handleRemoveMember = async (deptId: string, userId: string) => {
-    // Find the department_membership ID
-    // We need to call a server action that finds and removes it
     setIsProcessing(true);
-
-    const admin = await fetch(`/api/departments/remove-member`, {
+    await fetch("/api/departments/remove-member", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ departmentId: deptId, userId }),
     });
-
     setIsProcessing(false);
+
+    const member = allMembers.find((m) => m.id === userId);
+    const dept = departments.find((d) => d.id === deptId);
+    toast(`${member?.fullName || member?.email || "User"} removed from ${dept?.name ?? "department"}`);
     router.refresh();
   };
 
-  // Build tree
+  const handleRename = async (deptId: string, newName: string) => {
+    setRenamingDeptId(null);
+    const result = await renameDepartment(deptId, newName);
+    if (result.error) {
+      toast(result.error, "error");
+    } else {
+      toast(`Renamed to "${newName}"`);
+      router.refresh();
+    }
+  };
+
+  const handleDelete = async (deptId: string) => {
+    const result = await deleteDepartment(deptId);
+    if (result.error) {
+      toast(result.error, "error");
+    } else {
+      toast("Department deleted");
+      if (selectedDeptId === deptId) setSelectedDeptId(null);
+      router.refresh();
+    }
+  };
+
   const rootDepts = departments.filter((d) => !d.parent_id);
   const childrenOf = (parentId: string) =>
     departments.filter((d) => d.parent_id === parentId);
@@ -297,43 +288,143 @@ export function DepartmentManager({
 
   const selectedDept = departments.find((d) => d.id === selectedDeptId);
 
-  const renderDeptTree = (dept: Department, depth: number): React.ReactNode => {
+  const renderDeptTree = (dept: Department, depth: number, isLastChild: boolean): React.ReactNode => {
     const children = childrenOf(dept.id);
     const hasChildren = children.length > 0;
     const isExpanded = expandedDepts.has(dept.id);
+    const isRenaming = renamingDeptId === dept.id;
+    const memberCount = (membersByDept[dept.id] ?? []).length;
+
+    const { isOver, setNodeRef } = useDroppable({
+      id: `dept-${dept.id}`,
+      data: { departmentId: dept.id },
+    });
 
     return (
-      <DepartmentDropZone
-        key={dept.id}
-        department={dept}
-        members={membersByDept[dept.id] ?? []}
-        allMembers={allMembers}
-        isSelected={selectedDeptId === dept.id}
-        onSelect={() => setSelectedDeptId(dept.id)}
-        onRemoveMember={() => {}}
-        onCreateSub={() => setCreatingParentId(dept.id)}
-        canManage={canManage}
-        isExpanded={isExpanded}
-        onToggle={() => toggleExpand(dept.id)}
-        hasChildren={hasChildren}
-        depth={depth}
-      >
+      <div key={dept.id}>
+        <div
+          ref={setNodeRef}
+          onClick={() => setSelectedDeptId(dept.id)}
+          className={cn(
+            "group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer relative",
+            selectedDeptId === dept.id ? "bg-primary/10 text-primary" : "hover:bg-muted",
+            isOver && "ring-2 ring-primary ring-offset-1 bg-primary/5"
+          )}
+          style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        >
+          {/* Tree line */}
+          {depth > 0 && (
+            <div
+              className="absolute border-l border-b border-muted-foreground/20 rounded-bl-sm"
+              style={{
+                left: `${(depth - 1) * 20 + 18}px`,
+                top: 0,
+                width: "12px",
+                height: "50%",
+              }}
+            />
+          )}
+
+          {hasChildren ? (
+            <button onClick={(e) => { e.stopPropagation(); toggleExpand(dept.id); }} className="p-0.5 z-10">
+              {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+          ) : (
+            <span className="w-5" />
+          )}
+
+          {isRenaming ? (
+            <RenameForm
+              currentName={dept.name}
+              onSave={(name) => handleRename(dept.id, name)}
+              onCancel={() => setRenamingDeptId(null)}
+            />
+          ) : (
+            <>
+              <span className="flex-1 truncate font-medium">{dept.name}</span>
+              <span className="text-xs text-muted-foreground">{memberCount}</span>
+
+              {canManage && (
+                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setCreatingParentId(dept.id); }}
+                    className="p-0.5 text-muted-foreground hover:text-foreground"
+                    title="Create sub-department"
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" />
+                  </button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <button
+                          className="p-0.5 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                      }
+                    />
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setRenamingDeptId(dept.id)}>
+                        <Pencil className="mr-2 h-3.5 w-3.5" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(dept.id)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         {creatingParentId === dept.id && (
-          <CreateDepartmentForm
-            companyId={companyId}
-            parentId={dept.id}
-            onClose={() => setCreatingParentId(undefined)}
-          />
+          <div style={{ paddingLeft: `${(depth + 1) * 20 + 8}px` }}>
+            <CreateDepartmentForm
+              companyId={companyId}
+              parentId={dept.id}
+              onClose={() => setCreatingParentId(undefined)}
+              onSuccess={(name) => toast(`Created "${name}"`)}
+            />
+          </div>
         )}
-        {hasChildren &&
-          children.map((child) => renderDeptTree(child, depth + 1))}
-      </DepartmentDropZone>
+
+        {isExpanded && hasChildren && (
+          <div className="relative">
+            {/* Vertical tree line */}
+            <div
+              className="absolute border-l border-muted-foreground/20"
+              style={{
+                left: `${depth * 20 + 18}px`,
+                top: 0,
+                bottom: "12px",
+              }}
+            />
+            {children.map((child, i) =>
+              renderDeptTree(child, depth + 1, i === children.length - 1)
+            )}
+          </div>
+        )}
+      </div>
     );
   };
 
   const draggedMember = activeDragUserId
     ? allMembers.find((m) => m.id === activeDragUserId)
     : null;
+
+  // Unassigned drop zone
+  const { isOver: isOverUnassigned, setNodeRef: setUnassignedRef } = useDroppable({
+    id: "unassigned",
+    data: { departmentId: null },
+  });
 
   return (
     <Card>
@@ -369,32 +460,60 @@ export function DepartmentManager({
                   companyId={companyId}
                   parentId={null}
                   onClose={() => setCreatingParentId(undefined)}
+                  onSuccess={(name) => toast(`Created "${name}"`)}
                 />
               )}
 
-              {rootDepts.map((dept) => renderDeptTree(dept, 0))}
+              {rootDepts.map((dept, i) =>
+                renderDeptTree(dept, 0, i === rootDepts.length - 1)
+              )}
 
+              {/* Empty state */}
               {departments.length === 0 && creatingParentId === undefined && (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No departments yet
-                </p>
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <div className="rounded-full bg-muted p-3">
+                    <Users className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">No departments yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Create your first department, then drag
+                      <br />
+                      team members from the right panel into it.
+                    </p>
+                  </div>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCreatingParentId(null)}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      Create First Department
+                    </Button>
+                  )}
+                </div>
               )}
 
+              {/* Unassigned */}
               <div className="mt-2 border-t pt-2">
-                <DepartmentDropZone
-                  department={null}
-                  members={unassignedUserIds}
-                  allMembers={allMembers}
-                  isSelected={selectedDeptId === null}
-                  onSelect={() => setSelectedDeptId(null)}
-                  onRemoveMember={() => {}}
-                  canManage={false}
-                  depth={0}
-                />
+                <div
+                  ref={setUnassignedRef}
+                  onClick={() => setSelectedDeptId(null)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer",
+                    selectedDeptId === null ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                    isOverUnassigned && "ring-2 ring-primary ring-offset-1 bg-primary/5"
+                  )}
+                >
+                  <span className="w-5" />
+                  <span className="flex-1 truncate text-muted-foreground">Unassigned</span>
+                  <span className="text-xs text-muted-foreground">{unassignedUserIds.length}</span>
+                </div>
               </div>
             </div>
 
-            {/* Right panel: Members of selected department */}
+            {/* Right panel: Members */}
             <div className="rounded-lg border p-3">
               <h3 className="mb-3 text-sm font-medium">
                 {selectedDept?.name ?? "Unassigned"}{" "}
@@ -404,11 +523,20 @@ export function DepartmentManager({
               </h3>
 
               {selectedMemberObjects.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  {selectedDeptId
-                    ? "No members. Drag users here to assign."
-                    : "All users are assigned to departments."}
-                </p>
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  {selectedDeptId ? (
+                    <>
+                      <ArrowRight className="h-6 w-6 text-muted-foreground rotate-180 md:rotate-0" />
+                      <p className="text-sm text-muted-foreground">
+                        Drag users from <strong>Unassigned</strong> or other departments here
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      All users are assigned to departments
+                    </p>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {selectedMemberObjects.map((member) => (
