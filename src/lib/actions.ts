@@ -516,3 +516,150 @@ export async function deactivateCompany(companyId: string) {
   revalidatePath("/dashboard/users");
   return { success: true };
 }
+
+// ============================================================
+// Resend Invitation
+// ============================================================
+
+export async function resendInvitation(invitationId: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  // Super admin only
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    return { error: "Only super admins can resend invitations" };
+  }
+
+  // Get the original invitation
+  const { data: original } = await admin
+    .from("invitations")
+    .select("*")
+    .eq("id", invitationId)
+    .single();
+
+  if (!original) return { error: "Invitation not found" };
+
+  // Create a new invitation with the same details
+  const result = await createInvitation(admin, {
+    email: original.email,
+    role: original.role,
+    companyIds: original.company_ids ?? [],
+    isGenesis: original.is_genesis,
+    invitedBy: user.id,
+  });
+
+  if (!result || result.alreadyExists) {
+    return { error: "User already has access" };
+  }
+
+  // Get company names for the email
+  const companyIds = original.company_ids ?? [];
+  let companyNames: string[] = [];
+  if (companyIds.length > 0) {
+    const { data: companies } = await admin
+      .from("companies")
+      .select("legal_name, dic")
+      .in("id", companyIds);
+
+    companyNames = (companies ?? []).map((c) => c.legal_name ?? c.dic);
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+
+  await sendInvitationEmail({
+    to: original.email,
+    inviteUrl: getInviteUrl(result.token, baseUrl),
+    role: original.role,
+    companyNames,
+  });
+
+  audit({
+    eventId: "INVITATION_RESENT",
+    eventName: "Invitation resent",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    details: {
+      originalInvitationId: invitationId,
+      email: original.email,
+      role: original.role,
+      isGenesis: original.is_genesis,
+    },
+  });
+
+  revalidatePath("/dashboard/users");
+  return { success: true };
+}
+
+export async function sendGenesisInvitation(formData: FormData) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  // Super admin only
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    return { error: "Only super admins can send genesis invitations" };
+  }
+
+  const companyId = formData.get("companyId") as string;
+  const email = formData.get("email") as string;
+
+  if (!companyId || !email) {
+    return { error: "Company and email are required" };
+  }
+
+  const { data: company } = await admin
+    .from("companies")
+    .select("dic, legal_name")
+    .eq("id", companyId)
+    .single();
+
+  if (!company) return { error: "Company not found" };
+
+  const result = await createInvitation(admin, {
+    email,
+    role: "company_admin",
+    companyIds: [companyId],
+    isGenesis: true,
+    invitedBy: user.id,
+  });
+
+  if (!result) return { error: "Failed to create invitation" };
+
+  if (result.alreadyExists) {
+    return { error: "User already has genesis access to this company" };
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+
+  await sendInvitationEmail({
+    to: email,
+    inviteUrl: getInviteUrl(result.token, baseUrl),
+    role: "company_admin",
+    companyNames: [company.legal_name ?? company.dic],
+  });
+
+  auditInvitationCreated({
+    actorId: user.id,
+    actorEmail: user.email,
+    inviteeEmail: email,
+    role: "company_admin",
+    companyId,
+    companyDic: company.dic,
+    isGenesis: true,
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath(`/dashboard/companies/${companyId}`);
+  return { success: true };
+}

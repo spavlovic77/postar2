@@ -18,6 +18,7 @@ import { PeppolActivateButton } from "./peppol-activate-button";
 import { DeactivateCompanyButton } from "./deactivate-company-button";
 import { ReactivateCompanyForm } from "./reactivate-company-form";
 import { EditCompanyDialog } from "./edit-company-dialog";
+import { SendGenesisInvitation } from "./send-genesis-invitation";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -52,6 +53,11 @@ export default async function CompanyDetailPage({
   const isDeactivated = company.status === "deactivated";
   const canActivatePeppol =
     !isDeactivated && company.ion_ap_status !== "active" && canManageMembers;
+  const hasActiveGenesis = members.some(
+    (m) => m.is_genesis && m.status === "active" && m.role === "company_admin"
+  );
+  const showGenesisInvite =
+    role === "super_admin" && !isDeactivated && !hasActiveGenesis;
 
   return (
     <div className="space-y-6">
@@ -163,6 +169,14 @@ export default async function CompanyDetailPage({
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Genesis Admin Invitation - Super admin, no active genesis */}
+      {showGenesisInvite && (
+        <SendGenesisInvitation
+          companyId={company.id}
+          defaultEmail={company.company_email ?? ""}
+        />
       )}
 
       {/* Members */}

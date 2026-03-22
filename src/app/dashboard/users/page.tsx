@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InviteUserDialog } from "./invite-user-dialog";
+import { ResendInvitationButton } from "./resend-invitation-button";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -137,40 +138,52 @@ export default async function UsersPage() {
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Sent</TableHead>
+                {role === "super_admin" && <TableHead className="w-[80px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {invitations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={role === "super_admin" ? 5 : 4} className="text-center text-muted-foreground">
                     No invitations
                   </TableCell>
                 </TableRow>
               ) : (
-                invitations.map((inv) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="text-sm">{inv.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {inv.role.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {inv.accepted_at ? (
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          Accepted
+                invitations.map((inv) => {
+                  const isExpiredOrPending = !inv.accepted_at;
+                  return (
+                    <TableRow key={inv.id}>
+                      <TableCell className="text-sm">{inv.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {inv.role.replace("_", " ")}
+                          {inv.is_genesis ? " (genesis)" : ""}
                         </Badge>
-                      ) : new Date(inv.expires_at) < new Date() ? (
-                        <Badge variant="destructive">Expired</Badge>
-                      ) : (
-                        <Badge variant="secondary">Pending</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {inv.accepted_at ? (
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Accepted
+                          </Badge>
+                        ) : new Date(inv.expires_at) < new Date() ? (
+                          <Badge variant="destructive">Expired</Badge>
+                        ) : (
+                          <Badge variant="secondary">Pending</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden text-sm md:table-cell">
+                        {formatDate(inv.created_at)}
+                      </TableCell>
+                      {role === "super_admin" && (
+                        <TableCell>
+                          {isExpiredOrPending && (
+                            <ResendInvitationButton invitationId={inv.id} />
+                          )}
+                        </TableCell>
                       )}
-                    </TableCell>
-                    <TableCell className="hidden text-sm md:table-cell">
-                      {formatDate(inv.created_at)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
