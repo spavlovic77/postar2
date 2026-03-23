@@ -59,7 +59,7 @@ export async function processDocument(documentId: string): Promise<boolean> {
   // Mark as processing
   await supabase
     .from("documents")
-    .update({ status: "processing" })
+    .update({ status: "processing", last_retry_at: new Date().toISOString() })
     .eq("id", documentId);
 
   try {
@@ -162,6 +162,21 @@ export async function processDocument(documentId: string): Promise<boolean> {
  */
 export async function retryPendingDocuments(): Promise<number> {
   const supabase = getSupabaseAdmin();
+
+  // Recover stuck "processing" documents (stuck > 2 minutes)
+  const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  await supabase
+    .from("documents")
+    .update({ status: "pending" })
+    .eq("status", "processing")
+    .lt("last_retry_at", twoMinAgo);
+
+  // Also recover processing docs with no last_retry_at
+  await supabase
+    .from("documents")
+    .update({ status: "pending" })
+    .eq("status", "processing")
+    .is("last_retry_at", null);
 
   const { data: pending } = await supabase
     .from("documents")
