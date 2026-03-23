@@ -56,6 +56,8 @@ export default async function CompanyDetailPage({
   const myMembership = memberships.find((m) => m.company_id === id);
   const canManageMembers =
     role === "super_admin" || (myMembership?.roles?.includes("company_admin") ?? false) || (myMembership?.roles?.includes("operator") ?? false);
+  const canManageDepartments =
+    role === "super_admin" || (myMembership?.roles?.includes("company_admin") ?? false);
   const isDeactivated = company.status === "deactivated";
   const canActivatePeppol =
     !isDeactivated && company.ion_ap_status !== "active" && role === "super_admin";
@@ -193,7 +195,7 @@ export default async function CompanyDetailPage({
           membersByDept={deptData.membersByDept}
           unassignedUserIds={deptData.unassignedUserIds}
           allMembers={deptData.allMembers}
-          canManage={canManageMembers}
+          canManage={canManageDepartments}
         />
       )}
 
