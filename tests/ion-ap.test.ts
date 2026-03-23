@@ -158,10 +158,11 @@ describe("Lazy Activation", () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ id: 99, identifier: "0245:1234567890", verified: true }));
     // Mock create receive trigger
     mockFetch.mockResolvedValueOnce(jsonResponse({ id: 1 }));
-    // Mock create trigger options (url, method, post_data)
+    // Mock create trigger options (url, method, post_data, post_field_name)
     mockFetch.mockResolvedValueOnce(jsonResponse({ id: 1 }));
     mockFetch.mockResolvedValueOnce(jsonResponse({ id: 2 }));
     mockFetch.mockResolvedValueOnce(jsonResponse({ id: 3 }));
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 4 }));
 
     const { ensureCompanyActivated } = await import("@/lib/ion-ap/activate");
     const orgId = await ensureCompanyActivated("company-1");

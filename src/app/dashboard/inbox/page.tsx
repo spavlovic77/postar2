@@ -19,6 +19,13 @@ export default async function InboxPage({
   const companyIds = memberships.map((m) => m.company_id);
   const pageSize = 20;
 
+  // Determine if user can triage (super admin, company admin, or operator)
+  const allRoles = memberships.flatMap((m) => m.roles ?? []);
+  const canTriage =
+    role === "super_admin" ||
+    allRoles.includes("company_admin") ||
+    allRoles.includes("operator");
+
   const [{ documents, total }, counts] = await Promise.all([
     getDocuments({
       companyIds,
@@ -46,6 +53,7 @@ export default async function InboxPage({
         unreadCount={counts.unread}
         nextCursor={nextCursor}
         companyFilter={companyFilter}
+        canTriage={canTriage}
         filters={
           <FilterBar
             filters={[
@@ -57,6 +65,8 @@ export default async function InboxPage({
                 options: [
                   { label: "Unread", value: "new" },
                   { label: "Read", value: "read" },
+                  { label: "Assigned", value: "assigned" },
+                  { label: "Processed", value: "processed" },
                   { label: "Pending", value: "pending" },
                   { label: "Failed", value: "failed" },
                 ],
