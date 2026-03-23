@@ -256,8 +256,8 @@ export function InboxList({
                   )}
                   <TableHead className="w-[30px]" />
                   <TableHead>From</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Document ID</TableHead>
+                  <TableHead className="hidden md:table-cell">Document ID</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
                   {canTriage && <TableHead>Department</TableHead>}
                   <TableHead className="text-right">Date</TableHead>
                 </TableRow>
@@ -291,17 +291,30 @@ export function InboxList({
                           : <MailOpen className="h-4 w-4 text-muted-foreground" />}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/dashboard/inbox/${doc.id}`} className={cn("hover:underline", isUnread ? "font-semibold" : "font-normal")}>
-                          {doc.sender_identifier ?? "Unknown sender"}
+                        <Link href={`/dashboard/inbox/${doc.id}`} className="block hover:underline">
+                          <span className={cn("text-sm", isUnread ? "font-semibold" : "font-normal")}>
+                            {doc.metadata?.supplierName ?? doc.sender_identifier ?? "Unknown sender"}
+                          </span>
+                          {doc.metadata?.lineItems && doc.metadata.lineItems.length > 0 && (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground max-w-[300px]">
+                              {doc.metadata.lineItems.slice(0, 3).join(", ")}
+                              {doc.metadata.lineItems.length > 3 && "..."}
+                            </p>
+                          )}
+                          {!doc.metadata?.lineItems && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              <FileText className="mr-1 inline h-3 w-3" />
+                              {documentTypeLabel(doc.document_type)} {doc.document_id ?? ""}
+                            </p>
+                          )}
                         </Link>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm">{documentTypeLabel(doc.document_type)}</span>
-                        </div>
+                      <TableCell className="hidden font-mono text-sm md:table-cell">{doc.document_id ?? "-"}</TableCell>
+                      <TableCell className="text-right text-sm font-medium">
+                        {doc.metadata?.totalAmount ? (
+                          <span>{doc.metadata.totalAmount} {doc.metadata.currency ?? ""}</span>
+                        ) : "-"}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{doc.document_id ?? "-"}</TableCell>
                       {canTriage && (
                         <TableCell>
                           <DeptPicker

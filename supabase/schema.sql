@@ -238,6 +238,9 @@ create table documents (
   -- Content (XML stored in Vercel Blob)
   blob_url text,
 
+  -- Parsed metadata from UBL XML
+  metadata jsonb default '{}',
+
   -- Retry tracking
   retry_count integer not null default 0,
   last_error text,

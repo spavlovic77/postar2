@@ -85,11 +85,25 @@ export interface Document {
   sender_identifier: string | null;
   receiver_identifier: string | null;
   blob_url: string | null;
+  metadata: DocumentMetadata | null;
   retry_count: number;
   last_error: string | null;
   last_retry_at: string | null;
   peppol_created_at: string | null;
   created_at: string;
+}
+
+export interface DocumentMetadata {
+  supplierName?: string;
+  supplierTaxId?: string;
+  buyerName?: string;
+  buyerTaxId?: string;
+  currency?: string;
+  totalAmount?: string;
+  taxAmount?: string;
+  lineItems?: string[];
+  issueDate?: string;
+  dueDate?: string;
 }
 
 export interface Department {

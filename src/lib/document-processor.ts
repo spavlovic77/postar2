@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { parseUblMetadata } from "@/lib/ubl-parser";
 import {
   getReceiveTransaction,
   getReceiveTransactionDocument,
@@ -67,6 +68,7 @@ export async function processDocument(documentId: string): Promise<boolean> {
 
     // Step 3: Fetch XML document
     let blobUrl = doc.blob_url;
+    let metadata = doc.metadata ?? {};
     if (!blobUrl) {
       const xmlContent = await getReceiveTransactionDocument(doc.ion_ap_transaction_id);
       if (xmlContent) {
@@ -77,6 +79,9 @@ export async function processDocument(documentId: string): Promise<boolean> {
           access: "private",
         });
         blobUrl = blob.url;
+
+        // Step 4b: Parse UBL metadata
+        metadata = parseUblMetadata(xmlContent);
       }
     }
 
@@ -90,6 +95,7 @@ export async function processDocument(documentId: string): Promise<boolean> {
         document_id: transaction.document_id,
         sender_identifier: transaction.sender_identifier,
         receiver_identifier: transaction.receiver_identifier,
+        metadata,
         blob_url: blobUrl,
         peppol_created_at: transaction.created_on,
         last_error: null,
