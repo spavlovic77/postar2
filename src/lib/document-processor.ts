@@ -104,6 +104,22 @@ export async function processDocument(documentId: string): Promise<boolean> {
       },
     });
 
+    // Billing: charge for the processed document
+    try {
+      const { chargeForDocument } = await import("@/lib/billing");
+      const billed = await chargeForDocument(documentId, doc.company_id);
+      if (!billed) {
+        const { auditDocumentUnbilled } = await import("@/lib/audit");
+        auditDocumentUnbilled({
+          companyId: doc.company_id,
+          companyDic: company?.dic ?? undefined,
+          documentId,
+        });
+      }
+    } catch (billingErr) {
+      console.error(`[DOC ${documentId}] Billing failed (non-fatal):`, billingErr instanceof Error ? billingErr.message : billingErr);
+    }
+
     return true;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

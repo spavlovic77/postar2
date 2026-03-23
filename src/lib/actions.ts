@@ -748,3 +748,53 @@ export async function sendGenesisInvitation(formData: FormData) {
   revalidatePath(`/dashboard/companies/${companyId}`);
   return { success: true };
 }
+
+export async function revokeInvitation(invitationId: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  // Get the invitation
+  const { data: invitation } = await admin
+    .from("invitations")
+    .select("*")
+    .eq("id", invitationId)
+    .single();
+
+  if (!invitation) return { error: "Invitation not found" };
+
+  if (invitation.accepted_at) {
+    return { error: "Cannot revoke an accepted invitation" };
+  }
+
+  // Check permission: super admin or the person who sent it
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin && invitation.invited_by !== user.id) {
+    return { error: "You can only revoke invitations you sent" };
+  }
+
+  // Soft-revoke: set expires_at to now so it becomes expired
+  await admin
+    .from("invitations")
+    .update({ expires_at: new Date().toISOString() })
+    .eq("id", invitationId);
+
+  audit({
+    eventId: "INVITATION_REVOKED",
+    eventName: "Invitation revoked",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    details: {
+      invitationId,
+      email: invitation.email,
+      roles: invitation.roles,
+    },
+  });
+
+  revalidatePath("/dashboard/users");
+  return { success: true };
+}

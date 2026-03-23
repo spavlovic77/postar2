@@ -74,5 +74,55 @@ export async function GET(request: Request) {
     results.auditPartitionsError = err instanceof Error ? err.message : String(err);
   }
 
+  // 3. Check pending payment links via KVERKOM REST API (safety net)
+  try {
+    const supabase = getSupabaseAdmin();
+
+    // Find pending payment links that are not yet expired
+    const { data: pendingLinks } = await supabase
+      .from("payment_links")
+      .select("id")
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .limit(10);
+
+    if (pendingLinks && pendingLinks.length > 0) {
+      const { checkAndProcessPayment } = await import("@/lib/payment");
+      let confirmed = 0;
+
+      for (const link of pendingLinks) {
+        try {
+          const result = await checkAndProcessPayment(link.id);
+          if (result.confirmed) confirmed++;
+        } catch {
+          // Non-fatal: individual check failure
+        }
+      }
+
+      if (confirmed > 0) {
+        results.paymentsConfirmed = confirmed;
+        audit({
+          eventId: "CRON_PAYMENTS_CONFIRMED",
+          eventName: "Cron confirmed pending payments via REST",
+          details: { confirmedCount: confirmed, checkedCount: pendingLinks.length },
+        });
+      }
+    }
+
+    // Expire stale payment links (older than 24h, still pending)
+    const { data: expired } = await supabase
+      .from("payment_links")
+      .update({ status: "expired" })
+      .eq("status", "pending")
+      .lt("expires_at", new Date().toISOString())
+      .select("id");
+
+    if (expired && expired.length > 0) {
+      results.paymentLinksExpired = expired.length;
+    }
+  } catch (err) {
+    results.paymentLinksError = err instanceof Error ? err.message : String(err);
+  }
+
   return NextResponse.json({ ok: true, ...results });
 }

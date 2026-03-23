@@ -11,6 +11,9 @@ drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text, text);
 
 drop table if exists system_settings cascade;
+drop table if exists payment_links cascade;
+drop table if exists wallet_transactions cascade;
+drop table if exists wallets cascade;
 drop table if exists documents cascade;
 drop table if exists department_memberships cascade;
 drop table if exists departments cascade;
@@ -25,6 +28,8 @@ drop function if exists create_audit_partition(text);
 drop function if exists archive_audit_partition(text);
 drop table if exists audit_logs cascade;
 
+drop type if exists wallet_transaction_type;
+drop type if exists payment_link_status;
 drop type if exists company_status;
 drop type if exists document_direction;
 drop type if exists document_status;
@@ -44,6 +49,8 @@ delete from auth.users;
 -- Enums
 -- ----------------------
 create type audit_severity as enum ('info', 'warning', 'error');
+create type wallet_transaction_type as enum ('charge', 'top_up', 'refund', 'adjustment');
+create type payment_link_status as enum ('pending', 'completed', 'expired');
 create type company_role as enum ('company_admin', 'operator', 'processor');
 create type membership_status as enum ('active', 'inactive');
 create type invitation_role as enum ('super_admin', 'company_admin', 'operator', 'processor');
@@ -125,6 +132,7 @@ create table companies (
   ion_ap_status ion_ap_status not null default 'pending',
   ion_ap_error text,
   ion_ap_activated_at timestamptz,
+  price_per_document numeric(10,4),
   created_at timestamptz not null default now()
 );
 
@@ -241,6 +249,10 @@ create table documents (
   -- Parsed metadata from UBL XML
   metadata jsonb default '{}',
 
+  -- Billing
+  billed_at timestamptz,
+  wallet_transaction_id uuid,
+
   -- Retry tracking
   retry_count integer not null default 0,
   last_error text,
@@ -255,6 +267,66 @@ create index idx_documents_company on documents (company_id);
 create index idx_documents_assigned on documents (assigned_to_company_id);
 create index idx_documents_direction on documents (direction, status);
 create index idx_documents_ion_ap on documents (ion_ap_transaction_id);
+create index idx_documents_unbilled on documents (company_id, billed_at) where billed_at is null;
+
+-- ----------------------
+-- Wallets (one per genesis admin)
+-- ----------------------
+create table wallets (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references profiles(id) on delete cascade unique,
+  available_balance numeric(12,4) not null default 0 check (available_balance >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index idx_wallets_owner on wallets (owner_id);
+
+-- ----------------------
+-- Wallet Transactions (full audit trail)
+-- ----------------------
+create table wallet_transactions (
+  id uuid primary key default gen_random_uuid(),
+  wallet_id uuid not null references wallets(id) on delete cascade,
+  company_id uuid references companies(id) on delete set null,
+  document_id uuid references documents(id) on delete set null,
+  type wallet_transaction_type not null,
+  amount numeric(12,4) not null,
+  balance_after numeric(12,4) not null,
+  description text,
+  metadata jsonb default '{}',
+  created_by uuid references profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index idx_wallet_txn_wallet on wallet_transactions (wallet_id, created_at);
+create index idx_wallet_txn_company on wallet_transactions (company_id, created_at);
+create index idx_wallet_txn_document on wallet_transactions (document_id);
+
+-- Add FK from documents to wallet_transactions (after both tables exist)
+alter table documents add constraint fk_documents_wallet_txn
+  foreign key (wallet_transaction_id) references wallet_transactions(id) on delete set null;
+
+-- ----------------------
+-- Payment Links (pending QR payments)
+-- ----------------------
+create table payment_links (
+  id uuid primary key default gen_random_uuid(),
+  wallet_id uuid not null references wallets(id) on delete cascade,
+  external_transaction_id text not null unique,
+  amount numeric(12,4) not null check (amount > 0),
+  status payment_link_status not null default 'pending',
+  payme_url text,
+  is_public boolean not null default false,
+  created_by uuid references profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '24 hours')
+);
+
+create index idx_payment_links_wallet on payment_links (wallet_id);
+create index idx_payment_links_external on payment_links (external_transaction_id);
+create index idx_payment_links_pending on payment_links (status) where status = 'pending';
 
 -- ----------------------
 -- Verification Codes (6-digit OTP for email/SMS)
@@ -372,6 +444,9 @@ alter table documents enable row level security;
 alter table departments enable row level security;
 alter table department_memberships enable row level security;
 alter table audit_logs enable row level security;
+alter table wallets enable row level security;
+alter table wallet_transactions enable row level security;
+alter table payment_links enable row level security;
 
 -- System Settings (super admin only)
 create policy "Super admins can view system settings"
@@ -536,6 +611,62 @@ create policy "Members can view audit logs for their companies"
 create policy "Users can view their own audit logs"
   on audit_logs for select
   using (actor_id = auth.uid());
+
+-- Wallets
+create policy "Wallet owners can view their wallet"
+  on wallets for select
+  using (owner_id = auth.uid());
+
+create policy "Super admins can view all wallets"
+  on wallets for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
+
+-- Wallet Transactions
+create policy "Wallet owners can view their transactions"
+  on wallet_transactions for select
+  using (
+    exists (
+      select 1 from wallets
+      where wallets.id = wallet_transactions.wallet_id
+        and wallets.owner_id = auth.uid()
+    )
+  );
+
+create policy "Super admins can view all wallet transactions"
+  on wallet_transactions for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
+
+-- Payment Links
+create policy "Wallet owners can view their payment links"
+  on payment_links for select
+  using (
+    exists (
+      select 1 from wallets
+      where wallets.id = payment_links.wallet_id
+        and wallets.owner_id = auth.uid()
+    )
+  );
+
+create policy "Company members can view payment links of their genesis admin"
+  on payment_links for select
+  using (
+    exists (
+      select 1 from wallets w
+      join company_memberships gm on gm.user_id = w.owner_id and gm.is_genesis = true and gm.status = 'active'
+      join company_memberships cm on cm.company_id = gm.company_id and cm.user_id = auth.uid() and cm.status = 'active'
+      where w.id = payment_links.wallet_id
+    )
+  );
+
+create policy "Super admins can view all payment links"
+  on payment_links for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
 
 -- ============================================================
 -- Seed Super Admin

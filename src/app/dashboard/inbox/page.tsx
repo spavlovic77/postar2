@@ -54,6 +54,7 @@ export default async function InboxPage({
         nextCursor={nextCursor}
         companyFilter={companyFilter}
         canTriage={canTriage}
+        isSuperAdmin={role === "super_admin"}
         filters={
           <FilterBar
             filters={[

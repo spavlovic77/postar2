@@ -21,6 +21,7 @@ import { EditCompanyDialog } from "./edit-company-dialog";
 import { SendGenesisInvitation } from "./send-genesis-invitation";
 import { EditRolesDialog } from "./edit-roles-dialog";
 import { DepartmentManager } from "@/components/dashboard/department-manager";
+import { PricingCard } from "./pricing-card";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("sk-SK", {
@@ -282,6 +283,14 @@ export default async function CompanyDetailPage({
           </Table>
         </div>
       </div>
+
+      {/* Billing - Super admin only */}
+      {role === "super_admin" && !isDeactivated && (
+        <PricingCard
+          companyId={company.id}
+          pricePerDocument={company.price_per_document}
+        />
+      )}
 
       {/* Reactivation form - Super admin only, deactivated companies */}
       {role === "super_admin" && isDeactivated && (

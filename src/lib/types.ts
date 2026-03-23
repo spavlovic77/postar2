@@ -29,6 +29,7 @@ export interface Company {
   ion_ap_status: IonApStatus;
   ion_ap_error: string | null;
   ion_ap_activated_at: string | null;
+  price_per_document: number | null;
   created_at: string;
 }
 
@@ -86,6 +87,8 @@ export interface Document {
   receiver_identifier: string | null;
   blob_url: string | null;
   metadata: DocumentMetadata | null;
+  billed_at: string | null;
+  wallet_transaction_id: string | null;
   retry_count: number;
   last_error: string | null;
   last_retry_at: string | null;
@@ -120,6 +123,49 @@ export interface DepartmentMembership {
   department_id: string;
   created_at: string;
   department?: Department;
+}
+
+// ============================================================
+// Billing
+// ============================================================
+
+export type WalletTransactionType = "charge" | "top_up" | "refund" | "adjustment";
+export type PaymentLinkStatus = "pending" | "completed" | "expired";
+
+export interface Wallet {
+  id: string;
+  owner_id: string;
+  available_balance: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  wallet_id: string;
+  company_id: string | null;
+  document_id: string | null;
+  type: WalletTransactionType;
+  amount: number;
+  balance_after: number;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PaymentLink {
+  id: string;
+  wallet_id: string;
+  external_transaction_id: string;
+  amount: number;
+  status: PaymentLinkStatus;
+  payme_url: string | null;
+  is_public: boolean;
+  created_by: string | null;
+  created_at: string;
+  completed_at: string | null;
+  expires_at: string;
 }
 
 export interface NavigationItem {

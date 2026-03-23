@@ -249,3 +249,43 @@ export async function updateMemberRoles(membershipId: string, roles: string[]) {
   revalidatePath(`/dashboard/companies/${membership.company_id}`);
   return { success: true };
 }
+
+export async function updateCompanyPricing(companyId: string, pricePerDocument: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getSupabaseAdmin();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    return { error: "Only super admins can set pricing" };
+  }
+
+  if (pricePerDocument < 0) return { error: "Price cannot be negative" };
+
+  await admin
+    .from("companies")
+    .update({ price_per_document: pricePerDocument })
+    .eq("id", companyId);
+
+  audit({
+    eventId: "COMPANY_PRICING_UPDATED",
+    eventName: "Company pricing updated",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId,
+    details: { pricePerDocument },
+  });
+
+  revalidatePath(`/dashboard/companies/${companyId}`);
+  return { success: true };
+}

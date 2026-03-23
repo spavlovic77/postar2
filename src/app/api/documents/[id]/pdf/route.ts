@@ -22,7 +22,7 @@ export async function GET(
   const admin = getSupabaseAdmin();
   const { data: doc } = await admin
     .from("documents")
-    .select("ion_ap_transaction_id, direction, company_id")
+    .select("ion_ap_transaction_id, direction, company_id, billed_at, status")
     .eq("id", id)
     .single();
 
@@ -49,6 +49,12 @@ export async function GET(
     if (!membership) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+  }
+
+  // Block unbilled documents for non-super-admins
+  const isUnbilled = !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+  if (isUnbilled && !profile?.is_super_admin) {
+    return NextResponse.json({ error: "Document is locked — insufficient wallet balance" }, { status: 403 });
   }
 
   try {

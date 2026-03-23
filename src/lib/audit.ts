@@ -367,6 +367,61 @@ export function auditDepartmentMemberAdded(params: {
   });
 }
 
+// ============================================================
+// Billing events
+// ============================================================
+
+export function auditDocumentUnbilled(params: {
+  companyId: string;
+  companyDic?: string | null;
+  documentId: string;
+}) {
+  audit({
+    eventId: "DOCUMENT_UNBILLED",
+    eventName: "Document arrived but wallet has insufficient balance",
+    severity: "warning",
+    companyId: params.companyId,
+    companyDic: params.companyDic ?? undefined,
+    details: { documentId: params.documentId },
+  });
+}
+
+export function auditPaymentLinkCreated(params: {
+  actorId: string;
+  walletId: string;
+  amount: number;
+  transactionId: string;
+  isPublic: boolean;
+}) {
+  audit({
+    eventId: "PAYMENT_LINK_CREATED",
+    eventName: "Payment link generated",
+    actorId: params.actorId,
+    details: {
+      walletId: params.walletId,
+      amount: params.amount,
+      transactionId: params.transactionId,
+      isPublic: params.isPublic,
+    },
+  });
+}
+
+export function auditPaymentReceived(params: {
+  walletId: string;
+  amount: number;
+  transactionId: string;
+}) {
+  audit({
+    eventId: "PAYMENT_RECEIVED",
+    eventName: "QR payment received and processed",
+    details: {
+      walletId: params.walletId,
+      amount: params.amount,
+      transactionId: params.transactionId,
+    },
+  });
+}
+
 export function auditDepartmentMemberRemoved(params: {
   actorId: string;
   actorEmail: string;

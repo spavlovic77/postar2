@@ -15,6 +15,7 @@ import {
   Webhook,
   ScrollText,
   Settings,
+  Wallet,
 } from "lucide-react";
 import type { NavigationItem } from "@/lib/types";
 
@@ -26,6 +27,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Webhook,
   ScrollText,
   Settings,
+  Wallet,
 };
 
 interface Props {

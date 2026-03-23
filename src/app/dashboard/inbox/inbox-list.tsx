@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check } from "lucide-react";
+import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock } from "lucide-react";
 import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,7 @@ interface Props {
   nextCursor: string | null;
   companyFilter: string | null;
   canTriage: boolean;
+  isSuperAdmin: boolean;
   filters?: React.ReactNode;
 }
 
@@ -135,6 +136,7 @@ export function InboxList({
   nextCursor: initialCursor,
   companyFilter,
   canTriage,
+  isSuperAdmin,
   filters,
 }: Props) {
   const [documents, setDocuments] = useState(initialDocuments);
@@ -237,6 +239,21 @@ export function InboxList({
         </div>
       )}
 
+      {!isSuperAdmin && documents.some((d: any) => !d.billed_at && ["new", "read", "assigned", "processed"].includes(d.status)) && (
+        <div className="flex items-center gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 dark:border-yellow-900 dark:bg-yellow-950">
+          <Lock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              Some documents are locked due to insufficient wallet balance.
+            </p>
+            <p className="text-xs text-yellow-600 dark:text-yellow-400">Top up your wallet to unlock all documents.</p>
+          </div>
+          <Link href="/dashboard/wallet" className="shrink-0">
+            <Button size="sm" variant="outline">Top Up</Button>
+          </Link>
+        </div>
+      )}
+
       {documents.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
           <Mail className="h-12 w-12" />
@@ -269,6 +286,7 @@ export function InboxList({
                   const isFailed = doc.status === "failed";
                   const isSelected = selectedIds.has(doc.id);
                   const companyDepts = departments[doc.company_id] ?? [];
+                  const isLocked = !isSuperAdmin && !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
 
                   return (
                     <TableRow
@@ -276,7 +294,8 @@ export function InboxList({
                       className={cn(
                         isUnread && "bg-muted/30",
                         isFailed && "bg-destructive/5",
-                        isSelected && "bg-primary/5"
+                        isSelected && "bg-primary/5",
+                        isLocked && "opacity-60"
                       )}
                     >
                       {canTriage && (
@@ -291,26 +310,40 @@ export function InboxList({
                           : <MailOpen className="h-4 w-4 text-muted-foreground" />}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/dashboard/inbox/${doc.id}`} className="block hover:underline">
-                          <span className={cn("text-sm", isUnread ? "font-semibold" : "font-normal")}>
-                            {doc.metadata?.supplierName ?? doc.sender_identifier ?? "Unknown sender"}
-                          </span>
-                          {doc.metadata?.lineItems && doc.metadata.lineItems.length > 0 && (
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground max-w-[300px]">
-                              {doc.metadata.lineItems.slice(0, 3).join(", ")}
-                              {doc.metadata.lineItems.length > 3 && "..."}
-                            </p>
-                          )}
-                          {!doc.metadata?.lineItems && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              <FileText className="mr-1 inline h-3 w-3" />
+                        {isLocked ? (
+                          <div className="select-none">
+                            <div className="flex items-center gap-1.5">
+                              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className={cn("text-sm blur-sm", isUnread ? "font-semibold" : "font-normal")}>
+                                {doc.metadata?.supplierName ?? doc.sender_identifier ?? "Unknown sender"}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted-foreground blur-sm">
                               {documentTypeLabel(doc.document_type)} {doc.document_id ?? ""}
                             </p>
-                          )}
-                        </Link>
+                          </div>
+                        ) : (
+                          <Link href={`/dashboard/inbox/${doc.id}`} className="block hover:underline">
+                            <span className={cn("text-sm", isUnread ? "font-semibold" : "font-normal")}>
+                              {doc.metadata?.supplierName ?? doc.sender_identifier ?? "Unknown sender"}
+                            </span>
+                            {doc.metadata?.lineItems && doc.metadata.lineItems.length > 0 && (
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground max-w-[300px]">
+                                {doc.metadata.lineItems.slice(0, 3).join(", ")}
+                                {doc.metadata.lineItems.length > 3 && "..."}
+                              </p>
+                            )}
+                            {!doc.metadata?.lineItems && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                <FileText className="mr-1 inline h-3 w-3" />
+                                {documentTypeLabel(doc.document_type)} {doc.document_id ?? ""}
+                              </p>
+                            )}
+                          </Link>
+                        )}
                       </TableCell>
-                      <TableCell className="hidden font-mono text-sm md:table-cell">{doc.document_id ?? "-"}</TableCell>
-                      <TableCell className="text-right text-sm font-medium">
+                      <TableCell className={cn("hidden font-mono text-sm md:table-cell", isLocked && "blur-sm select-none")}>{doc.document_id ?? "-"}</TableCell>
+                      <TableCell className={cn("text-right text-sm font-medium", isLocked && "blur-sm select-none")}>
                         {doc.metadata?.totalAmount ? (
                           <span>{doc.metadata.totalAmount} {doc.metadata.currency ?? ""}</span>
                         ) : "-"}

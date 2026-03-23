@@ -7,6 +7,7 @@ import type {
   CompanyMembership,
   Department,
   Document,
+  Wallet,
 } from "./types";
 
 export interface UserWithRole {
@@ -613,5 +614,78 @@ export async function getInboxCounts(companyIds: string[], isSuperAdmin: boolean
   return {
     unread: unread.count ?? 0,
     total: total.count ?? 0,
+  };
+}
+
+// ============================================================
+// Billing / Wallet
+// ============================================================
+
+export async function getWalletByOwner(ownerId: string): Promise<Wallet | null> {
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("wallets")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .single();
+  return data as Wallet | null;
+}
+
+/**
+ * Find the wallet associated with a user.
+ * If the user is genesis admin, return their wallet.
+ * Otherwise, find the genesis admin of their first company.
+ */
+export async function getWalletForCurrentUser(userId: string): Promise<{
+  wallet: Wallet;
+  genesisUserId: string;
+  isOwner: boolean;
+} | null> {
+  const admin = getSupabaseAdmin();
+
+  // Check if user has their own wallet (is genesis admin)
+  const { data: ownWallet } = await admin
+    .from("wallets")
+    .select("*")
+    .eq("owner_id", userId)
+    .single();
+
+  if (ownWallet) {
+    return { wallet: ownWallet as Wallet, genesisUserId: userId, isOwner: true };
+  }
+
+  // Find genesis admin of user's first company
+  const { data: membership } = await admin
+    .from("company_memberships")
+    .select("company_id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .single();
+
+  if (!membership) return null;
+
+  const { data: genesisMembership } = await admin
+    .from("company_memberships")
+    .select("user_id")
+    .eq("company_id", membership.company_id)
+    .eq("is_genesis", true)
+    .eq("status", "active")
+    .single();
+
+  if (!genesisMembership) return null;
+
+  const { data: wallet } = await admin
+    .from("wallets")
+    .select("*")
+    .eq("owner_id", genesisMembership.user_id)
+    .single();
+
+  if (!wallet) return null;
+
+  return {
+    wallet: wallet as Wallet,
+    genesisUserId: genesisMembership.user_id,
+    isOwner: false,
   };
 }

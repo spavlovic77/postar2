@@ -2,8 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { redirect, notFound } from "next/navigation";
 import { getUserWithRole, getDocument, updateDocumentStatus } from "@/lib/dal";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DocumentActions } from "./document-actions";
 import { XmlViewer } from "./xml-viewer";
 import { audit } from "@/lib/audit";
@@ -52,6 +54,29 @@ export default async function DocumentDetailPage({
   if (role !== "super_admin") {
     const hasAccess = memberships.some((m) => m.company_id === doc.company_id);
     if (!hasAccess) notFound();
+  }
+
+  // Billing gate: block unbilled documents for non-super-admins
+  const isUnbilled = !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+  if (isUnbilled && role !== "super_admin") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>Document Locked</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This document cannot be viewed because the wallet balance is insufficient.
+              Please top up to unlock all pending documents.
+            </p>
+            <Link href="/dashboard/wallet">
+              <Button>Go to Wallet</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Auto-mark as read on view
