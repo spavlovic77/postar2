@@ -10,12 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, ScrollText, Settings } from "lucide-react";
+import type { AppRole } from "@/lib/types";
 
 interface Props {
   fullName: string | null;
   email: string | null;
   avatarUrl: string | null;
+  role: AppRole;
 }
 
 function getInitials(name: string | null, email: string | null): string {
@@ -30,7 +32,7 @@ function getInitials(name: string | null, email: string | null): string {
   return (email?.[0] ?? "U").toUpperCase();
 }
 
-export function UserAvatar({ fullName, email, avatarUrl }: Props) {
+export function UserAvatar({ fullName, email, avatarUrl, role }: Props) {
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -56,9 +58,15 @@ export function UserAvatar({ fullName, email, avatarUrl }: Props) {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
-          <User className="mr-2 h-4 w-4" />
+          <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
+        {role === "processor" && (
+          <DropdownMenuItem onClick={() => router.push("/dashboard/audit")}>
+            <ScrollText className="mr-2 h-4 w-4" />
+            Audit Log
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />

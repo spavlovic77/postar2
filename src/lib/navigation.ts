@@ -5,7 +5,7 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: "LayoutDashboard",
-    roles: ["super_admin", "company_admin", "operator", "processor"],
+    roles: ["super_admin", "company_admin", "operator"],
   },
   {
     label: "Inbox",
@@ -41,13 +41,13 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Audit Log",
     href: "/dashboard/audit",
     icon: "ScrollText",
-    roles: ["super_admin", "company_admin", "operator", "processor"],
+    roles: ["super_admin", "company_admin", "operator"],
   },
   {
     label: "Settings",
     href: "/dashboard/settings",
     icon: "Settings",
-    roles: ["super_admin", "company_admin", "operator", "processor"],
+    roles: ["super_admin", "company_admin", "operator"],
   },
 ];
 

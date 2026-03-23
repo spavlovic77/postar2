@@ -46,6 +46,8 @@ export default async function DashboardPage() {
     );
   }
 
-  // Processor
+  // Processor — redirect to inbox (no dashboard for this role)
+  if (role === "processor") redirect("/dashboard/inbox");
+
   return <ProcessorDashboard companies={companies} />;
 }

@@ -14,7 +14,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { UserAvatar } from "./user-avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import type { NavigationItem, Company } from "@/lib/types";
+import type { AppRole, NavigationItem, Company } from "@/lib/types";
 
 interface Props {
   navItems: NavigationItem[];
@@ -22,6 +22,7 @@ interface Props {
   fullName: string | null;
   email: string | null;
   avatarUrl: string | null;
+  role: AppRole;
   children: React.ReactNode;
 }
 
@@ -31,6 +32,7 @@ export function AppShell({
   fullName,
   email,
   avatarUrl,
+  role,
   children,
 }: Props) {
   return (
@@ -61,6 +63,7 @@ export function AppShell({
             fullName={fullName}
             email={email}
             avatarUrl={avatarUrl}
+            role={role}
           />
         </header>
 

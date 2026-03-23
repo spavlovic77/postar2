@@ -44,6 +44,7 @@ export default async function DashboardLayout({
       fullName={profile.full_name}
       email={user.email}
       avatarUrl={profile.avatar_url}
+      role={role}
     >
       {children}
     </AppShell>
