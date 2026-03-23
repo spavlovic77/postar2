@@ -49,14 +49,25 @@ export async function GET(
     }
   }
 
-  // Fetch from blob
-  const res = await fetch(doc.blob_url);
-  if (!res.ok) {
+  try {
+    // Fetch from blob with token auth
+    const res = await fetch(doc.blob_url, {
+      headers: {
+        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+      },
+    });
+
+    if (!res.ok) {
+      console.error("Blob fetch failed:", res.status, await res.text());
+      return NextResponse.json({ error: "Failed to fetch document" }, { status: 500 });
+    }
+
+    const xml = await res.text();
+    return new NextResponse(xml, {
+      headers: { "Content-Type": "application/xml" },
+    });
+  } catch (err) {
+    console.error("XML fetch error:", err);
     return NextResponse.json({ error: "Failed to fetch document" }, { status: 500 });
   }
-
-  const xml = await res.text();
-  return new NextResponse(xml, {
-    headers: { "Content-Type": "application/xml" },
-  });
 }
