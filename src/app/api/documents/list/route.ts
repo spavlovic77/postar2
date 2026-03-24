@@ -27,12 +27,19 @@ export async function GET(request: Request) {
 
   const { data: memberships } = await admin
     .from("company_memberships")
-    .select("company_id")
+    .select("company_id, roles")
     .eq("user_id", user.id)
     .eq("status", "active");
 
   const companyIds = (memberships ?? []).map((m) => m.company_id);
   const isSuperAdmin = profile?.is_super_admin ?? false;
+
+  // Determine if user is processor-only (no admin/operator roles)
+  const allRoles = (memberships ?? []).flatMap((m: any) => m.roles ?? []);
+  const isProcessorOnly =
+    !isSuperAdmin &&
+    !allRoles.includes("company_admin") &&
+    !allRoles.includes("operator");
 
   let query = admin
     .from("documents")
@@ -47,6 +54,22 @@ export async function GET(request: Request) {
 
   if (companyId) {
     query = query.eq("company_id", companyId);
+  }
+
+  // Processor: only show documents assigned to their departments
+  if (isProcessorOnly) {
+    const { data: deptMemberships } = await admin
+      .from("department_memberships")
+      .select("department_id")
+      .eq("user_id", user.id);
+
+    const deptIds = (deptMemberships ?? []).map((dm) => dm.department_id);
+    if (deptIds.length > 0) {
+      query = query.in("department_id", deptIds);
+    } else {
+      // No departments — return empty
+      return NextResponse.json({ documents: [], total: 0, nextCursor: null });
+    }
   }
 
   if (cursor) {

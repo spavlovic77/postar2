@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { getUserWithRole, getDocuments, getInboxCounts } from "@/lib/dal";
+import { getUserWithRole, getDocuments, getInboxCounts, getUserDepartments } from "@/lib/dal";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { InboxList } from "./inbox-list";
 
@@ -13,7 +13,7 @@ export default async function InboxPage({
   const data = await getUserWithRole();
   if (!data) redirect("/");
 
-  const { role, memberships } = data;
+  const { role, user, memberships } = data;
   const params = await searchParams;
   const companyFilter = params.company ?? null;
   const companyIds = memberships.map((m) => m.company_id);
@@ -26,18 +26,30 @@ export default async function InboxPage({
     allRoles.includes("company_admin") ||
     allRoles.includes("operator");
 
+  // Processors only see documents assigned to their department(s)
+  let departmentIds: string[] | undefined;
+  if (role === "processor") {
+    const userDepts = await getUserDepartments(user.id);
+    departmentIds = userDepts.map((dm: any) => dm.department_id);
+    if (departmentIds.length === 0) {
+      // Processor not in any department — show nothing
+      departmentIds = ["__none__"];
+    }
+  }
+
   const [{ documents, total }, counts] = await Promise.all([
     getDocuments({
       companyIds,
       direction: "received",
       companyId: companyFilter,
       isSuperAdmin: role === "super_admin",
+      departmentIds,
       status: params.status || undefined,
       documentType: params.type || undefined,
       search: params.q || undefined,
       limit: pageSize,
     }),
-    getInboxCounts(companyIds, role === "super_admin"),
+    getInboxCounts(companyIds, role === "super_admin", departmentIds),
   ]);
 
   const nextCursor =

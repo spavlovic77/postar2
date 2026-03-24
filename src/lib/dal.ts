@@ -507,6 +507,7 @@ export async function getDocuments(params: {
   status?: string;
   companyId?: string | null;
   isSuperAdmin: boolean;
+  departmentIds?: string[];
   search?: string;
   documentType?: string;
   limit?: number;
@@ -520,6 +521,11 @@ export async function getDocuments(params: {
 
   if (!params.isSuperAdmin && params.companyIds.length > 0) {
     query = query.in("company_id", params.companyIds);
+  }
+
+  // Processor department filter: only show docs assigned to their departments
+  if (params.departmentIds && params.departmentIds.length > 0) {
+    query = query.in("department_id", params.departmentIds);
   }
 
   if (params.companyId) {
@@ -590,7 +596,11 @@ export async function updateDocumentStatus(
   await admin.from("documents").update({ status }).eq("id", documentId);
 }
 
-export async function getInboxCounts(companyIds: string[], isSuperAdmin: boolean) {
+export async function getInboxCounts(
+  companyIds: string[],
+  isSuperAdmin: boolean,
+  departmentIds?: string[]
+) {
   const admin = getSupabaseAdmin();
 
   let unreadQuery = admin
@@ -607,6 +617,11 @@ export async function getInboxCounts(companyIds: string[], isSuperAdmin: boolean
   if (!isSuperAdmin && companyIds.length > 0) {
     unreadQuery = unreadQuery.in("company_id", companyIds);
     totalQuery = totalQuery.in("company_id", companyIds);
+  }
+
+  if (departmentIds && departmentIds.length > 0) {
+    unreadQuery = unreadQuery.in("department_id", departmentIds);
+    totalQuery = totalQuery.in("department_id", departmentIds);
   }
 
   const [unread, total] = await Promise.all([unreadQuery, totalQuery]);

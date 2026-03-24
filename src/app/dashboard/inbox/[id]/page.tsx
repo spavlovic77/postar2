@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DocumentActions } from "./document-actions";
 import { XmlViewer } from "./xml-viewer";
 import { audit } from "@/lib/audit";
+import { getUserDepartments } from "@/lib/dal";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString("sk-SK", {
@@ -54,6 +55,16 @@ export default async function DocumentDetailPage({
   if (role !== "super_admin") {
     const hasAccess = memberships.some((m) => m.company_id === doc.company_id);
     if (!hasAccess) notFound();
+  }
+
+  // Processor: can only view documents assigned to their department(s)
+  if (role === "processor" && doc.department_id) {
+    const userDepts = await getUserDepartments(user.id);
+    const userDeptIds = userDepts.map((dm: any) => dm.department_id);
+    if (!userDeptIds.includes(doc.department_id)) notFound();
+  } else if (role === "processor" && !doc.department_id) {
+    // Processor cannot see unassigned documents
+    notFound();
   }
 
   // Billing gate: block unbilled documents for non-super-admins
