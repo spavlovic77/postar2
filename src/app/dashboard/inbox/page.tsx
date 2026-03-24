@@ -37,19 +37,6 @@ export default async function InboxPage({
     }
   }
 
-  // Role-based smart default: redirect to include default status in URL
-  const isOperator = allRoles.includes("operator") && !allRoles.includes("company_admin");
-  const isProcessor = role === "processor";
-  const hasAnyFilter = !!(params.status || params.q || params.type || params.company);
-
-  if (!hasAnyFilter && role !== "super_admin") {
-    if (isOperator) {
-      redirect("/dashboard/inbox?status=unassigned");
-    } else if (isProcessor) {
-      redirect("/dashboard/inbox?status=assigned");
-    }
-  }
-
   let statusFilter = params.status || undefined;
   let unassignedFilter = false;
 

@@ -34,6 +34,7 @@ export function PeppolActivateButton({ companyId }: { companyId: string }) {
         title="Activate on Peppol"
         description="Register this company on the Peppol network. It will become discoverable for receiving invoices."
         confirmLabel="Activate"
+        loadingLabel="Activating..."
         onConfirm={handleActivate}
         trigger={
           <Button disabled={isLoading}>

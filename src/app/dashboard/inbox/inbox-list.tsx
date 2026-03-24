@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock } from "lucide-react";
+import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock, RefreshCw } from "lucide-react";
 import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -139,13 +140,27 @@ export function InboxList({
   isSuperAdmin,
   filters,
 }: Props) {
+  const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
   const [cursor, setCursor] = useState(initialCursor);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [departments, setDepartments] = useState<Record<string, Department[]>>({});
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const { toast } = useToast();
+
+  // Sync with server data when props change (after router.refresh)
+  useEffect(() => {
+    setDocuments(initialDocuments);
+    setCursor(initialCursor);
+    setIsRefreshing(false);
+  }, [initialDocuments, initialCursor]);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    router.refresh();
+  }, [router]);
 
   useEffect(() => {
     const companyIds = [...new Set(documents.map((d: any) => d.company_id).filter(Boolean))];
@@ -207,7 +222,18 @@ export function InboxList({
           <h1 className="text-2xl font-bold">Inbox</h1>
           {unreadCount > 0 && <Badge variant="secondary">{unreadCount} unread</Badge>}
         </div>
-        <span className="text-sm text-muted-foreground">{total} documents</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{total} documents</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Refresh"
+          >
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+          </Button>
+        </div>
       </div>
 
       {filters}

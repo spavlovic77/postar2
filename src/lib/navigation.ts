@@ -52,5 +52,18 @@ const NAV_ITEMS: NavigationItem[] = [
 ];
 
 export function getNavForRole(role: AppRole): NavigationItem[] {
-  return NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+
+  // Role-based smart default: Inbox link includes default filter
+  return items.map((item) => {
+    if (item.href === "/dashboard/inbox") {
+      if (role === "operator") {
+        return { ...item, href: "/dashboard/inbox?status=unassigned" };
+      }
+      if (role === "processor") {
+        return { ...item, href: "/dashboard/inbox?status=assigned" };
+      }
+    }
+    return item;
+  });
 }

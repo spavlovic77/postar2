@@ -9,11 +9,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface Props {
   title: string;
   description: string;
   confirmLabel?: string;
+  loadingLabel?: string;
   confirmVariant?: "default" | "destructive";
   trigger: React.ReactNode;
   onConfirm: () => void | Promise<void>;
@@ -23,6 +25,7 @@ export function ConfirmAction({
   title,
   description,
   confirmLabel = "Confirm",
+  loadingLabel,
   confirmVariant = "default",
   trigger,
   onConfirm,
@@ -60,7 +63,14 @@ export function ConfirmAction({
                 onClick={handleConfirm}
                 disabled={isLoading}
               >
-                {isLoading ? "..." : confirmLabel}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {loadingLabel ?? "Processing..."}
+                  </>
+                ) : (
+                  confirmLabel
+                )}
               </Button>
             </div>
           </DialogContent>

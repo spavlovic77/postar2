@@ -34,6 +34,7 @@ export function DeactivateCompanyButton({ companyId, companyName }: { companyId:
         title={`Deactivate ${companyName}`}
         description="This will remove the company from the Peppol network, deactivate all members, and archive all documents. This action is NOT reversible."
         confirmLabel="Deactivate"
+        loadingLabel="Deactivating..."
         confirmVariant="destructive"
         onConfirm={handleDeactivate}
         trigger={
