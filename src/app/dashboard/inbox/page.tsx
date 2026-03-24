@@ -37,6 +37,28 @@ export default async function InboxPage({
     }
   }
 
+  // Role-based smart default: redirect to include default status in URL
+  const isOperator = allRoles.includes("operator") && !allRoles.includes("company_admin");
+  const isProcessor = role === "processor";
+  const hasAnyFilter = !!(params.status || params.q || params.type || params.company);
+
+  if (!hasAnyFilter && role !== "super_admin") {
+    if (isOperator) {
+      redirect("/dashboard/inbox?status=unassigned");
+    } else if (isProcessor) {
+      redirect("/dashboard/inbox?status=assigned");
+    }
+  }
+
+  let statusFilter = params.status || undefined;
+  let unassignedFilter = false;
+
+  // "unassigned" is a pseudo-status: filters by department_id IS NULL
+  if (statusFilter === "unassigned") {
+    unassignedFilter = true;
+    statusFilter = undefined;
+  }
+
   const [{ documents, total }, counts] = await Promise.all([
     getDocuments({
       companyIds,
@@ -44,7 +66,8 @@ export default async function InboxPage({
       companyId: companyFilter,
       isSuperAdmin: role === "super_admin",
       departmentIds,
-      status: params.status || undefined,
+      unassignedOnly: unassignedFilter,
+      status: statusFilter,
       documentType: params.type || undefined,
       search: params.q || undefined,
       limit: pageSize,
@@ -74,8 +97,10 @@ export default async function InboxPage({
               {
                 key: "status",
                 label: "Status",
+                allLabel: "All statuses",
                 type: "select",
                 options: [
+                  ...(canTriage ? [{ label: "Unassigned", value: "unassigned" }] : []),
                   { label: "Unread", value: "new" },
                   { label: "Read", value: "read" },
                   { label: "Assigned", value: "assigned" },
@@ -87,6 +112,7 @@ export default async function InboxPage({
               {
                 key: "type",
                 label: "Type",
+                allLabel: "All types",
                 type: "select",
                 options: [
                   { label: "Invoice", value: "Invoice" },

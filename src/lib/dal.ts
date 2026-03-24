@@ -508,6 +508,7 @@ export async function getDocuments(params: {
   companyId?: string | null;
   isSuperAdmin: boolean;
   departmentIds?: string[];
+  unassignedOnly?: boolean;
   search?: string;
   documentType?: string;
   limit?: number;
@@ -526,6 +527,11 @@ export async function getDocuments(params: {
   // Processor department filter: only show docs assigned to their departments
   if (params.departmentIds && params.departmentIds.length > 0) {
     query = query.in("department_id", params.departmentIds);
+  }
+
+  // Unassigned filter: documents with no department assigned
+  if (params.unassignedOnly) {
+    query = query.is("department_id", null);
   }
 
   if (params.companyId) {
