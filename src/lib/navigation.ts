@@ -35,7 +35,7 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Wallet",
     href: "/dashboard/wallet",
     icon: "Wallet",
-    roles: ["company_admin", "operator", "processor"],
+    roles: ["company_admin", "operator"],
   },
   {
     label: "Audit Log",

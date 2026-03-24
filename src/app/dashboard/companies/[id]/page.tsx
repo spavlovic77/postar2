@@ -196,6 +196,7 @@ export default async function CompanyDetailPage({
           unassignedUserIds={deptData.unassignedUserIds}
           allMembers={deptData.allMembers}
           canManage={canManageDepartments}
+          canManageMembers={canManageMembers}
         />
       )}
 

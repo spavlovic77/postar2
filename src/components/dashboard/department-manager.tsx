@@ -44,6 +44,7 @@ interface Props {
   unassignedUserIds: string[];
   allMembers: Member[];
   canManage: boolean;
+  canManageMembers?: boolean;
 }
 
 function DraggableUser({ member, canDrag }: { member: Member; canDrag: boolean }) {
@@ -218,7 +219,8 @@ function CreateDepartmentForm({ companyId, parentId, onClose, onSuccess }: {
   );
 }
 
-export function DepartmentManager({ companyId, departments, membersByDept, unassignedUserIds, allMembers, canManage }: Props) {
+export function DepartmentManager({ companyId, departments, membersByDept, unassignedUserIds, allMembers, canManage, canManageMembers: canManageMembersProp }: Props) {
+  const canManageMembers = canManageMembersProp ?? canManage;
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set(departments.map((d) => d.id)));
   const [activeDragUserId, setActiveDragUserId] = useState<string | null>(null);
@@ -237,7 +239,7 @@ export function DepartmentManager({ companyId, departments, membersByDept, unass
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveDragUserId(null);
     const { over, active } = e;
-    if (!over || !canManage) return;
+    if (!over || !canManageMembers) return;
     const userId = active.data.current?.userId;
     const memberName = active.data.current?.memberName;
     const targetDeptId = over.data.current?.departmentId;
@@ -361,8 +363,8 @@ export function DepartmentManager({ companyId, departments, membersByDept, unass
                 <div className="flex flex-wrap gap-2">
                   {selectedMemberObjects.map((m) => (
                     <div key={m.id} className="flex items-center gap-1">
-                      <DraggableUser member={m} canDrag={canManage} />
-                      {canManage && selectedDeptId && (
+                      <DraggableUser member={m} canDrag={canManageMembers} />
+                      {canManageMembers && selectedDeptId && (
                         <button onClick={() => handleRemoveMember(selectedDeptId, m.id)} disabled={isProcessing} className="rounded p-0.5 text-muted-foreground hover:text-destructive" title="Remove"><X className="h-3 w-3" /></button>
                       )}
                     </div>

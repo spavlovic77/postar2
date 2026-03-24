@@ -251,6 +251,30 @@ async function verifyCompanyAdmin(userId: string, companyId: string) {
   return !!membership;
 }
 
+async function verifyCompanyAdminOrOperator(userId: string, companyId: string) {
+  const admin = getSupabaseAdmin();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", userId)
+    .single();
+
+  if (profile?.is_super_admin) return true;
+
+  const { data: membership } = await admin
+    .from("company_memberships")
+    .select("roles")
+    .eq("user_id", userId)
+    .eq("company_id", companyId)
+    .eq("status", "active")
+    .single();
+
+  if (!membership) return false;
+  const roles: string[] = membership.roles ?? [];
+  return roles.includes("company_admin") || roles.includes("operator");
+}
+
 export async function createDepartment(formData: FormData) {
   const user = await getAuthUser();
   const admin = getSupabaseAdmin();
@@ -318,8 +342,8 @@ export async function addDepartmentMember(formData: FormData) {
 
   if (!dept) return { error: "Department not found" };
 
-  if (!(await verifyCompanyAdmin(user.id, dept.company_id))) {
-    return { error: "Only company admins can manage department members" };
+  if (!(await verifyCompanyAdminOrOperator(user.id, dept.company_id))) {
+    return { error: "Only company admins and operators can manage department members" };
   }
 
   const { error } = await admin.from("department_memberships").insert({
@@ -360,8 +384,8 @@ export async function removeDepartmentMember(membershipId: string) {
   if (!membership) return { error: "Membership not found" };
 
   const dept = membership.department as any;
-  if (!(await verifyCompanyAdmin(user.id, dept.company_id))) {
-    return { error: "Only company admins can manage department members" };
+  if (!(await verifyCompanyAdminOrOperator(user.id, dept.company_id))) {
+    return { error: "Only company admins and operators can manage department members" };
   }
 
   await admin.from("department_memberships").delete().eq("id", membershipId);
