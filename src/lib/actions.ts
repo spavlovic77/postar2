@@ -241,7 +241,7 @@ async function verifyCompanyAdmin(userId: string, companyId: string) {
 
   const { data: membership } = await admin
     .from("company_memberships")
-    .select("role")
+    .select("roles")
     .eq("user_id", userId)
     .eq("company_id", companyId)
     .contains("roles", ["company_admin"])
