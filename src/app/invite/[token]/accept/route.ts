@@ -166,5 +166,24 @@ export async function GET(
     });
   }
 
+  // Genesis admin: redirect to activation page to auto-activate on Peppol
+  if (invitation.is_genesis && companyIds.length > 0) {
+    const activateCompanyId = companyIds[0];
+
+    // Check if company needs activation
+    const adminClient = getSupabaseAdmin();
+    const { data: company } = await adminClient
+      .from("companies")
+      .select("ion_ap_status, legal_name")
+      .eq("id", activateCompanyId)
+      .single();
+
+    if (company && company.ion_ap_status !== "active") {
+      const params = new URLSearchParams({ company: activateCompanyId });
+      if (company.legal_name) params.set("name", company.legal_name);
+      return NextResponse.redirect(`${origin}/activate?${params.toString()}`);
+    }
+  }
+
   return NextResponse.redirect(`${origin}/`);
 }

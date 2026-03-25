@@ -6,6 +6,7 @@ import {
   getReceiveTransactionDocument,
 } from "@/lib/ion-ap";
 import { audit } from "@/lib/audit";
+import { sendDocumentReceivedEmail } from "@/lib/email";
 
 const MAX_RETRIES = 10;
 
@@ -86,7 +87,7 @@ export async function processDocument(documentId: string): Promise<boolean> {
     const ms = Date.now() - startTime;
     console.log(`[DOC ${documentId}] OK: ${metadata.supplierName ?? transaction.sender_identifier}, ${metadata.totalAmount ?? "?"} ${metadata.currency ?? ""}, ${metadata.lineItems?.length ?? 0} items (${ms}ms)`);
 
-    const { data: company } = await supabase.from("companies").select("dic").eq("id", doc.company_id).single();
+    const { data: company } = await supabase.from("companies").select("dic, company_email").eq("id", doc.company_id).single();
 
     audit({
       eventId: "PEPPOL_DOCUMENT_RECEIVED",
@@ -103,6 +104,27 @@ export async function processDocument(documentId: string): Promise<boolean> {
         metadata: { supplier: metadata.supplierName, amount: metadata.totalAmount, currency: metadata.currency },
       },
     });
+
+    // Email notification to company (non-fatal)
+    if (company?.company_email) {
+      const lineBlocks = metadata.lineDetails ?? [];
+      const totalLineCount = metadata.lineItems?.length ?? lineBlocks.length;
+      sendDocumentReceivedEmail({
+        to: company.company_email,
+        documentId,
+        documentType: transaction.document_element,
+        supplierName: metadata.supplierName,
+        supplierTaxId: metadata.supplierTaxId,
+        totalAmount: metadata.totalAmount,
+        currency: metadata.currency,
+        dueDate: metadata.dueDate,
+        issueDate: metadata.issueDate,
+        lineDetails: lineBlocks,
+        totalLineCount,
+      }).catch((err) => {
+        console.error(`[DOC ${documentId}] Email notification failed (non-fatal):`, err instanceof Error ? err.message : err);
+      });
+    }
 
     // Billing: charge for the processed document
     try {

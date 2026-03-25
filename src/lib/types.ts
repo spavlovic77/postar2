@@ -96,6 +96,11 @@ export interface Document {
   created_at: string;
 }
 
+export interface DocumentLineDetail {
+  name: string;
+  amount?: string;
+}
+
 export interface DocumentMetadata {
   supplierName?: string;
   supplierTaxId?: string;
@@ -105,6 +110,7 @@ export interface DocumentMetadata {
   totalAmount?: string;
   taxAmount?: string;
   lineItems?: string[];
+  lineDetails?: DocumentLineDetail[];
   issueDate?: string;
   dueDate?: string;
 }

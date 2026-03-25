@@ -1,4 +1,4 @@
-import type { DocumentMetadata } from "./types";
+import type { DocumentMetadata, DocumentLineDetail } from "./types";
 
 /**
  * Parse UBL Invoice/CreditNote XML and extract metadata.
@@ -57,18 +57,24 @@ export function parseUblMetadata(xml: string): DocumentMetadata {
       extractTag(xml, "DueDate") ??
       extractTag(xml, "PaymentDueDate");
 
-    // Line items (first 5 names)
+    // Line items (first 5 names + amounts)
     const lineItems: string[] = [];
+    const lineDetails: DocumentLineDetail[] = [];
     const lineBlocks = extractAllBlocks(xml, "InvoiceLine|CreditNoteLine");
     for (const line of lineBlocks.slice(0, 5)) {
       const itemBlock = extractBlock(line, "Item");
       if (itemBlock) {
         const name = extractTag(itemBlock, "Name") ?? extractTag(itemBlock, "Description");
-        if (name) lineItems.push(name.trim());
+        if (name) {
+          lineItems.push(name.trim());
+          const amount = extractTag(line, "LineExtensionAmount");
+          lineDetails.push({ name: name.trim(), amount: amount ?? undefined });
+        }
       }
     }
     if (lineItems.length > 0) {
       metadata.lineItems = lineItems;
+      metadata.lineDetails = lineDetails;
     }
   } catch (err) {
     console.error("UBL parse error:", err);

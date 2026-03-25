@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { getResendFromEmail } from "@/lib/settings";
+import type { DocumentLineDetail } from "@/lib/types";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -153,4 +154,111 @@ export async function sendReonboardingEmail(params: {
     console.error("Failed to send re-onboarding email:", error);
     throw new Error(`Failed to send email: ${error.message}`);
   }
+}
+
+export async function sendDocumentReceivedEmail(params: {
+  to: string;
+  documentId: string;
+  documentType?: string;
+  supplierName?: string;
+  supplierTaxId?: string;
+  totalAmount?: string;
+  currency?: string;
+  dueDate?: string;
+  issueDate?: string;
+  lineDetails?: DocumentLineDetail[];
+  totalLineCount?: number;
+}): Promise<void> {
+  const resend = getResend();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+  const docUrl = `${appUrl}/dashboard/inbox/${params.documentId}`;
+
+  const docType = params.documentType === "CreditNote" ? "Credit Note" : "Invoice";
+  const from = params.supplierName ?? params.supplierTaxId ?? "Unknown sender";
+  const subject = `New ${docType} received from ${from}`;
+
+  // Build line items rows (max 3)
+  const lines = (params.lineDetails ?? []).slice(0, 3);
+  const lineRowsHtml = lines
+    .map(
+      (line) =>
+        `<tr>
+          <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px;">${escapeHtml(line.name)}</td>
+          <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; text-align: right; white-space: nowrap;">
+            ${line.amount ? `${escapeHtml(line.amount)} ${escapeHtml(params.currency ?? "")}` : "&mdash;"}
+          </td>
+        </tr>`
+    )
+    .join("");
+
+  const totalLines = params.totalLineCount ?? lines.length;
+  const moreCount = totalLines - lines.length;
+  const moreRow =
+    moreCount > 0
+      ? `<tr><td colspan="2" style="padding: 6px 12px; font-size: 13px; color: #888;">... and ${moreCount} more item${moreCount > 1 ? "s" : ""}</td></tr>`
+      : "";
+
+  const linesTable =
+    lines.length > 0
+      ? `
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <thead>
+            <tr style="background: #f9fafb;">
+              <th style="padding: 8px 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Item</th>
+              <th style="padding: 8px 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineRowsHtml}
+            ${moreRow}
+          </tbody>
+        </table>`
+      : "";
+
+  const amountLine = params.totalAmount
+    ? `<p style="font-size: 20px; font-weight: 700; margin: 8px 0;">${escapeHtml(params.totalAmount)} ${escapeHtml(params.currency ?? "")}</p>`
+    : "";
+
+  const dueLine = params.dueDate
+    ? `<p style="color: #666; font-size: 14px;">Due date: <strong>${escapeHtml(params.dueDate)}</strong></p>`
+    : "";
+
+  const issueLine = params.issueDate
+    ? `<p style="color: #666; font-size: 14px;">Issue date: ${escapeHtml(params.issueDate)}</p>`
+    : "";
+
+  const { error } = await resend.emails.send({
+    from: await getFromEmail(),
+    to: params.to,
+    subject,
+    html: `
+      <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto;">
+        <h2 style="margin-bottom: 4px;">New ${escapeHtml(docType)} Received</h2>
+        <p style="color: #666; margin-top: 0;">From <strong>${escapeHtml(from)}</strong>${params.supplierTaxId && params.supplierName ? ` (${escapeHtml(params.supplierTaxId)})` : ""}</p>
+        ${amountLine}
+        ${issueLine}
+        ${dueLine}
+        ${linesTable}
+        <a href="${docUrl}" style="display: inline-block; background: #171717; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-top: 8px;">
+          View ${escapeHtml(docType)}
+        </a>
+        <p style="color: #999; font-size: 13px; margin-top: 24px;">
+          This is an automated notification from Postar.
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Failed to send document notification email:", error);
+    // Non-fatal: don't throw — document is already processed
+  }
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

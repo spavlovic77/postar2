@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { ensureCompanyActivated } from "@/lib/ion-ap";
 import { createInvitation, getInviteUrl } from "@/lib/invitations";
 import { sendInvitationEmail } from "@/lib/email";
 import { audit, auditInvitationCreated, auditProfileUpdated } from "@/lib/audit";
@@ -46,19 +45,18 @@ export async function reactivateCompany(formData: FormData) {
 
   if (!company) return { error: "Company not found" };
 
-  // 1. Reactivate on ion-AP (creates org + identifier + receive trigger)
-  try {
-    await ensureCompanyActivated(companyId, {
-      legalName: legalName || undefined,
-      companyEmail: companyEmail || undefined,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Activation failed";
-    revalidatePath(`/dashboard/companies/${companyId}`);
-    return { error: message };
+  // 1. Update company details (activation happens when genesis admin accepts invite)
+  const companyUpdates: Record<string, string | null> = {};
+  if (legalName) companyUpdates.legal_name = legalName;
+  if (companyEmail) companyUpdates.company_email = companyEmail;
+  companyUpdates.status = "active" as any;
+  companyUpdates.deactivated_at = null;
+
+  if (Object.keys(companyUpdates).length > 0) {
+    await admin.from("companies").update(companyUpdates).eq("id", companyId);
   }
 
-  // 2. Send genesis admin invitation
+  // 2. Send genesis admin invitation (Peppol activation triggered on accept)
   try {
     const result = await createInvitation(admin, {
       email: genesisEmail,
