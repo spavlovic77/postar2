@@ -78,18 +78,21 @@ export function AnimatedPeppolboxLogo() {
   }, [phase, getDisplayFromPhase])
 
   return (
-    <span className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight inline-flex items-baseline">
-      {/* Animated word area — invisible spacer holds width, visible text overlaid */}
-      <span className="relative inline-flex items-baseline">
-        {/* Invisible spacer: always renders longest word to hold stable width */}
-        <span className="invisible whitespace-nowrap select-none" aria-hidden="true">
+    <span className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
+      {/* Inline-grid: spacer + visible text share same cell = stable width + correct baseline */}
+      <span className="inline-grid [grid-template-areas:'s'] align-baseline">
+        {/* Spacer: holds width of longest word, invisible but in flow */}
+        <span
+          className="[grid-area:s] invisible whitespace-nowrap select-none"
+          aria-hidden="true"
+        >
           {LONGEST_WORD}
         </span>
-        {/* Visible text + cursor, absolutely positioned over spacer */}
-        <span className="absolute left-0 top-0 inline-flex items-baseline whitespace-nowrap">
+        {/* Visible animated text overlaid in same cell */}
+        <span className="[grid-area:s] whitespace-nowrap inline-flex items-center">
           <span className="text-red-500">{displayText}</span>
           <span
-            className="inline-block w-[3px] h-[0.7em] bg-red-500 ml-px self-center rounded-full animate-blink"
+            className="inline-block w-[3px] h-[0.65em] bg-red-500 ml-px rounded-full animate-blink"
             aria-hidden="true"
           />
         </span>
