@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const WORDS = ['mail', 'peppol']
+const LONGEST_WORD = 'peppol'
 const TYPE_SPEED = 85
 const DELETE_SPEED = 50
 const PAUSE_AFTER_WORD = 1600
@@ -78,8 +79,14 @@ export function AnimatedPeppolboxLogo() {
 
   return (
     <div className="h-[1.2em] text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight flex items-center justify-center">
-      <span className="whitespace-nowrap">
-        <span className="text-red-500">{displayText}</span>
+      <span className="whitespace-nowrap inline-flex items-baseline">
+        {/* Fixed-width container for animated text, right-aligned so it always touches "box" */}
+        <span className="inline-grid">
+          {/* Invisible spacer sets the column width to longest word */}
+          <span className="[grid-area:1/1] invisible select-none" aria-hidden="true">{LONGEST_WORD}</span>
+          {/* Visible text, right-aligned within the same cell */}
+          <span className="[grid-area:1/1] text-right text-red-500">{displayText}</span>
+        </span>
         <span className="text-blue-500">box</span>
         <span className="text-foreground">.sk</span>
       </span>
