@@ -2,6 +2,7 @@ import { Building2, Users, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PeppolStatusBadge } from "./peppol-status-badge";
+import { SendTestInvoicesButton } from "./send-test-invoices-button";
 import type { Company, CompanyMembership } from "@/lib/types";
 
 interface Props {
@@ -57,6 +58,14 @@ export function CompanyAdminDashboard({
                     </div>
                   )}
                 </div>
+                {company.ion_ap_status === "active" && (
+                  <div className="mt-3 pt-3 border-t">
+                    <SendTestInvoicesButton
+                      companyId={company.id}
+                      companyName={company.legal_name ?? company.dic}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
