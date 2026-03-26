@@ -66,15 +66,7 @@ export default async function Home() {
       <footer className="px-6 pb-4 pt-2 text-center space-y-3">
         <p className="text-[11px] text-[#b0b0b0] dark:text-[#555] leading-relaxed">
           This is a demo version for educational purposes only.
-          Support Peppol e-invoicing at{" "}
-          <a
-            href="https://www.financnasprava.sk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-[#888] dark:hover:text-[#777] transition-colors"
-          >
-            financnasprava.sk
-          </a>
+          Ask support at peppol(at)financnasprava.sk
         </p>
         <a
           href="https://github.com/spavlovic77/postar2"
