@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 const WORDS = ['mail', 'peppol']
+const LONGEST_WORD = 'peppol'
 const TYPE_SPEED = 85
 const DELETE_SPEED = 50
 const PAUSE_AFTER_WORD = 1600
@@ -18,7 +19,9 @@ export function AnimatedPeppolboxLogo() {
   const [phase, setPhase] = useState<Phase>({ kind: 'gap', nextWordIndex: 0 })
   const [displayText, setDisplayText] = useState('')
   const measureRef = useRef<HTMLSpanElement>(null)
+  const reserveRef = useRef<HTMLSpanElement>(null)
   const [measuredWidth, setMeasuredWidth] = useState(0)
+  const [minWidth, setMinWidth] = useState(0)
 
   const getDisplayFromPhase = useCallback((p: Phase): string => {
     switch (p.kind) {
@@ -30,6 +33,13 @@ export function AnimatedPeppolboxLogo() {
         return WORDS[p.wordIndex].slice(0, p.charIndex)
       case 'gap':
         return ''
+    }
+  }, [])
+
+  // Measure the longest word once to set a stable min-width
+  useEffect(() => {
+    if (reserveRef.current) {
+      setMinWidth(reserveRef.current.offsetWidth)
     }
   }, [])
 
@@ -87,6 +97,7 @@ export function AnimatedPeppolboxLogo() {
   return (
     <span className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight inline-flex items-baseline">
       <span className="relative inline-flex items-baseline">
+        {/* Hidden measurer for current text */}
         <span
           ref={measureRef}
           className="absolute invisible whitespace-nowrap pointer-events-none"
@@ -94,22 +105,33 @@ export function AnimatedPeppolboxLogo() {
         >
           {displayText}
         </span>
+        {/* Hidden measurer for longest word (stable min-width) */}
         <span
-          className="inline-block overflow-hidden whitespace-nowrap"
+          ref={reserveRef}
+          className="absolute invisible whitespace-nowrap pointer-events-none"
+          aria-hidden="true"
+        >
+          {LONGEST_WORD}
+        </span>
+        {/* Visible animated container */}
+        <span
+          className="inline-block overflow-hidden whitespace-nowrap text-right text-red-500"
           style={{
-            width: `${measuredWidth}px`,
+            width: `${Math.max(measuredWidth, displayText ? 0 : minWidth)}px`,
+            minWidth: `${minWidth}px`,
             transition: 'width 60ms ease-out',
           }}
         >
           {displayText}
         </span>
+        {/* Blinking cursor */}
         <span
-          className="inline-block w-[3px] h-[0.7em] bg-primary ml-px self-center rounded-full animate-blink"
+          className="inline-block w-[3px] h-[0.7em] bg-red-500 ml-px self-center rounded-full animate-blink"
           aria-hidden="true"
         />
       </span>
-      <span>box</span>
-      <span className="text-muted-foreground">.sk</span>
+      <span className="text-blue-500">box</span>
+      <span className="text-foreground">.sk</span>
     </span>
   )
 }
