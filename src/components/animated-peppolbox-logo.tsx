@@ -85,9 +85,9 @@ export function AnimatedPeppolboxLogo() {
           {/* Invisible spacer sets the column width to longest word */}
           <span className="[grid-area:1/1] invisible select-none" aria-hidden="true">{LONGEST_WORD}</span>
           {/* Visible text, right-aligned within the same cell */}
-          <span className="[grid-area:1/1] text-right text-red-500">{displayText}</span>
+          <span className="[grid-area:1/1] text-right text-[#EE1C25]">{displayText}</span>
         </span>
-        <span className="text-blue-500">box</span>
+        <span className="text-[#0B4EA2]">box</span>
         <span className="text-foreground">.sk</span>
       </span>
     </div>

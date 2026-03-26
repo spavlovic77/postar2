@@ -17,7 +17,7 @@ export function AuthModal() {
       <DialogTrigger render={<Button size="lg" />}>Sign In</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Sign in to Postar</DialogTitle>
+          <DialogTitle>Sign in to peppolbox.sk</DialogTitle>
           <DialogDescription>
             Choose your preferred sign-in method to continue.
           </DialogDescription>

@@ -35,7 +35,7 @@ export function WelcomeScreen({ fullName, role, companies }: Props) {
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6">
       <div className="max-w-md space-y-4 text-center">
         <h1 className="text-3xl font-bold tracking-tight">
-          Welcome to Postar{fullName ? `, ${fullName}` : ""}!
+          Welcome to peppolbox.sk{fullName ? `, ${fullName}` : ""}!
         </h1>
         <Badge variant="secondary" className="text-sm">
           {ROLE_LABELS[role]}

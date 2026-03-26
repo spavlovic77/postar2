@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Postar",
-  description: "Postar",
+  title: "peppolbox.sk",
+  description: "Your electronic invoice mailbox on the Peppol network",
 };
 
 export default function RootLayout({

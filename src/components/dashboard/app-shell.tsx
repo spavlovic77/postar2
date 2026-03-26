@@ -40,7 +40,7 @@ export function AppShell({
       {/* Desktop sidebar */}
       <Sidebar className="max-md:hidden">
         <SidebarHeader className="p-4">
-          <span className="text-lg font-bold">Postar</span>
+          <span className="text-lg font-bold">peppolbox.sk</span>
         </SidebarHeader>
         <SidebarContent className="px-2">
           <SidebarNav items={navItems} />

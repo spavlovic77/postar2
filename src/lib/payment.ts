@@ -206,7 +206,7 @@ export function constructPayMeUrl(params: {
   message?: string;
 }): string {
   const iban = params.iban ?? process.env.PAYME_IBAN ?? "";
-  const creditorName = params.creditorName ?? process.env.PAYME_CREDITOR_NAME ?? "Postar";
+  const creditorName = params.creditorName ?? process.env.PAYME_CREDITOR_NAME ?? "peppolbox.sk";
   const message = params.message ?? "Wallet top-up";
 
   const dueDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");

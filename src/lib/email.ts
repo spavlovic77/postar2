@@ -20,7 +20,7 @@ export async function sendVerificationCodeEmail(params: {
   const { error } = await resend.emails.send({
     from: await getFromEmail(),
     to: params.to,
-    subject: `${params.code} is your Postar verification code`,
+    subject: `${params.code} is your peppolbox.sk verification code`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; text-align: center;">
         <h2 style="margin-bottom: 8px;">Verification Code</h2>
@@ -68,10 +68,10 @@ export async function sendInvitationEmail(params: {
   const { error } = await resend.emails.send({
     from: await getFromEmail(),
     to: params.to,
-    subject: `You've been invited to Postar as ${roleLabel}`,
+    subject: `You've been invited to peppolbox.sk as ${roleLabel}`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-        <h2>You're invited to Postar</h2>
+        <h2>You're invited to peppolbox.sk</h2>
         <p>You've been invited as <strong>${roleLabel}</strong>${companiesList ? ` for <strong>${companiesList}</strong>` : ""}.</p>
         <p>Click the button below to accept your invitation. This link expires in 48 hours.</p>
         <a href="${params.inviteUrl}" style="display: inline-block; background: #171717; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
@@ -103,17 +103,17 @@ export async function sendOnboardingEmail(params: {
   const { error } = await resend.emails.send({
     from: await getFromEmail(),
     to: params.to,
-    subject: "Get started with Postar — Register your company",
+    subject: "Get started with peppolbox.sk — Register your company",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-        <h2>Welcome to Postar</h2>
-        <p>You've been invited to register your company${companyLine} on the Postar platform for sending and receiving electronic invoices via the Peppol network.</p>
+        <h2>Welcome to peppolbox.sk</h2>
+        <p>You've been invited to register your company${companyLine} on the peppolbox.sk platform for sending and receiving electronic invoices via the Peppol network.</p>
         <p>To get started, please visit the PFS portal and complete the registration process:</p>
         <a href="${params.activationLink}" style="display: inline-block; background: #171717; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
           Register Your Company
         </a>
         <p style="color: #666; font-size: 14px; margin-top: 24px;">
-          If you have any questions, please contact your Postar administrator.
+          If you have any questions, please contact your peppolbox.sk administrator.
         </p>
       </div>
     `,
@@ -134,17 +134,17 @@ export async function sendReonboardingEmail(params: {
   const { error } = await resend.emails.send({
     from: await getFromEmail(),
     to: params.to,
-    subject: `Action required: Re-onboard ${params.companyName} on Postar`,
+    subject: `Action required: Re-onboard ${params.companyName} on peppolbox.sk`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2>Re-onboarding Request</h2>
-        <p>The company <strong>${params.companyName}</strong> needs to be re-onboarded on Postar.</p>
+        <p>The company <strong>${params.companyName}</strong> needs to be re-onboarded on peppolbox.sk.</p>
         <p>Please visit the PFS portal using the link below and complete the activation process. This will trigger the webhook that registers the company again.</p>
         <a href="${params.activationLink}" style="display: inline-block; background: #171717; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
           Go to PFS Portal
         </a>
         <p style="color: #666; font-size: 14px; margin-top: 24px;">
-          If you didn't expect this email, please contact your Postar administrator.
+          If you didn't expect this email, please contact your peppolbox.sk administrator.
         </p>
       </div>
     `,
@@ -243,7 +243,7 @@ export async function sendDocumentReceivedEmail(params: {
           View ${escapeHtml(docType)}
         </a>
         <p style="color: #999; font-size: 13px; margin-top: 24px;">
-          This is an automated notification from Postar.
+          This is an automated notification from peppolbox.sk.
         </p>
       </div>
     `,
