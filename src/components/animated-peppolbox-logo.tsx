@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const WORDS = ['mail', 'peppol']
-const LONGEST_WORD = 'peppol'
 const TYPE_SPEED = 85
 const DELETE_SPEED = 50
 const PAUSE_AFTER_WORD = 1600
@@ -78,27 +77,16 @@ export function AnimatedPeppolboxLogo() {
   }, [phase, getDisplayFromPhase])
 
   return (
-    <span className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
-      {/* Inline-grid: spacer + visible text share same cell = stable width + correct baseline */}
-      <span className="inline-grid [grid-template-areas:'s'] align-baseline">
-        {/* Spacer: holds width of longest word, invisible but in flow */}
+    <div className="h-[1.2em] text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight flex items-center justify-center">
+      <span className="whitespace-nowrap">
+        <span className="text-red-500">{displayText}</span>
         <span
-          className="[grid-area:s] invisible whitespace-nowrap select-none"
+          className="inline-block w-[3px] h-[0.65em] bg-red-500 ml-px align-middle rounded-full animate-blink"
           aria-hidden="true"
-        >
-          {LONGEST_WORD}
-        </span>
-        {/* Visible animated text overlaid in same cell */}
-        <span className="[grid-area:s] whitespace-nowrap inline-flex items-center">
-          <span className="text-red-500">{displayText}</span>
-          <span
-            className="inline-block w-[3px] h-[0.65em] bg-red-500 ml-px rounded-full animate-blink"
-            aria-hidden="true"
-          />
-        </span>
+        />
+        <span className="text-blue-500">box</span>
+        <span className="text-foreground">.sk</span>
       </span>
-      <span className="text-blue-500">box</span>
-      <span className="text-foreground">.sk</span>
-    </span>
+    </div>
   )
 }
