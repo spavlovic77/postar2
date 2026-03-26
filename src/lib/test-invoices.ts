@@ -195,7 +195,7 @@ async function sendWithTestToken(xml: string): Promise<{ id: number; state: stri
     method: "POST",
     headers: {
       Authorization: `Token ${token}`,
-      "Content-Type": "application/xml",
+      "Content-Type": "application/xml; charset=utf-8",
       Accept: "application/json",
     },
     body: xml,
