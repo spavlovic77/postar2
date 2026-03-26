@@ -171,8 +171,12 @@ async function sendWithTestToken(xml: string): Promise<{ id: number; state: stri
   const token = process.env.ION_AP_TEST_SENDER_TOKEN;
   if (!token) throw new Error("ION_AP_TEST_SENDER_TOKEN is not configured");
 
-  const baseUrl = await getIonApBaseUrl();
-  const url = `${baseUrl}/api/v2/send-document/`;
+  const rawBaseUrl = await getIonApBaseUrl();
+  // Strip trailing slashes and /api/v2 suffix if already present
+  const baseUrl = rawBaseUrl.replace(/\/+$/, "").replace(/\/api\/v2\/?$/, "");
+  const url = `${baseUrl}/api/v2/send-document`;
+
+  console.log(`[TEST-INVOICES] Sending to: ${url}`);
 
   const res = await fetch(url, {
     method: "POST",
