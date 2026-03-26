@@ -131,27 +131,40 @@ function generateUblInvoice(invoice: TestInvoice, receiverPeppolId: string, rece
   <cbc:DueDate>${invoice.dueDate}</cbc:DueDate>
   <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>${currency}</cbc:DocumentCurrencyCode>
+  <cbc:BuyerReference>${invoice.id}</cbc:BuyerReference>
   <cac:AccountingSupplierParty>
     <cac:Party>
       <cbc:EndpointID schemeID="9950">${SENDER_PEPPOL_ID.split(":")[1]}</cbc:EndpointID>
+      <cac:PartyIdentification><cbc:ID>${SENDER_PEPPOL_ID}</cbc:ID></cac:PartyIdentification>
       <cac:PartyName><cbc:Name>${escapeXml(SENDER_NAME)}</cbc:Name></cac:PartyName>
       <cac:PostalAddress>
         <cac:Country><cbc:IdentificationCode>${SENDER_COUNTRY}</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>SK${SENDER_PEPPOL_ID.split(":")[1]}</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(SENDER_NAME)}</cbc:RegistrationName>
+        <cbc:CompanyID>${SENDER_PEPPOL_ID.split(":")[1]}</cbc:CompanyID>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
     <cac:Party>
       <cbc:EndpointID schemeID="0245">${receiverPeppolId.split(":")[1]}</cbc:EndpointID>
+      <cac:PartyIdentification><cbc:ID>${receiverPeppolId}</cbc:ID></cac:PartyIdentification>
       <cac:PartyName><cbc:Name>${escapeXml(receiverName)}</cbc:Name></cac:PartyName>
       <cac:PostalAddress>
         <cac:Country><cbc:IdentificationCode>SK</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>SK${receiverPeppolId.split(":")[1]}</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(receiverName)}</cbc:RegistrationName>
+        <cbc:CompanyID>${receiverPeppolId.split(":")[1]}</cbc:CompanyID>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
