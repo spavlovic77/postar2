@@ -80,10 +80,6 @@ export function AnimatedPeppolboxLogo() {
     <div className="h-[1.2em] text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight flex items-center justify-center">
       <span className="whitespace-nowrap">
         <span className="text-red-500">{displayText}</span>
-        <span
-          className="inline-block w-[3px] h-[0.65em] bg-red-500 ml-px align-middle rounded-full animate-blink"
-          aria-hidden="true"
-        />
         <span className="text-blue-500">box</span>
         <span className="text-foreground">.sk</span>
       </span>
