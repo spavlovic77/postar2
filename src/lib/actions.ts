@@ -39,6 +39,7 @@ export async function completeOnboarding() {
 
   auditOnboarded({ userId: user.id, email: user.email ?? "" });
 
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -524,6 +525,23 @@ export async function activateCompanyOnPeppol(companyId: string) {
 
   try {
     await ensureCompanyActivated(companyId);
+
+    // Mark user as onboarded (skip welcome screen after activation page)
+    const { data: userProfile } = await admin
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("id", user.id)
+      .single();
+
+    if (userProfile && !userProfile.onboarded_at) {
+      await admin
+        .from("profiles")
+        .update({ onboarded_at: new Date().toISOString() })
+        .eq("id", user.id);
+      auditOnboarded({ userId: user.id, email: user.email ?? "" });
+    }
+
+    revalidatePath("/dashboard");
     revalidatePath("/dashboard/companies");
     revalidatePath(`/dashboard/companies/${companyId}`);
     return { success: true, peppolId: getPeppolIdentifier(company.dic) };
