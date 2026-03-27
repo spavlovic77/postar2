@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DocumentActions } from "./document-actions";
-import { XmlViewer } from "./xml-viewer";
 import { audit } from "@/lib/audit";
 import { getUserDepartments } from "@/lib/dal";
 
@@ -174,25 +173,6 @@ export default async function DocumentDetailPage({
           </CardContent>
         </Card>
       </div>
-
-      {doc.blob_url && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>XML Document</CardTitle>
-            <a
-              href={`/api/documents/${doc.id}/xml`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground underline hover:text-foreground"
-            >
-              Download XML
-            </a>
-          </CardHeader>
-          <CardContent>
-            <XmlViewer documentId={doc.id} />
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

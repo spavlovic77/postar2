@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock, RefreshCw } from "lucide-react";
+import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock, RefreshCw, Download } from "lucide-react";
 import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -130,6 +130,37 @@ function DeptPicker({
   );
 }
 
+async function downloadFile(url: string, filename: string) {
+  const res = await fetch(url);
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function downloadFiles(
+  ids: string[],
+  type: "xml" | "pdf" | "both",
+  documents: any[]
+) {
+  for (const id of ids) {
+    const doc = documents.find((d: any) => d.id === id);
+    const label = doc?.document_id ?? doc?.ion_ap_transaction_id ?? id.slice(0, 8);
+
+    if (type === "xml" || type === "both") {
+      await downloadFile(`/api/documents/${id}/xml`, `${label}.xml`);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    if (type === "pdf" || type === "both") {
+      await downloadFile(`/api/documents/${id}/pdf`, `${label}.pdf`);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+}
+
 export function InboxList({
   initialDocuments,
   total,
@@ -148,6 +179,7 @@ export function InboxList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [departments, setDepartments] = useState<Record<string, Department[]>>({});
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
 
   // Sync with server data when props change (after router.refresh)
@@ -212,6 +244,17 @@ export function InboxList({
     }
   };
 
+  const handleBulkDownload = async (type: "xml" | "pdf" | "both") => {
+    setIsDownloading(true);
+    try {
+      await downloadFiles(Array.from(selectedIds), type, documents);
+      toast(`Downloaded ${selectedIds.size} document(s)`);
+    } catch {
+      toast("Some downloads failed", "error");
+    }
+    setIsDownloading(false);
+  };
+
   const allDepts = Object.values(departments).flat();
   const uniqueDepts = allDepts.filter((d, i, arr) => arr.findIndex((x) => x.id === d.id) === i);
 
@@ -238,29 +281,59 @@ export function InboxList({
 
       {filters}
 
-      {selectedIds.size > 0 && canTriage && (
+      {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
+
+          {/* Triage actions — left side */}
+          {canTriage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={
+                <Button size="sm" disabled={isBulkAssigning}>
+                  <FolderInput className="mr-2 h-4 w-4" />
+                  {isBulkAssigning ? "Assigning..." : "Assign to"}
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              } />
+              <DropdownMenuContent align="start" className="w-[200px]">
+                {uniqueDepts.length === 0 ? (
+                  <DropdownMenuItem disabled>No departments</DropdownMenuItem>
+                ) : (
+                  uniqueDepts.map((d) => (
+                    <DropdownMenuItem key={d.id} onClick={() => handleBulkAssign(d.id)}>
+                      {d.name}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Divider between triage and download */}
+          {canTriage && <div className="h-5 w-px bg-border" />}
+
+          {/* Download actions — right side */}
           <DropdownMenu>
             <DropdownMenuTrigger render={
-              <Button size="sm" disabled={isBulkAssigning}>
-                <FolderInput className="mr-2 h-4 w-4" />
-                {isBulkAssigning ? "Assigning..." : "Assign to"}
+              <Button size="sm" variant="outline" disabled={isDownloading}>
+                <Download className="mr-2 h-4 w-4" />
+                {isDownloading ? "Downloading..." : "Download"}
                 <ChevronDown className="ml-1 h-3 w-3" />
               </Button>
             } />
-            <DropdownMenuContent align="start" className="w-[200px]">
-              {uniqueDepts.length === 0 ? (
-                <DropdownMenuItem disabled>No departments</DropdownMenuItem>
-              ) : (
-                uniqueDepts.map((d) => (
-                  <DropdownMenuItem key={d.id} onClick={() => handleBulkAssign(d.id)}>
-                    {d.name}
-                  </DropdownMenuItem>
-                ))
-              )}
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => handleBulkDownload("xml")}>
+                Download XML
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBulkDownload("pdf")}>
+                Download PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBulkDownload("both")}>
+                Download Both
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
           <button onClick={() => setSelectedIds(new Set())} className="text-xs text-muted-foreground underline">Clear</button>
         </div>
       )}
@@ -292,17 +365,15 @@ export function InboxList({
             <Table>
               <TableHeader>
                 <TableRow>
-                  {canTriage && (
-                    <TableHead className="w-[30px]">
-                      <input type="checkbox" checked={selectedIds.size === documents.length && documents.length > 0} onChange={toggleSelectAll} className="rounded" />
-                    </TableHead>
-                  )}
+                  <TableHead className="w-[30px]">
+                    <input type="checkbox" checked={selectedIds.size === documents.length && documents.length > 0} onChange={toggleSelectAll} className="rounded" />
+                  </TableHead>
                   <TableHead className="w-[30px]" />
                   <TableHead>From</TableHead>
-                  <TableHead className="hidden md:table-cell">Document ID</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   {canTriage && <TableHead>Department</TableHead>}
                   <TableHead className="text-right">Date</TableHead>
+                  <TableHead className="w-[40px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -313,11 +384,13 @@ export function InboxList({
                   const isSelected = selectedIds.has(doc.id);
                   const companyDepts = departments[doc.company_id] ?? [];
                   const isLocked = !isSuperAdmin && !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+                  const canDownloadPdf = !isPending && !isFailed && !isLocked;
 
                   return (
                     <TableRow
                       key={doc.id}
                       className={cn(
+                        "group",
                         isUnread && "bg-muted/30",
                         isFailed && "bg-destructive/5",
                         isSelected && "bg-primary/5",
@@ -328,11 +401,9 @@ export function InboxList({
                         if (!isLocked && !isPending) router.push(`/dashboard/inbox/${doc.id}`);
                       }}
                     >
-                      {canTriage && (
-                        <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
-                          <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="rounded" />
-                        </TableCell>
-                      )}
+                      <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="rounded" />
+                      </TableCell>
                       <TableCell className="pr-0">
                         {isFailed ? <AlertCircle className="h-4 w-4 text-destructive" />
                           : isPending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -372,7 +443,6 @@ export function InboxList({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className={cn("hidden font-mono text-sm md:table-cell", isLocked && "blur-sm select-none")}>{doc.document_id ?? "-"}</TableCell>
                       <TableCell className={cn("text-right text-sm font-medium", isLocked && "blur-sm select-none")}>
                         {doc.metadata?.totalAmount ? (
                           <span>{doc.metadata.totalAmount} {doc.metadata.currency ?? ""}</span>
@@ -391,6 +461,17 @@ export function InboxList({
                       )}
                       <TableCell className={cn("text-right text-sm", isUnread && "font-semibold")}>
                         {doc.peppol_created_at ? formatDate(doc.peppol_created_at) : "-"}
+                      </TableCell>
+                      <TableCell className="pr-3" onClick={(e) => e.stopPropagation()}>
+                        {canDownloadPdf && (
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
+                            title="View PDF"
+                            onClick={() => window.open(`/api/documents/${doc.id}/pdf`, "_blank")}
+                          >
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
