@@ -68,7 +68,7 @@ export async function ensureCompanyActivated(
     });
 
     // 3. Set up receive trigger (webhook to Postar)
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app"}/api/webhooks/peppol-receive`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk"}/api/webhooks/peppol-receive`;
 
     const trigger = await createReceiveTrigger(org.id, {
       name: "Forward to Postar",

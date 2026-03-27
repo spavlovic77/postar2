@@ -67,7 +67,7 @@ export async function reactivateCompany(formData: FormData) {
     });
 
     if (result && !result.alreadyExists) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
 
       await sendInvitationEmail({
         to: genesisEmail,

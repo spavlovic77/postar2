@@ -101,7 +101,7 @@ export async function inviteUser(formData: FormData) {
     );
 
     // Get base URL from env or fallback
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
 
     await sendInvitationEmail({
       to: email,
@@ -697,7 +697,7 @@ export async function resendInvitation(invitationId: string) {
     companyNames = (companies ?? []).map((c) => c.legal_name ?? c.dic);
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
 
   await sendInvitationEmail({
     to: original.email,
@@ -767,7 +767,7 @@ export async function sendGenesisInvitation(formData: FormData) {
     return { error: "User already has genesis access to this company" };
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
 
   await sendInvitationEmail({
     to: email,

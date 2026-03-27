@@ -170,7 +170,7 @@ export async function sendDocumentReceivedEmail(params: {
   totalLineCount?: number;
 }): Promise<void> {
   const resend = getResend();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://postar2.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
   const docUrl = `${appUrl}/dashboard/inbox/${params.documentId}`;
 
   const docType = params.documentType === "CreditNote" ? "Credit Note" : "Invoice";

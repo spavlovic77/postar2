@@ -458,7 +458,7 @@ REACTIVATION:
 | `TWILIO_PHONE_NUMBER` | Yes | Twilio phone number |
 | `ION_AP_BASE_URL` | Yes | ion-AP API URL (default: test.ion-ap.net) |
 | `ION_AP_API_TOKEN` | Yes | ion-AP super admin API token |
-| `NEXT_PUBLIC_APP_URL` | No | App URL for webhooks (default: postar2.vercel.app) |
+| `NEXT_PUBLIC_APP_URL` | No | App URL for webhooks (default: www.peppolbox.sk) |
 
 ## Test Coverage (39 tests)
 
