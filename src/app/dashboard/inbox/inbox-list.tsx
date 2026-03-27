@@ -321,11 +321,15 @@ export function InboxList({
                         isUnread && "bg-muted/30",
                         isFailed && "bg-destructive/5",
                         isSelected && "bg-primary/5",
-                        isLocked && "opacity-60"
+                        isLocked && "opacity-60",
+                        !isLocked && !isPending && "cursor-pointer hover:bg-muted/50 transition-colors"
                       )}
+                      onClick={() => {
+                        if (!isLocked && !isPending) router.push(`/dashboard/inbox/${doc.id}`);
+                      }}
                     >
                       {canTriage && (
-                        <TableCell className="pr-0">
+                        <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="rounded" />
                         </TableCell>
                       )}
@@ -349,7 +353,7 @@ export function InboxList({
                             </p>
                           </div>
                         ) : (
-                          <Link href={`/dashboard/inbox/${doc.id}`} className="block hover:underline">
+                          <div>
                             <span className={cn("text-sm", isUnread ? "font-semibold" : "font-normal")}>
                               {doc.metadata?.supplierName ?? doc.sender_identifier ?? "Unknown sender"}
                             </span>
@@ -365,7 +369,7 @@ export function InboxList({
                                 {documentTypeLabel(doc.document_type)} {doc.document_id ?? ""}
                               </p>
                             )}
-                          </Link>
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className={cn("hidden font-mono text-sm md:table-cell", isLocked && "blur-sm select-none")}>{doc.document_id ?? "-"}</TableCell>
@@ -375,7 +379,7 @@ export function InboxList({
                         ) : "-"}
                       </TableCell>
                       {canTriage && (
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <DeptPicker
                             documentId={doc.id}
                             companyId={doc.company_id}
