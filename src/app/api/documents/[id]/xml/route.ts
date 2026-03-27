@@ -28,8 +28,8 @@ export async function GET(
     return NextResponse.json({ error: "No document content" }, { status: 404 });
   }
 
-  // Billing gate: block unbilled documents
-  const isUnbilled = !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+  // TODO: re-enable billing lock
+  const isUnbilled = false; // !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
 
   // Check access
   const { data: profile } = await admin

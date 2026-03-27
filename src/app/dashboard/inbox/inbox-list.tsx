@@ -450,7 +450,8 @@ export function InboxList({
                   const isFailed = doc.status === "failed";
                   const isSelected = selectedIds.has(doc.id);
                   const companyDepts = departments[doc.company_id] ?? [];
-                  const isLocked = !isSuperAdmin && !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+                  // TODO: re-enable billing lock: const isLocked = !isSuperAdmin && !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+                  const isLocked = false;
                   const canDownloadPdf = !isPending && !isFailed && !isLocked;
 
                   return (
