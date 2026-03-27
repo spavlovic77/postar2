@@ -520,9 +520,238 @@
 
 ---
 
-## Group 13: Edge Cases & Error Handling
+## Group 13: Departments
 
-### TC-13.1: Duplicate PFS Webhook (Same DIC)
+### TC-13.1: Create a Department (Company Admin)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Sign in as genesis admin (efabox.sk@gmail.com) | Company Admin dashboard |
+| 2 | Navigate to Companies → click company | Company detail page |
+| 3 | Scroll to "Departments" section | Department manager visible with "Create Department" button |
+| 4 | Click "Create Department" | Dialog with name field |
+| 5 | Enter name: `Accounting` | Field populated |
+| 6 | Submit | Department appears in list |
+| 7 | Create another: `IT Support` | Second department appears |
+| 8 | Check Audit Log | `DEPARTMENT_CREATED` events |
+
+### TC-13.2: Create Sub-department
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | In Departments section, click "Create Department" | Dialog with name and optional parent |
+| 2 | Enter name: `Invoices`, select parent: `Accounting` | Form filled |
+| 3 | Submit | Sub-department appears nested under Accounting |
+
+### TC-13.3: Add Member to Department
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | In a department row, click "Add member" | Dialog with user dropdown |
+| 2 | Select a company member | User selected |
+| 3 | Submit | Member appears under department |
+| 4 | Check Audit Log | `DEPARTMENT_MEMBER_ADDED` event |
+
+### TC-13.4: Remove Member from Department
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | In department members list, click remove button next to a member | Confirmation |
+| 2 | Confirm | Member removed from department |
+| 3 | Check Audit Log | `DEPARTMENT_MEMBER_REMOVED` event |
+
+### TC-13.5: Document Triage — Assign to Department
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Navigate to Inbox with documents (company admin) | Department column visible |
+| 2 | Click department picker on a document row | Dropdown shows departments |
+| 3 | Select "Accounting" | Document assigned, badge changes to blue "Accounting" |
+| 4 | Observe document status | Status changes to "assigned" (if was "read") |
+
+### TC-13.6: Processor Sees Only Department Documents
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Invite a user as Processor, assign them to "Accounting" department | User created |
+| 2 | Sign in as processor | Redirected to Inbox |
+| 3 | Observe | Only documents assigned to "Accounting" department visible |
+| 4 | Documents with no department or other departments | NOT visible |
+| 5 | Try to access an unassigned document URL directly | 404 |
+
+---
+
+## Group 14: Wallet & Prepaid Billing
+
+### TC-14.1: Wallet Creation
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | As genesis admin, navigate to Wallet page | "No wallet found" message if no documents received yet |
+| 2 | Receive a document (or send test invoices) | Wallet auto-created for genesis admin |
+| 3 | Navigate to Wallet page again | Wallet visible with balance card, transaction history |
+
+### TC-14.2: Company Pricing Configuration (Super Admin)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Sign in as super admin | Dashboard |
+| 2 | Navigate to Companies → click company | Company detail |
+| 3 | Find "Pricing" card | Shows current price or "Not set (free)" |
+| 4 | Click edit, enter: `0.04` | Price field populated |
+| 5 | Save | "0.0400 EUR" displayed per document |
+| 6 | Check help text | "Each document received via Peppol for this company will be charged at this rate" |
+
+### TC-14.3: Document Auto-Charging (Sufficient Balance)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Ensure wallet has balance (e.g., 1.00 EUR) and company price is 0.04 EUR | Prerequisites met |
+| 2 | Send test invoices (3 invoices) | Invoices arrive in inbox |
+| 3 | Navigate to Wallet → Transaction History | 3 "Charge" transactions, -0.04 EUR each |
+| 4 | Check balance | Reduced by 0.12 EUR (3 × 0.04) |
+| 5 | Check Inbox | Documents are NOT locked (all billed) |
+
+### TC-14.4: Document Locking (Insufficient Balance)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Set wallet balance to 0 EUR (via super admin adjustment) | Balance is 0 |
+| 2 | Send test invoices (3 invoices) | Invoices arrive |
+| 3 | Navigate to Inbox (as non-super-admin) | Yellow warning banner: "Some documents are locked due to insufficient wallet balance" |
+| 4 | Observe locked documents | Dimmed rows, blurred text, lock icon, not clickable |
+| 5 | Hover over locked row | No PDF icon, no pointer cursor |
+| 6 | Try to access locked document URL directly | "Document Locked" page with "Go to Wallet" button |
+| 7 | Sign in as super admin, check same Inbox | All documents visible (super admin bypasses locks) |
+
+### TC-14.5: Wallet Top-Up via QR Payment
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Navigate to Wallet page | Balance card with "Top Up" button |
+| 2 | Click "Top Up" | Dialog with amount input |
+| 3 | Enter amount: `5.00` | Field populated |
+| 4 | Click "Generate Payment" | QR code displayed (desktop) or "Open Banking App" button (mobile) |
+| 5 | Observe | Transaction ID shown, "Waiting for payment..." pulsing indicator |
+| 6 | Complete payment via banking app (scan QR) | Dialog polls every 4 seconds |
+| 7 | Payment confirmed | Green checkmark: "Payment Received! 5.00 EUR has been added" |
+| 8 | Dialog closes, page refreshes | Balance increased by 5.00 EUR |
+| 9 | Check Transaction History | "Top Up" transaction: +5.00 EUR |
+
+### TC-14.6: Auto-Billing After Top-Up
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have 3 unbilled (locked) documents at 0.04 EUR each (total 0.12 EUR needed) | Documents locked |
+| 2 | Top up wallet with 1.00 EUR | Payment received |
+| 3 | Check Inbox immediately | All 3 documents unlocked (no longer blurred/locked) |
+| 4 | Check Transaction History | Top-up (+1.00) followed by 3 charges (-0.04 each) |
+| 5 | Check balance | 1.00 - 0.12 = 0.88 EUR |
+
+### TC-14.7: All-or-Nothing Billing
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have 3 unbilled documents (0.04 each = 0.12 total), wallet balance: 0 EUR | All locked |
+| 2 | Top up with 0.05 EUR | Payment received |
+| 3 | Check Inbox | Documents still locked (0.05 < 0.12, can't bill all) |
+| 4 | Top up with 0.10 EUR more (total 0.15 EUR) | Payment received |
+| 5 | Check Inbox | All 3 documents now unlocked (0.15 >= 0.12) |
+| 6 | Check balance | 0.15 - 0.12 = 0.03 EUR |
+
+### TC-14.8: Super Admin Adjust Balance
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Sign in as super admin | Dashboard |
+| 2 | Navigate to Companies → click company → find wallet link, or directly to `/dashboard/wallet/[walletId]` | Wallet detail page (shows owner name) |
+| 3 | Click "Adjust Balance" | Dialog with amount and description fields |
+| 4 | Enter amount: `10.00`, description: `Manual credit for testing` | Fields populated |
+| 5 | Submit | Balance increases by 10.00 EUR |
+| 6 | Check Transaction History | "Adjustment" transaction: +10.00 EUR, description shown |
+| 7 | If unbilled documents exist | Auto-billing triggered, documents unlocked |
+
+### TC-14.9: Negative Adjustment
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | As super admin on wallet detail, click "Adjust Balance" | Dialog opens |
+| 2 | Enter amount: `-5.00`, description: `Refund` | Fields populated |
+| 3 | Submit | Balance decreases by 5.00 EUR |
+| 4 | Try to adjust with amount that would make balance negative | Error: cannot go below zero |
+
+### TC-14.10: Free Company (No Pricing)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Set company pricing to `0` or leave as "Not set" | Price is free |
+| 2 | Send test invoices | Invoices arrive |
+| 3 | Check Inbox | Documents NOT locked (free, auto-billed with 0 charge) |
+| 4 | Check Transaction History | No charge transactions for these documents |
+
+### TC-14.11: Transaction History Filters
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Navigate to Wallet → Transaction History | All transactions shown |
+| 2 | Filter by Type: "Charge" | Only charge transactions shown |
+| 3 | Filter by Type: "Top Up" | Only top-up transactions shown |
+| 4 | Filter by Company (if multi-company) | Only that company's charges shown |
+| 5 | Set Date From and Date To | Transactions filtered by date range |
+| 6 | Clear all filters | All transactions shown again |
+
+### TC-14.12: Export Statement (CSV)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | On Wallet page, click "Export Statement" | Export dialog with filter options |
+| 2 | Optionally select company and date range | Filters applied |
+| 3 | Click "Export" | CSV file downloaded |
+| 4 | Open CSV | Columns: Date, Type, Description, Company, Amount (EUR), Balance After (EUR) |
+| 5 | Scroll to bottom of CSV | Summary: total charges, total top-ups, total adjustments |
+
+### TC-14.13: Shared Wallet (Non-Genesis User)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Sign in as non-genesis company admin | Dashboard |
+| 2 | Navigate to Wallet | Wallet page shows balance and transactions |
+| 3 | Observe | Badge: "Shared wallet (managed by your company admin)" |
+| 4 | Top Up button | Still available (can top up shared wallet) |
+
+### TC-14.14: Multi-Company Shared Wallet
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Genesis admin has 2 companies, Company A (0.04/doc) and Company B (0.10/doc) | Both share one wallet |
+| 2 | Receive documents in both companies | Charges from both companies in same wallet |
+| 3 | Check Wallet → "Companies" stat | Shows "2 companies" |
+| 4 | Filter Transaction History by company | Shows only that company's charges |
+
+### TC-14.15: Public Payment Page
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Generate a payment link from Top Up dialog | Payment link created |
+| 2 | Copy the public payment URL (`/pay/[token]`) | URL available |
+| 3 | Open in incognito browser (no login) | Payment page with QR code, no auth required |
+| 4 | Complete payment | Green checkmark: "Payment Received! X EUR has been credited" |
+| 5 | Check wallet (logged in) | Balance increased |
+
+### TC-14.16: Super Admin Wallet Overview
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Sign in as super admin | Dashboard |
+| 2 | Navigate to Wallet | Message directing to company pages (super admin has no personal wallet) |
+| 3 | Navigate to Companies → click company → wallet link | Wallet detail page for that company's genesis admin |
+| 4 | Can view balance, transactions, adjust balance | Full access |
+
+---
+
+## Group 15: Edge Cases & Error Handling
+
+### TC-15.1: Duplicate PFS Webhook (Same DIC)
 
 | Step | Action | Expected |
 |---|---|---|
@@ -530,7 +759,7 @@
 | 2 | Check Companies list | No duplicate company created |
 | 3 | Check invitation | New genesis invitation sent if not already genesis member |
 
-### TC-13.2: Expired Invitation
+### TC-15.2: Expired Invitation
 
 | Step | Action | Expected |
 |---|---|---|
@@ -538,13 +767,13 @@
 | 2 | In Supabase, manually set `expires_at` to past: `update invitations set expires_at = now() - interval '1 hour' where email = '...'` | Updated |
 | 3 | Click the invitation link | "Invitation Expired" message shown |
 
-### TC-13.3: Wrong Email for Invitation
+### TC-15.3: Wrong Email for Invitation
 
 | Step | Action | Expected |
 |---|---|---|
 | 1 | Open invitation link while signed in with a different email | "This invitation was sent to a different email address" message |
 
-### TC-13.4: Peppol Activation Failure
+### TC-15.4: Peppol Activation Failure
 
 | Step | Action | Expected |
 |---|---|---|
@@ -554,7 +783,7 @@
 | 4 | Restore correct token | Token valid |
 | 5 | Click "Activate on Peppol" (manual fallback) | Activation succeeds |
 
-### TC-13.5: Permission Enforcement
+### TC-15.5: Permission Enforcement
 
 | Step | Action | Expected |
 |---|---|---|
@@ -562,7 +791,7 @@
 | 2 | As company admin, try to deactivate the genesis admin | Error: "Genesis admin can only be deactivated by a super admin" |
 | 3 | As non-genesis admin, try to deactivate another admin | Error: "Only genesis admin or super admin can deactivate other admins" |
 
-### TC-13.6: Concurrent Sessions
+### TC-15.6: Concurrent Sessions
 
 | Step | Action | Expected |
 |---|---|---|
@@ -570,27 +799,32 @@
 | 2 | Sign in as company admin in Firefox | Dashboard |
 | 3 | Both sessions work independently | No interference |
 
-### TC-13.7: Test Invoices Without Token
+### TC-15.7: Test Invoices Without Token
 
 | Step | Action | Expected |
 |---|---|---|
 | 1 | Remove `ION_AP_TEST_SENDER_TOKEN` env var | Env var missing |
 | 2 | Click "Send test invoices" on dashboard | Error: "Test invoice sending is not configured" |
 
-### TC-13.8: Locked Documents (Insufficient Wallet)
+### TC-15.8: Billing Edge — Negative Adjustment Blocked
 
 | Step | Action | Expected |
 |---|---|---|
-| 1 | As non-super-admin with unbilled documents in Inbox | Locked rows shown with blur, lock icon, reduced opacity |
-| 2 | Click a locked row | Nothing happens (not clickable) |
-| 3 | Hover over locked row | No PDF icon, no pointer cursor |
-| 4 | Try to access locked document URL directly | "Document Locked" page with "Go to Wallet" button |
+| 1 | As super admin, try to adjust wallet balance to negative | Error returned, balance unchanged |
+
+### TC-15.9: Payment Link Expiry
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Generate a payment link | Payment link created |
+| 2 | In Supabase, manually set `expires_at` to past on `payment_links` | Updated |
+| 3 | Open the public payment URL | "Expired" badge, message to request a new link |
 
 ---
 
-## Group 14: Responsive Design
+## Group 16: Responsive Design
 
-### TC-14.1: Mobile Layout
+### TC-16.1: Mobile Layout
 
 | Step | Action | Expected |
 |---|---|---|
@@ -601,7 +835,7 @@
 | 5 | Open Inbox | Table readable, some columns hidden on mobile, checkboxes visible |
 | 6 | Open document detail | Cards stack vertically |
 
-### TC-14.2: Desktop Layout
+### TC-16.2: Desktop Layout
 
 | Step | Action | Expected |
 |---|---|---|
@@ -627,6 +861,8 @@
 | 10. Audit Log | TC-10.1 to TC-10.4 | [ ] |
 | 11. Company Deactivation | TC-11.1 to TC-11.3 | [ ] |
 | 12. Company Reactivation | TC-12.1 to TC-12.2 | [ ] |
-| 13. Edge Cases & Error Handling | TC-13.1 to TC-13.8 | [ ] |
-| 14. Responsive Design | TC-14.1 to TC-14.2 | [ ] |
-| **Total** | **62 test cases** | |
+| 13. Departments | TC-13.1 to TC-13.6 | [ ] |
+| 14. Wallet & Prepaid Billing | TC-14.1 to TC-14.16 | [ ] |
+| 15. Edge Cases & Error Handling | TC-15.1 to TC-15.9 | [ ] |
+| 16. Responsive Design | TC-16.1 to TC-16.2 | [ ] |
+| **Total** | **87 test cases** | |
