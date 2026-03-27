@@ -130,10 +130,9 @@ function DeptPicker({
   );
 }
 
-async function downloadFile(url: string, filename: string) {
-  const res = await fetch(url);
-  if (!res.ok) return;
-  const blob = await res.blob();
+const ZIP_THRESHOLD = 5;
+
+function triggerBlobDownload(blob: Blob, filename: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -141,24 +140,78 @@ async function downloadFile(url: string, filename: string) {
   URL.revokeObjectURL(a.href);
 }
 
-async function downloadFiles(
+async function fetchFileBlob(url: string): Promise<Blob | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch {
+    return null;
+  }
+}
+
+async function downloadIndividual(
   ids: string[],
   type: "xml" | "pdf" | "both",
-  documents: any[]
+  documents: any[],
+  onProgress: (done: number, total: number) => void
 ) {
+  const total = ids.length * (type === "both" ? 2 : 1);
+  let done = 0;
+
   for (const id of ids) {
     const doc = documents.find((d: any) => d.id === id);
     const label = doc?.document_id ?? doc?.ion_ap_transaction_id ?? id.slice(0, 8);
 
     if (type === "xml" || type === "both") {
-      await downloadFile(`/api/documents/${id}/xml`, `${label}.xml`);
+      const blob = await fetchFileBlob(`/api/documents/${id}/xml`);
+      if (blob) triggerBlobDownload(blob, `${label}.xml`);
+      done++;
+      onProgress(done, total);
       await new Promise((r) => setTimeout(r, 300));
     }
     if (type === "pdf" || type === "both") {
-      await downloadFile(`/api/documents/${id}/pdf`, `${label}.pdf`);
+      const blob = await fetchFileBlob(`/api/documents/${id}/pdf`);
+      if (blob) triggerBlobDownload(blob, `${label}.pdf`);
+      done++;
+      onProgress(done, total);
       await new Promise((r) => setTimeout(r, 300));
     }
   }
+}
+
+async function downloadAsZip(
+  ids: string[],
+  type: "xml" | "pdf" | "both",
+  documents: any[],
+  onProgress: (done: number, total: number) => void
+) {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  const total = ids.length * (type === "both" ? 2 : 1);
+  let done = 0;
+
+  for (const id of ids) {
+    const doc = documents.find((d: any) => d.id === id);
+    const label = doc?.document_id ?? doc?.ion_ap_transaction_id ?? id.slice(0, 8);
+
+    if (type === "xml" || type === "both") {
+      const blob = await fetchFileBlob(`/api/documents/${id}/xml`);
+      if (blob) zip.file(`${label}.xml`, blob);
+      done++;
+      onProgress(done, total);
+    }
+    if (type === "pdf" || type === "both") {
+      const blob = await fetchFileBlob(`/api/documents/${id}/pdf`);
+      if (blob) zip.file(`${label}.pdf`, blob);
+      done++;
+      onProgress(done, total);
+    }
+  }
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const date = new Date().toISOString().split("T")[0];
+  triggerBlobDownload(zipBlob, `invoices-${date}.zip`);
 }
 
 export function InboxList({
@@ -180,6 +233,7 @@ export function InboxList({
   const [departments, setDepartments] = useState<Record<string, Department[]>>({});
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState("");
   const { toast } = useToast();
 
   // Sync with server data when props change (after router.refresh)
@@ -245,14 +299,27 @@ export function InboxList({
   };
 
   const handleBulkDownload = async (type: "xml" | "pdf" | "both") => {
+    const ids = Array.from(selectedIds);
     setIsDownloading(true);
+    setDownloadProgress("");
+
+    const onProgress = (done: number, total: number) => {
+      setDownloadProgress(`${done}/${total}`);
+    };
+
     try {
-      await downloadFiles(Array.from(selectedIds), type, documents);
-      toast(`Downloaded ${selectedIds.size} document(s)`);
+      if (ids.length >= ZIP_THRESHOLD) {
+        await downloadAsZip(ids, type, documents, onProgress);
+        toast(`Downloaded ${ids.length} document(s) as ZIP`);
+      } else {
+        await downloadIndividual(ids, type, documents, onProgress);
+        toast(`Downloaded ${ids.length} document(s)`);
+      }
     } catch {
       toast("Some downloads failed", "error");
     }
     setIsDownloading(false);
+    setDownloadProgress("");
   };
 
   const allDepts = Object.values(departments).flat();
@@ -317,7 +384,7 @@ export function InboxList({
             <DropdownMenuTrigger render={
               <Button size="sm" variant="outline" disabled={isDownloading}>
                 <Download className="mr-2 h-4 w-4" />
-                {isDownloading ? "Downloading..." : "Download"}
+                {isDownloading ? `Downloading ${downloadProgress}...` : "Download"}
                 <ChevronDown className="ml-1 h-3 w-3" />
               </Button>
             } />
