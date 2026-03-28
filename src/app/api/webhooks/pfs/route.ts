@@ -103,6 +103,7 @@ export async function POST(request: Request) {
         company_email: company_email ?? null,
         company_phone: company_phone ?? null,
         pfs_created_at: created,
+        price_per_document: 0.01,
       })
       .select("id")
       .single();

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createInvitation, getInviteUrl } from "@/lib/invitations";
+import { getOrCreateWallet, topUpWallet } from "@/lib/billing";
 import { sendInvitationEmail } from "@/lib/email";
 import {
   auditOnboarded,
@@ -539,6 +540,21 @@ export async function activateCompanyOnPeppol(companyId: string) {
         .update({ onboarded_at: new Date().toISOString() })
         .eq("id", user.id);
       auditOnboarded({ userId: user.id, email: user.email ?? "" });
+
+      // Create wallet with initial credit for genesis admin
+      try {
+        const wallet = await getOrCreateWallet(user.id);
+        if (wallet.available_balance === 0) {
+          await topUpWallet(
+            wallet.id,
+            0.50,
+            { type: "initial_credit", reason: "Welcome credit on Peppol activation" },
+            user.id,
+          );
+        }
+      } catch (err) {
+        console.error("Failed to create wallet with initial credit:", err);
+      }
     }
 
     revalidatePath("/dashboard");

@@ -67,8 +67,7 @@ export default async function DocumentDetailPage({
   }
 
   // Billing gate: block unbilled documents for non-super-admins
-  // TODO: re-enable billing lock
-  const isUnbilled = false; // !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+  const isUnbilled = !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
   if (isUnbilled && role !== "super_admin") {
     return (
       <div className="flex flex-col items-center gap-4 py-16">

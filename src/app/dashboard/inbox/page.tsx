@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { getUserWithRole, getDocuments, getInboxCounts, getUserDepartments } from "@/lib/dal";
+import { getWalletForUser } from "@/lib/billing";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { InboxList } from "./inbox-list";
 
@@ -46,6 +47,13 @@ export default async function InboxPage({
     statusFilter = undefined;
   }
 
+  // Get wallet for non-super-admins (needed for payment modal on locked docs)
+  let walletId: string | null = null;
+  if (role !== "super_admin") {
+    const walletData = await getWalletForUser(user.id).catch(() => null);
+    walletId = walletData?.wallet.id ?? null;
+  }
+
   const [{ documents, total }, counts] = await Promise.all([
     getDocuments({
       companyIds,
@@ -77,6 +85,7 @@ export default async function InboxPage({
         companyFilter={companyFilter}
         canTriage={canTriage}
         isSuperAdmin={role === "super_admin"}
+        walletId={walletId}
         filters={
           <FilterBar
             filters={[

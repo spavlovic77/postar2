@@ -19,11 +19,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock, RefreshCw, Download } from "lucide-react";
+import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock, RefreshCw, Download, CreditCard } from "lucide-react";
 import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { assignDocumentToDepartment, bulkAssignDocuments } from "./triage-actions";
+import { TopUpDialog } from "@/app/dashboard/wallet/top-up-dialog";
 
 function formatDate(date: string) {
   const d = new Date(date);
@@ -57,6 +58,7 @@ interface Props {
   companyFilter: string | null;
   canTriage: boolean;
   isSuperAdmin: boolean;
+  walletId?: string | null;
   filters?: React.ReactNode;
 }
 
@@ -222,6 +224,7 @@ export function InboxList({
   companyFilter,
   canTriage,
   isSuperAdmin,
+  walletId,
   filters,
 }: Props) {
   const router = useRouter();
@@ -234,6 +237,8 @@ export function InboxList({
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState("");
+  const [showTopUp, setShowTopUp] = useState(false);
+  const [pendingDocId, setPendingDocId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Sync with server data when props change (after router.refresh)
@@ -450,8 +455,7 @@ export function InboxList({
                   const isFailed = doc.status === "failed";
                   const isSelected = selectedIds.has(doc.id);
                   const companyDepts = departments[doc.company_id] ?? [];
-                  // TODO: re-enable billing lock: const isLocked = !isSuperAdmin && !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
-                  const isLocked = false;
+                  const isLocked = !isSuperAdmin && !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
                   const canDownloadPdf = !isPending && !isFailed && !isLocked;
 
                   return (
@@ -463,10 +467,15 @@ export function InboxList({
                         isFailed && "bg-destructive/5",
                         isSelected && "bg-primary/5",
                         isLocked && "opacity-60",
-                        !isLocked && !isPending && "cursor-pointer hover:bg-muted/50 transition-colors"
+                        !isPending && "cursor-pointer hover:bg-muted/50 transition-colors"
                       )}
                       onClick={() => {
-                        if (!isLocked && !isPending) router.push(`/dashboard/inbox/${doc.id}`);
+                        if (isLocked && walletId) {
+                          setPendingDocId(doc.id);
+                          setShowTopUp(true);
+                        } else if (!isLocked && !isPending) {
+                          router.push(`/dashboard/inbox/${doc.id}`);
+                        }
                       }}
                     >
                       <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
@@ -550,6 +559,25 @@ export function InboxList({
 
           <LoadMore hasMore={!!cursor} isLoading={isLoadingMore} onLoadMore={loadMore} loadedCount={documents.length} total={total} />
         </>
+      )}
+
+      {showTopUp && walletId && (
+        <TopUpDialog
+          walletId={walletId}
+          onClose={() => {
+            setShowTopUp(false);
+            setPendingDocId(null);
+          }}
+          onSuccess={() => {
+            setShowTopUp(false);
+            // Auto-billing runs server-side on topUp. Refresh then navigate.
+            router.refresh();
+            if (pendingDocId) {
+              setTimeout(() => router.push(`/dashboard/inbox/${pendingDocId}`), 1000);
+            }
+            setPendingDocId(null);
+          }}
+        />
       )}
     </div>
   );

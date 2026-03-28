@@ -51,8 +51,7 @@ export async function GET(
     }
   }
 
-  // TODO: re-enable billing lock
-  const isUnbilled = false; // !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
+  const isUnbilled = !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
   if (isUnbilled && !profile?.is_super_admin) {
     return NextResponse.json({ error: "Document is locked — insufficient wallet balance" }, { status: 403 });
   }

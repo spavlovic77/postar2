@@ -2,6 +2,7 @@ import https from "https";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { topUpWallet } from "@/lib/billing";
 import { auditPaymentLinkCreated, auditPaymentReceived } from "@/lib/audit";
+import { sendBillingInvoice } from "@/lib/billing-invoice";
 
 // ============================================================
 // mTLS helpers
@@ -187,6 +188,15 @@ export async function checkAndProcessPayment(
   });
 
   console.log(`[PAYMENT] ${paymentLink.external_transaction_id} → ${paymentLink.amount} EUR confirmed`);
+
+  // Send billing invoice via Peppol (non-blocking)
+  sendBillingInvoice(
+    paymentLink.wallet_id,
+    paymentLink.amount,
+    paymentLink.external_transaction_id
+  ).catch((err) => {
+    console.error("[PAYMENT] Billing invoice failed (non-fatal):", err);
+  });
 
   return { confirmed: true };
 }
