@@ -869,9 +869,101 @@
 
 ---
 
-## Group 16: Responsive Design
+## Group 16: Operations Center
 
-### TC-16.1: Mobile Layout
+### TC-16.1: Operations Center Access
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Sign in as super admin | "Operations" visible in sidebar |
+| 2 | Navigate to Operations | Operations Center page with 5 tabs: Companies, Documents, Payments, Billing, Invitations |
+| 3 | Observe issue count badge | Shows total number of issues (or "All clear" if none) |
+| 4 | Sign in as company admin | "Operations" visible in sidebar |
+| 5 | Navigate to Operations | Only own company's issues visible |
+| 6 | Sign in as operator or processor | "Operations" NOT visible in sidebar |
+
+### TC-16.2: Retry Failed Activation
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have a company with ion_ap_status = "error" | Company shows in Companies tab |
+| 2 | Observe error message | Error detail visible in table |
+| 3 | Click "Retry" | Loading spinner, then page refreshes |
+| 4 | If ion-AP is now available | Company status changes to "active" |
+| 5 | Check Audit Log | `OPS_ACTIVATION_RETRIED` event logged |
+
+### TC-16.3: Retry Failed Documents
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have documents with status "failed" | Documents show in Documents tab |
+| 2 | Observe retry count and last error | Columns show "5/10" retries and error text |
+| 3 | Click "Retry" on a single document | Document reprocessed (retry count reset) |
+| 4 | Click "Retry All Failed" button | All failed documents reprocessed |
+| 5 | Check Audit Log | `OPS_DOCUMENT_RETRIED` or `OPS_DOCUMENTS_BULK_RETRIED` events |
+
+### TC-16.4: Force Document Status (Super Admin)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | As super admin, find a failed document in Documents tab | "Force New" button visible |
+| 2 | Click "Force New" | Document status set to "new", bypassing processing |
+| 3 | Check Audit Log | `OPS_DOCUMENT_STATUS_FORCED` event with from/to status |
+| 4 | As company admin | "Force New" button NOT visible (super admin only) |
+
+### TC-16.5: Force Check Payment
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have a pending payment link | Shows in Payments tab |
+| 2 | Click "Check Now" | Forces KVERKOM API check |
+| 3 | If payment was completed externally | Status changes to completed, wallet credited |
+| 4 | Check Audit Log | `OPS_PAYMENT_FORCE_CHECKED` event |
+
+### TC-16.6: Manually Complete Payment (Super Admin)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | As super admin, find a pending payment in Payments tab | "Mark Completed" button visible (red) |
+| 2 | Click "Mark Completed" | Payment marked completed, wallet credited, auto-billing triggered |
+| 3 | Check Audit Log | `OPS_PAYMENT_MANUALLY_COMPLETED` event with amount |
+| 4 | As company admin | "Mark Completed" button NOT visible |
+
+### TC-16.7: Billing Overview & Retry
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have unbilled documents | Billing tab shows companies with unbilled count |
+| 2 | Observe columns | Company, Unbilled count, Price/doc, Total Cost, Balance, Can Bill? |
+| 3 | Company with sufficient balance shows "Yes" + "Bill Now" button | Button visible |
+| 4 | Company with insufficient balance shows "Insufficient" badge | No Bill Now button |
+| 5 | Click "Bill Now" | Documents billed, page refreshes |
+| 6 | Check Audit Log | `OPS_AUTOBILL_RETRIED` event |
+
+### TC-16.8: Extend Invitation Expiry
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have an expired invitation | Shows in Invitations tab with "Expired" badge |
+| 2 | Click "Extend 48h" | Expiry reset to 48h from now |
+| 3 | Check Audit Log | `OPS_INVITATION_EXTENDED` event |
+| 4 | Click "Resend" on a pending invitation | Invitation email resent |
+
+### TC-16.9: Auto-Heal Cron Verification
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have a company with ion_ap_status = "error" and an active company status | Cron should pick it up |
+| 2 | Wait for cron cycle (5 minutes) or manually trigger `/api/cron/maintenance` | Cron runs |
+| 3 | Check company status | If ion-AP is available, status auto-healed to "active" |
+| 4 | Have wallets with positive balance and unbilled documents | Cron should auto-bill |
+| 5 | Check Audit Log | `CRON_ACTIVATIONS_HEALED` and/or `CRON_BILLING_HEALED` events |
+
+---
+
+## Group 17: Responsive Design
+
+### TC-17.1: Mobile Layout
 
 | Step | Action | Expected |
 |---|---|---|
@@ -882,7 +974,7 @@
 | 5 | Open Inbox | Table readable, some columns hidden on mobile, checkboxes visible |
 | 6 | Open document detail | Cards stack vertically |
 
-### TC-16.2: Desktop Layout
+### TC-17.2: Desktop Layout
 
 | Step | Action | Expected |
 |---|---|---|
@@ -911,5 +1003,6 @@
 | 13. Departments | TC-13.1 to TC-13.6 | [ ] |
 | 14. Wallet & Prepaid Billing | TC-14.1 to TC-14.18 | [ ] |
 | 15. Edge Cases & Error Handling | TC-15.1 to TC-15.9 | [ ] |
-| 16. Responsive Design | TC-16.1 to TC-16.2 | [ ] |
-| **Total** | **93 test cases** | |
+| 16. Operations Center | TC-16.1 to TC-16.9 | [ ] |
+| 17. Responsive Design | TC-17.1 to TC-17.2 | [ ] |
+| **Total** | **102 test cases** | |

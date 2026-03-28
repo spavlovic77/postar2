@@ -456,7 +456,7 @@ REACTIVATION:
 | `/api/wallet/create-payment-link` | POST | Session | Generate QR payment link |
 | `/api/wallet/check-payment` | GET | None (UUID) | Poll for payment confirmation |
 | `/api/wallet/statement` | GET | Session | Export transaction statement (CSV) |
-| `/api/cron/maintenance` | GET | CRON_SECRET | Retry docs, check payments, manage partitions |
+| `/api/cron/maintenance` | GET | CRON_SECRET | Auto-heal: retry docs, check payments, retry activations, retry billing, manage partitions |
 
 ## Dashboard Pages
 
@@ -473,6 +473,7 @@ REACTIVATION:
 | `/dashboard/settings` | All | Profile + system settings (SA) |
 | `/dashboard/wallet` | All | Wallet balance, top-up, transaction history, statement export |
 | `/dashboard/wallet/[walletId]` | SA | Wallet detail, adjust balance |
+| `/dashboard/operations` | SA, Admin | Operations Center — retry activations, documents, payments, billing, invitations |
 | `/dashboard/test-tracker` | SA | Manual test progress tracker |
 | `/activate` | Genesis | Peppol activation landing page |
 | `/pay/[token]` | Public | Public payment page (QR, no login required) |
@@ -526,9 +527,20 @@ REACTIVATION:
 | ONBOARDING_REQUEST_SENT | info | Onboarding request sent to customer |
 | TEST_INVOICES_SENT | info | Test invoices sent to company |
 | SYSTEM_SETTINGS_UPDATED | info | System settings changed |
+| OPS_ACTIVATION_RETRIED | warning | Operator retried Peppol activation |
+| OPS_DOCUMENT_RETRIED | warning | Operator retried document processing |
+| OPS_DOCUMENTS_BULK_RETRIED | warning | Operator bulk retried failed documents |
+| OPS_DOCUMENT_STATUS_FORCED | warning | Super admin forced document status |
+| OPS_PAYMENT_FORCE_CHECKED | warning | Operator force-checked payment status |
+| OPS_PAYMENT_MANUALLY_COMPLETED | warning | Super admin manually completed payment |
+| OPS_AUTOBILL_RETRIED | warning | Operator retried auto-billing |
+| OPS_DOCUMENT_FORCE_BILLED | warning | Super admin force-billed document |
+| OPS_INVITATION_EXTENDED | info | Operator extended invitation expiry |
 | CRON_DOCUMENTS_RETRIED | info | Cron retried pending documents |
 | CRON_AUDIT_ARCHIVED | info | Cron archived audit partitions |
 | CRON_PAYMENTS_CONFIRMED | info | Cron confirmed pending payments |
+| CRON_ACTIVATIONS_HEALED | info | Cron auto-healed failed Peppol activations |
+| CRON_BILLING_HEALED | info | Cron auto-billed documents with positive balance |
 
 ## Environment Variables
 
