@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { retryPendingDocuments } from "@/lib/document-processor";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { audit } from "@/lib/audit";
+import { ensureCompanyActivated } from "@/lib/ion-ap/activate";
+import { autoBillUnbilledDocuments } from "@/lib/billing";
 
 /**
  * Vercel Cron Job — runs every 5 minutes.
@@ -122,6 +124,73 @@ export async function GET(request: Request) {
     }
   } catch (err) {
     results.paymentLinksError = err instanceof Error ? err.message : String(err);
+  }
+
+  // 4. Auto-heal: retry failed Peppol activations
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: errorCompanies } = await supabase
+      .from("companies")
+      .select("id, dic")
+      .eq("ion_ap_status", "error")
+      .eq("status", "active")
+      .limit(5);
+
+    if (errorCompanies && errorCompanies.length > 0) {
+      let healed = 0;
+      for (const company of errorCompanies) {
+        try {
+          await ensureCompanyActivated(company.id);
+          healed++;
+        } catch {
+          // Will retry next cycle
+        }
+      }
+      if (healed > 0) {
+        results.activationsHealed = healed;
+        audit({
+          eventId: "CRON_ACTIVATIONS_HEALED",
+          eventName: "Cron auto-healed failed activations",
+          details: { healedCount: healed, attemptedCount: errorCompanies.length },
+        });
+      }
+    }
+  } catch (err) {
+    results.activationsHealError = err instanceof Error ? err.message : String(err);
+  }
+
+  // 5. Auto-heal: retry billing for wallets with sufficient balance
+  try {
+    const supabase = getSupabaseAdmin();
+
+    // Find wallets that have unbilled documents
+    const { data: walletsWithUnbilled } = await supabase
+      .from("wallets")
+      .select("id")
+      .gt("available_balance", 0)
+      .limit(10);
+
+    if (walletsWithUnbilled && walletsWithUnbilled.length > 0) {
+      let billed = 0;
+      for (const w of walletsWithUnbilled) {
+        try {
+          const result = await autoBillUnbilledDocuments(w.id);
+          billed += result.billed;
+        } catch {
+          // Non-fatal
+        }
+      }
+      if (billed > 0) {
+        results.documentsAutoBilled = billed;
+        audit({
+          eventId: "CRON_BILLING_HEALED",
+          eventName: "Cron auto-billed documents",
+          details: { billedCount: billed },
+        });
+      }
+    }
+  } catch (err) {
+    results.billingHealError = err instanceof Error ? err.message : String(err);
   }
 
   return NextResponse.json({ ok: true, ...results });
