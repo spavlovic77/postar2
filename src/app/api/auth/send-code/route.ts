@@ -5,6 +5,7 @@ import { createVerificationCode } from "@/lib/verification";
 import { sendVerificationCodeEmail } from "@/lib/email";
 import { sendSmsCode } from "@/lib/sms";
 import { auditOtpSent } from "@/lib/audit";
+import { checkOtpSendLimit, checkOtpSendLimitPhone } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Phone number is required for SMS verification" },
         { status: 400 }
+      );
+    }
+
+    // Rate limiting
+    const rateCheck = channel === "sms"
+      ? await checkOtpSendLimitPhone(phone)
+      : await checkOtpSendLimit(email);
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: "Too many code requests. Please wait a few minutes and try again." },
+        { status: 429 }
       );
     }
 

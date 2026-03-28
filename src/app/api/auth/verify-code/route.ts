@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { verifyCode } from "@/lib/verification";
 import { auditOtpVerified, auditSignIn } from "@/lib/audit";
+import { checkOtpVerifyLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +14,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "userId and code are required" },
         { status: 400 }
+      );
+    }
+
+    // Rate limiting — prevent brute force
+    const rateCheck = await checkOtpVerifyLimit(userId);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: "Too many verification attempts. Please wait a few minutes and try again." },
+        { status: 429 }
       );
     }
 
