@@ -6,7 +6,8 @@
 |---|---|
 | Super Admin | stanislav.pavlovic@fiinancnasprava.sk |
 | Company Admin (Genesis) | efabox.sk@gmail.com |
-| Accountant | apartmentvir1@gmail.com |
+| Operator | operator@test.com |
+| Processor | apartmentvir1@gmail.com |
 
 **Prerequisites:**
 - Fresh schema.sql executed in Supabase SQL Editor
@@ -134,6 +135,8 @@
 | 5 | Observe notification message | "You will receive email notifications when new invoices arrive in your inbox." |
 | 6 | Click "Go to Dashboard" | Company Admin dashboard with company card (NO welcome screen) |
 | 7 | Check company card | Shows company name, DIC, Peppol status "Active" |
+| 8 | Navigate to Wallet | Wallet exists with 0.50 EUR balance ("Welcome credit on Peppol activation") |
+| 9 | Check Transaction History | One "Top Up" transaction: +0.50 EUR |
 
 ### TC-3.2: Verify Auto Activation Effects
 
@@ -199,43 +202,62 @@
 | 5 | Click "Send Invitation" | Dialog closes, invitation appears in table |
 | 6 | Check Audit Log | `INVITE_CREATED` event |
 
-### TC-5.2: Invite Accountant (by Genesis Admin)
+### TC-5.2: Invite Operator (by Genesis Admin)
 
 | Step | Action | Expected |
 |---|---|---|
 | 1 | On Users page, click "Invite User" | Dialog opens |
-| 2 | Enter email: `apartmentvir1@gmail.com`, role: Accountant, check the company | Form filled |
+| 2 | Enter email: `operator@test.com`, role: Operator, check the company | Form filled |
 | 3 | Click "Send Invitation" | Dialog closes, invitation appears |
-| 4 | Check apartmentvir1@gmail.com inbox | Invitation email: "You've been invited to peppolbox.sk as Accountant" with magic link |
+| 4 | Check operator@test.com inbox | Invitation email: "You've been invited to peppolbox.sk as Operator" with magic link |
 
-### TC-5.3: Accountant Accepts Invitation
+### TC-5.3: Invite Processor (by Genesis Admin)
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | On Users page, click "Invite User" | Dialog opens |
+| 2 | Enter email: `apartmentvir1@gmail.com`, role: Processor, check the company | Form filled |
+| 3 | Click "Send Invitation" | Dialog closes, invitation appears |
+| 4 | Check apartmentvir1@gmail.com inbox | Invitation email: "You've been invited to peppolbox.sk as Processor" with magic link |
+
+### TC-5.4: Processor Accepts Invitation
 
 | Step | Action | Expected |
 |---|---|---|
 | 1 | Open invitation email in apartmentvir1@gmail.com | Email with "Accept Invitation" button |
 | 2 | Click "Accept Invitation" | Redirected to peppolbox.sk, signed in |
-| 3 | Observe Welcome screen | "Welcome to peppolbox.sk!", role badge: "Accountant", company name shown |
-| 4 | Click "Go to Dashboard" | Accountant dashboard with company card |
-| 5 | Observe sidebar | No "Users" or "Webhooks" items (accountant limited nav) |
+| 3 | Observe Welcome screen | "Welcome to peppolbox.sk!", role badge: "Processor", company name shown |
+| 4 | Click "Go to Dashboard" | Redirected to Inbox (processor has no dashboard) |
+| 5 | Observe sidebar | Only "Inbox" and "Companies" items visible |
 
-### TC-5.4: Accountant Access Restrictions
+### TC-5.5: Operator Access & Triage
 
 | Step | Action | Expected |
 |---|---|---|
-| 1 | As accountant, navigate to Companies | Company listed (read-only) |
-| 2 | Click company | Company detail visible, no "Activate on Peppol" button, no "Deactivate" button |
-| 3 | Navigate to Inbox | Empty inbox (no documents yet) |
-| 4 | Navigate to Audit Log | Only own audit events visible |
-| 5 | Try to access `/dashboard/users` directly | Redirected away (accountant can't see Users page) |
+| 1 | Sign in as operator | Dashboard with company cards |
+| 2 | Navigate to Inbox | Documents visible, Department column shown, can triage |
+| 3 | Assign a document to a department | Department picker works, document assigned |
+| 4 | Navigate to Users | NOT accessible (operator cannot manage users) |
+| 5 | Navigate to Companies → click company | Can view, cannot activate/deactivate |
 
-### TC-5.5: Deactivate a Member (by Genesis Admin)
+### TC-5.6: Processor Access Restrictions
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | As processor, observe Inbox | Only documents assigned to their department visible |
+| 2 | Documents with no department or other departments | NOT visible |
+| 3 | Navigate to Companies | Company listed (read-only) |
+| 4 | Navigate to Audit Log | Only own audit events visible |
+| 5 | Try to access `/dashboard/users` directly | Redirected away |
+
+### TC-5.7: Deactivate a Member (by Genesis Admin)
 
 | Step | Action | Expected |
 |---|---|---|
 | 1 | Sign in as efabox.sk@gmail.com | Company Admin dashboard |
-| 2 | Navigate to Companies → click company → Members table | Accountant listed |
-| 3 | Click "Deactivate" next to accountant | Confirmation dialog |
-| 4 | Confirm | Accountant status changes to "Inactive" |
+| 2 | Navigate to Companies → click company → Members table | Operator and processor listed |
+| 3 | Click "Deactivate" next to processor | Confirmation dialog |
+| 4 | Confirm | Processor status changes to "Inactive" |
 | 5 | Sign in as apartmentvir1@gmail.com | Dashboard shows no companies (membership deactivated) |
 | 6 | Check Audit Log (as super admin) | `MEMBERSHIP_DEACTIVATED` event |
 
@@ -591,13 +613,13 @@
 | 2 | Receive a document (or send test invoices) | Wallet auto-created for genesis admin |
 | 3 | Navigate to Wallet page again | Wallet visible with balance card, transaction history |
 
-### TC-14.2: Company Pricing Configuration (Super Admin)
+### TC-14.2: Default Pricing & Configuration (Super Admin)
 
 | Step | Action | Expected |
 |---|---|---|
 | 1 | Sign in as super admin | Dashboard |
-| 2 | Navigate to Companies → click company | Company detail |
-| 3 | Find "Pricing" card | Shows current price or "Not set (free)" |
+| 2 | Navigate to Companies → click a newly created company | Company detail |
+| 3 | Find "Pricing" card | Shows "0.0100 EUR" (default for new companies via PFS webhook) |
 | 4 | Click edit, enter: `0.04` | Price field populated |
 | 5 | Save | "0.0400 EUR" displayed per document |
 | 6 | Check help text | "Each document received via Peppol for this company will be charged at this rate" |
@@ -606,10 +628,10 @@
 
 | Step | Action | Expected |
 |---|---|---|
-| 1 | Ensure wallet has balance (e.g., 1.00 EUR) and company price is 0.04 EUR | Prerequisites met |
+| 1 | Ensure wallet has balance (e.g., 0.50 EUR welcome credit) and company price is 0.01 EUR | Prerequisites met (default after onboarding) |
 | 2 | Send test invoices (3 invoices) | Invoices arrive in inbox |
-| 3 | Navigate to Wallet → Transaction History | 3 "Charge" transactions, -0.04 EUR each |
-| 4 | Check balance | Reduced by 0.12 EUR (3 × 0.04) |
+| 3 | Navigate to Wallet → Transaction History | 3 "Charge" transactions, -0.01 EUR each |
+| 4 | Check balance | Reduced by 0.03 EUR (3 × 0.01), balance = 0.47 EUR |
 | 5 | Check Inbox | Documents are NOT locked (all billed) |
 
 ### TC-14.4: Document Locking (Insufficient Balance)
@@ -619,10 +641,12 @@
 | 1 | Set wallet balance to 0 EUR (via super admin adjustment) | Balance is 0 |
 | 2 | Send test invoices (3 invoices) | Invoices arrive |
 | 3 | Navigate to Inbox (as non-super-admin) | Yellow warning banner: "Some documents are locked due to insufficient wallet balance" |
-| 4 | Observe locked documents | Dimmed rows, blurred text, lock icon, not clickable |
-| 5 | Hover over locked row | No PDF icon, no pointer cursor |
-| 6 | Try to access locked document URL directly | "Document Locked" page with "Go to Wallet" button |
-| 7 | Sign in as super admin, check same Inbox | All documents visible (super admin bypasses locks) |
+| 4 | Observe locked documents | Dimmed rows, blurred text, lock icon |
+| 5 | Hover over locked row | No PDF icon but pointer cursor (clickable) |
+| 6 | Click a locked document | QR payment modal opens (NOT a "Document Locked" page) |
+| 7 | Close modal without paying | Modal closes, back to inbox |
+| 8 | Try to access locked document URL directly | "Document Locked" page with "Go to Wallet" button |
+| 9 | Sign in as super admin, check same Inbox | All documents visible (super admin bypasses locks) |
 
 ### TC-14.5: Wallet Top-Up via QR Payment
 
@@ -638,28 +662,51 @@
 | 8 | Dialog closes, page refreshes | Balance increased by 5.00 EUR |
 | 9 | Check Transaction History | "Top Up" transaction: +5.00 EUR |
 
-### TC-14.6: Auto-Billing After Top-Up
+### TC-14.6: Payment Modal on Locked Document (Unlock Flow)
 
 | Step | Action | Expected |
 |---|---|---|
-| 1 | Have 3 unbilled (locked) documents at 0.04 EUR each (total 0.12 EUR needed) | Documents locked |
+| 1 | Have locked documents in Inbox (balance = 0) | Locked rows visible |
+| 2 | Click a locked document row | QR payment modal opens (amount input + generate) |
+| 3 | Enter amount: `1.00`, click "Generate Payment" | QR code shown |
+| 4 | Complete payment via banking app | Modal shows "Payment Received!" |
+| 5 | Wait 1 second | Page refreshes, then auto-navigates to the clicked document detail |
+| 6 | Observe | Document is viewable (unlocked), status "read" |
+| 7 | Go back to Inbox | Previously locked documents now unlocked |
+
+### TC-14.7: Peppol Billing Invoice After Payment
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Complete a QR payment top-up (any amount) | Payment confirmed |
+| 2 | Wait 10-30 seconds | Billing invoice sent via Peppol |
+| 3 | Check Inbox | New invoice from "peppolbox.sk" arrives |
+| 4 | Click the billing invoice | Sender: peppolbox.sk (9950:6878787887), line: "peppolbox.sk - e-invoice service credit" |
+| 5 | Verify amount | Amount matches the top-up amount, 23% VAT applied |
+| 6 | Check Audit Log | `BILLING_INVOICE_SENT` event logged |
+
+### TC-14.8: Auto-Billing After Top-Up
+
+| Step | Action | Expected |
+|---|---|---|
+| 1 | Have 3 unbilled (locked) documents at 0.01 EUR each (total 0.03 EUR needed) | Documents locked |
 | 2 | Top up wallet with 1.00 EUR | Payment received |
 | 3 | Check Inbox immediately | All 3 documents unlocked (no longer blurred/locked) |
-| 4 | Check Transaction History | Top-up (+1.00) followed by 3 charges (-0.04 each) |
-| 5 | Check balance | 1.00 - 0.12 = 0.88 EUR |
+| 4 | Check Transaction History | Top-up (+1.00) followed by 3 charges (-0.01 each) |
+| 5 | Check balance | 1.00 - 0.03 = 0.97 EUR |
 
-### TC-14.7: All-or-Nothing Billing
+### TC-14.9: All-or-Nothing Billing
 
 | Step | Action | Expected |
 |---|---|---|
-| 1 | Have 3 unbilled documents (0.04 each = 0.12 total), wallet balance: 0 EUR | All locked |
-| 2 | Top up with 0.05 EUR | Payment received |
-| 3 | Check Inbox | Documents still locked (0.05 < 0.12, can't bill all) |
-| 4 | Top up with 0.10 EUR more (total 0.15 EUR) | Payment received |
-| 5 | Check Inbox | All 3 documents now unlocked (0.15 >= 0.12) |
-| 6 | Check balance | 0.15 - 0.12 = 0.03 EUR |
+| 1 | Have 3 unbilled documents (0.01 each = 0.03 total), wallet balance: 0 EUR | All locked |
+| 2 | Top up with 0.01 EUR | Payment received |
+| 3 | Check Inbox | Documents still locked (0.01 < 0.03, can't bill all) |
+| 4 | Top up with 0.03 EUR more (total 0.04 EUR) | Payment received |
+| 5 | Check Inbox | All 3 documents now unlocked (0.04 >= 0.03) |
+| 6 | Check balance | 0.04 - 0.03 = 0.01 EUR |
 
-### TC-14.8: Super Admin Adjust Balance
+### TC-14.10: Super Admin Adjust Balance
 
 | Step | Action | Expected |
 |---|---|---|
@@ -671,7 +718,7 @@
 | 6 | Check Transaction History | "Adjustment" transaction: +10.00 EUR, description shown |
 | 7 | If unbilled documents exist | Auto-billing triggered, documents unlocked |
 
-### TC-14.9: Negative Adjustment
+### TC-14.11: Negative Adjustment
 
 | Step | Action | Expected |
 |---|---|---|
@@ -680,7 +727,7 @@
 | 3 | Submit | Balance decreases by 5.00 EUR |
 | 4 | Try to adjust with amount that would make balance negative | Error: cannot go below zero |
 
-### TC-14.10: Free Company (No Pricing)
+### TC-14.12: Free Company (No Pricing)
 
 | Step | Action | Expected |
 |---|---|---|
@@ -689,7 +736,7 @@
 | 3 | Check Inbox | Documents NOT locked (free, auto-billed with 0 charge) |
 | 4 | Check Transaction History | No charge transactions for these documents |
 
-### TC-14.11: Transaction History Filters
+### TC-14.13: Transaction History Filters
 
 | Step | Action | Expected |
 |---|---|---|
@@ -700,7 +747,7 @@
 | 5 | Set Date From and Date To | Transactions filtered by date range |
 | 6 | Clear all filters | All transactions shown again |
 
-### TC-14.12: Export Statement (CSV)
+### TC-14.14: Export Statement (CSV)
 
 | Step | Action | Expected |
 |---|---|---|
@@ -710,7 +757,7 @@
 | 4 | Open CSV | Columns: Date, Type, Description, Company, Amount (EUR), Balance After (EUR) |
 | 5 | Scroll to bottom of CSV | Summary: total charges, total top-ups, total adjustments |
 
-### TC-14.13: Shared Wallet (Non-Genesis User)
+### TC-14.15: Shared Wallet (Non-Genesis User)
 
 | Step | Action | Expected |
 |---|---|---|
@@ -719,7 +766,7 @@
 | 3 | Observe | Badge: "Shared wallet (managed by your company admin)" |
 | 4 | Top Up button | Still available (can top up shared wallet) |
 
-### TC-14.14: Multi-Company Shared Wallet
+### TC-14.16: Multi-Company Shared Wallet
 
 | Step | Action | Expected |
 |---|---|---|
@@ -728,7 +775,7 @@
 | 3 | Check Wallet → "Companies" stat | Shows "2 companies" |
 | 4 | Filter Transaction History by company | Shows only that company's charges |
 
-### TC-14.15: Public Payment Page
+### TC-14.17: Public Payment Page
 
 | Step | Action | Expected |
 |---|---|---|
@@ -738,7 +785,7 @@
 | 4 | Complete payment | Green checkmark: "Payment Received! X EUR has been credited" |
 | 5 | Check wallet (logged in) | Balance increased |
 
-### TC-14.16: Super Admin Wallet Overview
+### TC-14.18: Super Admin Wallet Overview
 
 | Step | Action | Expected |
 |---|---|---|
@@ -853,7 +900,7 @@
 | 2. Company Onboarding via PFS | TC-2.1 to TC-2.3 | [ ] |
 | 3. Genesis Admin Onboarding & Auto Activation | TC-3.1 to TC-3.4 | [ ] |
 | 4. Peppol Activation (Manual Fallback) | TC-4.1 to TC-4.2 | [ ] |
-| 5. User Management & Invitations | TC-5.1 to TC-5.5 | [ ] |
+| 5. User Management & Invitations | TC-5.1 to TC-5.7 | [ ] |
 | 6. OTP Sign-In Flow | TC-6.1 to TC-6.4 | [ ] |
 | 7. Test Invoices | TC-7.1 to TC-7.3 | [ ] |
 | 8. Inbox & Document Viewing | TC-8.1 to TC-8.7 | [ ] |
@@ -862,7 +909,7 @@
 | 11. Company Deactivation | TC-11.1 to TC-11.3 | [ ] |
 | 12. Company Reactivation | TC-12.1 to TC-12.2 | [ ] |
 | 13. Departments | TC-13.1 to TC-13.6 | [ ] |
-| 14. Wallet & Prepaid Billing | TC-14.1 to TC-14.16 | [ ] |
+| 14. Wallet & Prepaid Billing | TC-14.1 to TC-14.18 | [ ] |
 | 15. Edge Cases & Error Handling | TC-15.1 to TC-15.9 | [ ] |
 | 16. Responsive Design | TC-16.1 to TC-16.2 | [ ] |
-| **Total** | **87 test cases** | |
+| **Total** | **93 test cases** | |
