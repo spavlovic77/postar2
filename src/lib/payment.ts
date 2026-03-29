@@ -34,17 +34,64 @@ function createMtlsAgent(): https.Agent {
 
 /**
  * Make an mTLS-authenticated request to the KVERKOM ERP API.
+ * Uses Node.js https.request (not fetch) for proper mTLS client cert support.
  */
-async function kverkomFetch(path: string, options: RequestInit = {}): Promise<Response> {
+function kverkomFetch(
+  path: string,
+  options: { method?: string; body?: string; headers?: Record<string, string> } = {}
+): Promise<{ ok: boolean; status: number; text: () => Promise<string>; json: () => Promise<any> }> {
   const apiUrl = process.env.KV_API_URL;
   if (!apiUrl) throw new Error("Missing env var: KV_API_URL");
 
+  const url = new URL(path, apiUrl);
   const agent = createMtlsAgent();
 
-  return fetch(`${apiUrl}${path}`, {
-    ...options,
-    // @ts-expect-error -- Node.js fetch supports agent via dispatcher
-    agent,
+  console.log(`[KVERKOM] ${options.method ?? "GET"} ${url.toString()}`);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: options.method ?? "GET",
+        agent,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...options.headers,
+        },
+        timeout: 25000,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf8");
+          console.log(`[KVERKOM] ${res.statusCode} ${body.slice(0, 200)}`);
+          resolve({
+            ok: (res.statusCode ?? 500) >= 200 && (res.statusCode ?? 500) < 300,
+            status: res.statusCode ?? 500,
+            text: async () => body,
+            json: async () => JSON.parse(body),
+          });
+        });
+      }
+    );
+
+    req.on("error", (err) => {
+      console.error(`[KVERKOM] Request error: ${err.message}`);
+      reject(err);
+    });
+
+    req.on("timeout", () => {
+      console.error("[KVERKOM] Request timed out (25s)");
+      req.destroy(new Error("KVERKOM request timed out"));
+    });
+
+    if (options.body) {
+      req.write(options.body);
+    }
+
+    req.end();
   });
 }
 
@@ -59,6 +106,7 @@ async function kverkomFetch(path: string, options: RequestInit = {}): Promise<Re
 export async function generateTransactionId(): Promise<string> {
   const response = await kverkomFetch("/api/v1/generateNewTransactionId", {
     method: "POST",
+    headers: { Date: new Date().toISOString() },
   });
 
   if (!response.ok) {
