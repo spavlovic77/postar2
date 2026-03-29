@@ -267,20 +267,18 @@ export function constructPayMeUrl(params: {
   const creditorName = params.creditorName ?? process.env.PAYME_CREDITOR_NAME ?? "peppolbox.sk";
   const message = params.message ?? "Wallet top-up";
 
-  const dueDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-
+  // Payment Link Standard v2.0: https://payme.sk/{Version}/{Type}/{SchemeID}?{Attributes}
+  // Type /m/ = dynamic QR payment at POI (amount + PI mandatory, DT omitted)
   const urlParams = new URLSearchParams({
-    V: "1",
     IBAN: iban,
     AM: params.amount.toFixed(2),
     CC: "EUR",
     PI: params.transactionId,
-    DT: dueDate,
-    MSG: message,
     CN: creditorName,
+    MSG: message,
   });
 
-  return `https://payme.sk/?${urlParams.toString()}`;
+  return `https://payme.sk/2/m/PME?${urlParams.toString()}`;
 }
 
 // ============================================================
