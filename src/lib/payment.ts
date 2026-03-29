@@ -355,13 +355,20 @@ function extractCertIdentifiers(certPem: string): {
     const cert = new X509Certificate(certPem);
     const subject = cert.subject as string;
 
+    console.log(`[KVERKOM] Certificate subject: ${subject}`);
+
+    // CN format: "VATSK-1234567890 POKLADNICA 88812345678900001"
     const cnMatch = subject.match(/CN\s*=\s*VATSK-(\d+)\s+POKLADNICA\s+(\d+)/);
 
-    return {
-      vatsk: cnMatch ? cnMatch[1] : null,
-      pokladnica: cnMatch ? cnMatch[2] : null,
-    };
-  } catch {
+    // KVERKOM API expects "POKLADNICA-{digits}" as the path parameter
+    const vatsk = cnMatch ? cnMatch[1] : null;
+    const pokladnica = cnMatch ? `POKLADNICA-${cnMatch[2]}` : null;
+
+    console.log(`[KVERKOM] Extracted VATSK=${vatsk}, POKLADNICA=${pokladnica}`);
+
+    return { vatsk, pokladnica };
+  } catch (err) {
+    console.error("[KVERKOM] Certificate parsing error:", err);
     return { vatsk: null, pokladnica: null };
   }
 }
