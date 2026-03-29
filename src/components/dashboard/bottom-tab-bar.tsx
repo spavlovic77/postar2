@@ -11,6 +11,7 @@ import {
   ScrollText,
   Settings,
   Wallet,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavigationItem } from "@/lib/types";
@@ -24,6 +25,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   ScrollText,
   Settings,
   Wallet,
+  Activity,
 };
 
 interface Props {

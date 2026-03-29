@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import {
   getUserWithRole,
   getSuperAdminStats,
-  getRecentWebhooks,
-  getRecentInvitations,
   getCompanyAdminData,
 } from "@/lib/dal";
 import { SuperAdminDashboard } from "@/components/dashboard/super-admin-dashboard";
@@ -19,19 +17,9 @@ export default async function DashboardPage() {
   const { role, user, companies } = data;
 
   if (role === "super_admin") {
-    const [stats, webhooksResult, recentInvitations] = await Promise.all([
-      getSuperAdminStats(),
-      getRecentWebhooks({ limit: 10 }),
-      getRecentInvitations(),
-    ]);
+    const stats = await getSuperAdminStats();
 
-    return (
-      <SuperAdminDashboard
-        stats={stats}
-        recentWebhooks={webhooksResult.webhooks}
-        recentInvitations={recentInvitations}
-      />
-    );
+    return <SuperAdminDashboard stats={stats} />;
   }
 
   if (role === "company_admin" || role === "operator") {
