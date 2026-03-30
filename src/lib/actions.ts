@@ -198,6 +198,60 @@ export async function deactivateMembership(membershipId: string) {
   return { success: true };
 }
 
+export async function reactivateMembership(membershipId: string) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  const { data: membership } = await admin
+    .from("company_memberships")
+    .select("*, company:companies(dic)")
+    .eq("id", membershipId)
+    .single();
+
+  if (!membership) return { error: "Membership not found" };
+  if (membership.status === "active") return { error: "Member is already active" };
+
+  // Same permission logic as deactivation
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    const { data: myMembership } = await admin
+      .from("company_memberships")
+      .select("roles")
+      .eq("user_id", user.id)
+      .eq("company_id", membership.company_id)
+      .eq("status", "active")
+      .single();
+
+    if (!myMembership || !myMembership.roles?.includes("company_admin")) {
+      return { error: "You don't have permission to reactivate this member" };
+    }
+  }
+
+  await admin
+    .from("company_memberships")
+    .update({ status: "active" })
+    .eq("id", membershipId);
+
+  audit({
+    eventId: "MEMBERSHIP_REACTIVATED",
+    eventName: "Company membership reactivated",
+    actorId: user.id,
+    actorEmail: user.email ?? "",
+    companyId: membership.company_id,
+    companyDic: membership.company?.dic ?? undefined,
+    details: { membershipId, userId: membership.user_id },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/companies");
+  return { success: true };
+}
+
 export async function updateProfile(formData: FormData) {
   const user = await getAuthUser();
   const admin = getSupabaseAdmin();

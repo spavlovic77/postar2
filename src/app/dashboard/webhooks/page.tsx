@@ -32,16 +32,23 @@ export default async function WebhooksPage({
 }) {
   const data = await getUserWithRole();
   if (!data) redirect("/");
-  if (data.role !== "super_admin") redirect("/dashboard");
+  if (data.role !== "super_admin" && data.role !== "company_admin") redirect("/dashboard");
 
   const params = await searchParams;
   const offset = parseInt(params.offset ?? "0", 10);
   const pageSize = 25;
 
+  // Company admins only see webhooks for their companies' DICs
+  let dicFilter = params.dic;
+  if (data.role !== "super_admin" && !dicFilter) {
+    const companyDics = data.companies?.map((c) => c.dic).filter(Boolean) ?? [];
+    dicFilter = companyDics.length > 0 ? companyDics.join(",") : "__none__";
+  }
+
   const { webhooks, total } = await getRecentWebhooks({
     limit: pageSize,
     offset,
-    dic: params.dic,
+    dic: dicFilter,
     company: params.company_name,
     email: params.email,
     dateFrom: params.from,

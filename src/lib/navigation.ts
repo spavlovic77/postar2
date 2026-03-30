@@ -29,7 +29,7 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Webhooks",
     href: "/dashboard/webhooks",
     icon: "Webhook",
-    roles: ["super_admin"],
+    roles: ["super_admin", "company_admin"],
   },
   {
     label: "Wallet",

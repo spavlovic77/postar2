@@ -20,7 +20,7 @@
 | Inbox      | All documents      | Own companies                 | Own companies                 | Own companies   | Own department only |
 | Companies  | All                | Own                           | Own                           | Own (read-only) | Own (read-only)     |
 | Users      | All                | Own companies                 | Own companies                 | View only       | No access           |
-| Webhooks   | Yes                | No                            | No                            | No              | No                  |
+| Webhooks   | Yes (all)          | Own companies                 | Own companies                 | No              | No                  |
 | Wallet     | Via company detail | Yes (owner)                   | Yes (shared)                  | Yes (shared)    | No                  |
 | Operations | Full access        | Own companies only            | No                            | No              | No                  |
 | Audit Log  | All events         | Own companies                 | Own companies                 | Own companies   | No                  |
@@ -55,6 +55,7 @@
 | Deactivate genesis admin      | Yes         | No                             | No            | No       | No        |
 | Deactivate company admin      | Yes         | Yes                            | No            | No       | No        |
 | Deactivate operator/processor | Yes         | Yes                            | Yes           | No       | No        |
+| Reactivate member             | Yes         | Yes                            | Yes           | No       | No        |
 | Update member roles           | Yes         | Yes (can assign company_admin) | No            | No       | No        |
 
 ### Department Management
@@ -79,7 +80,10 @@
 | Download PDF (hover icon)         | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Download XML                      | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Mass download (select + download) | Yes           | Yes                | Yes                | Yes                | Yes                |
-| Mark as read/unread               | Yes           | Yes                | Yes                | Yes                | Yes                |
+| Mark as read (auto on view)       | Yes           | Yes                | Yes                | Yes                | Yes                |
+| Mark as Processed (with note)     | Yes           | Yes                | Yes                | Yes                | Yes                |
+| Add note to document              | Yes           | Yes                | Yes                | Yes                | Yes                |
+| View document activity timeline   | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Assign to department (triage)     | Yes           | Yes                | Yes                | Yes                | No                 |
 | Bulk assign documents             | Yes           | Yes                | Yes                | Yes                | No                 |
 | View locked documents (billing)   | Yes (no lock) | Locked if unbilled | Locked if unbilled | Locked if unbilled | Locked if unbilled |

@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DocumentActions } from "./document-actions";
+import { DocumentTimeline } from "./document-timeline";
 import { audit } from "@/lib/audit";
 import { getUserDepartments } from "@/lib/dal";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString("sk-SK", {
@@ -106,6 +108,56 @@ export default async function DocumentDetailPage({
 
   const company = (doc as any).company;
 
+  // Fetch notes and audit events for timeline
+  const adminClient = getSupabaseAdmin();
+  const [{ data: notes }, { data: auditEvents }] = await Promise.all([
+    adminClient
+      .from("document_notes")
+      .select("id, note, type, created_at, user_id, user:profiles(full_name)")
+      .eq("document_id", id)
+      .order("created_at", { ascending: false }),
+    adminClient
+      .from("audit_logs")
+      .select("id, event_id, event_name, actor_email, created_at, details")
+      .or(`details->>documentId.eq.${id},details->>document_id.eq.${id}`)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  // Build timeline entries
+  const AUDIT_ICONS: Record<string, string> = {
+    DOCUMENT_READ: "mail",
+    DOCUMENT_ASSIGNED: "folder",
+    DOCUMENTS_BULK_ASSIGNED: "folder",
+    DOCUMENT_PROCESSED: "check",
+    DOCUMENT_CHARGED: "card",
+    PEPPOL_DOCUMENT_RECEIVED: "file",
+    DOCUMENT_NOTE_ADDED: "comment",
+  };
+
+  const timelineEntries = [
+    ...(notes ?? []).map((n: any) => ({
+      id: `note-${n.id}`,
+      type: "note" as const,
+      icon: n.type === "processed" ? "check" : "comment",
+      title: n.type === "processed" ? "Marked as Processed" : "Note",
+      detail: n.note,
+      actor: n.user?.full_name ?? undefined,
+      timestamp: n.created_at,
+    })),
+    ...(auditEvents ?? [])
+      .filter((e: any) => e.event_id !== "DOCUMENT_NOTE_ADDED") // avoid duplicate with notes
+      .map((e: any) => ({
+        id: `audit-${e.id}`,
+        type: "audit" as const,
+        icon: AUDIT_ICONS[e.event_id] ?? "file",
+        title: e.event_name,
+        detail: undefined,
+        actor: e.actor_email ?? undefined,
+        timestamp: e.created_at,
+      })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -197,6 +249,8 @@ export default async function DocumentDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <DocumentTimeline entries={timelineEntries} documentId={doc.id} />
     </div>
   );
 }

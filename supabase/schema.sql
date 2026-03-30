@@ -270,6 +270,20 @@ create index idx_documents_ion_ap on documents (ion_ap_transaction_id);
 create index idx_documents_unbilled on documents (company_id, billed_at) where billed_at is null;
 
 -- ----------------------
+-- Document Notes (comment thread per document)
+-- ----------------------
+create table document_notes (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references documents(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  note text not null,
+  type text not null default 'comment', -- 'comment', 'processed', 'system'
+  created_at timestamptz not null default now()
+);
+
+create index idx_document_notes_document on document_notes (document_id, created_at);
+
+-- ----------------------
 -- Wallets (one per genesis admin)
 -- ----------------------
 create table wallets (

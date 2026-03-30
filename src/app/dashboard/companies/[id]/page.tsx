@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { PeppolStatusBadge } from "@/components/dashboard/peppol-status-badge";
 import { DeactivateButton } from "./deactivate-button";
+import { ReactivateButton } from "./reactivate-button";
 import { PeppolActivateButton } from "./peppol-activate-button";
 import { DeactivateCompanyButton } from "./deactivate-company-button";
 import { ReactivateCompanyForm } from "./reactivate-company-form";
@@ -275,7 +276,8 @@ export default async function CompanyDetailPage({
                       </TableCell>
                       {canManageMembers && (
                         <TableCell>
-                          {canDeactivate && <DeactivateButton membershipId={m.id} />}
+                          {canDeactivate && m.status === "active" && <DeactivateButton membershipId={m.id} />}
+                          {m.status === "inactive" && <ReactivateButton membershipId={m.id} />}
                         </TableCell>
                       )}
                     </TableRow>

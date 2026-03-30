@@ -1,30 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { updateDocumentStatus } from "@/lib/dal";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { processDocument } from "@/lib/document-processor";
 import { audit } from "@/lib/audit";
 import { createClient } from "@/lib/supabase/server";
-
-export async function markDocumentUnread(documentId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  await updateDocumentStatus(documentId, "new");
-
-  audit({
-    eventId: "DOCUMENT_UNREAD",
-    eventName: "Document marked as unread",
-    actorId: user?.id,
-    actorEmail: user?.email ?? undefined,
-    details: { documentId },
-  });
-
-  revalidatePath("/dashboard/inbox");
-  revalidatePath(`/dashboard/inbox/${documentId}`);
-}
 
 export async function retryDocument(documentId: string) {
   const supabase = await createClient();
@@ -46,4 +26,83 @@ export async function retryDocument(documentId: string) {
   revalidatePath(`/dashboard/inbox/${documentId}`);
 
   return { success };
+}
+
+export async function markDocumentProcessed(documentId: string, note: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+  if (!note.trim()) return { error: "Note is required" };
+
+  const admin = getSupabaseAdmin();
+
+  const { data: doc } = await admin
+    .from("documents")
+    .select("status, company_id")
+    .eq("id", documentId)
+    .single();
+
+  if (!doc) return { error: "Document not found" };
+
+  // Update status to processed
+  await admin
+    .from("documents")
+    .update({ status: "processed" })
+    .eq("id", documentId);
+
+  // Add note
+  await admin.from("document_notes").insert({
+    document_id: documentId,
+    user_id: user.id,
+    note: note.trim(),
+    type: "processed",
+  });
+
+  audit({
+    eventId: "DOCUMENT_PROCESSED",
+    eventName: "Document marked as processed",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId: doc.company_id,
+    details: { documentId, note: note.trim() },
+  });
+
+  revalidatePath("/dashboard/inbox");
+  revalidatePath(`/dashboard/inbox/${documentId}`);
+
+  return { success: true };
+}
+
+export async function addDocumentNote(documentId: string, note: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+  if (!note.trim()) return { error: "Note is required" };
+
+  const admin = getSupabaseAdmin();
+
+  await admin.from("document_notes").insert({
+    document_id: documentId,
+    user_id: user.id,
+    note: note.trim(),
+    type: "comment",
+  });
+
+  audit({
+    eventId: "DOCUMENT_NOTE_ADDED",
+    eventName: "Note added to document",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    details: { documentId, note: note.trim() },
+  });
+
+  revalidatePath(`/dashboard/inbox/${documentId}`);
+
+  return { success: true };
 }
