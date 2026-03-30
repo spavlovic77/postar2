@@ -2,18 +2,18 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui v4 |
-| Auth | Supabase Auth (Google, Apple OAuth + passwordless OTP) |
-| Database | Supabase (PostgreSQL with RLS) |
-| Email | Resend |
-| SMS | Twilio |
-| Peppol AP | ion-AP (test: test.ion-ap.net) |
-| Payments | PayMe.sk QR + KVERKOM mTLS API |
-| Blob Storage | Vercel Blob (XML documents) |
-| Hosting | Vercel |
-| Tests | Vitest (71 tests) |
+| Layer        | Technology                                                      |
+| ------------ | --------------------------------------------------------------- |
+| Frontend     | Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui v4 |
+| Auth         | Supabase Auth (Google, Apple OAuth + passwordless OTP)          |
+| Database     | Supabase (PostgreSQL with RLS)                                  |
+| Email        | Resend                                                          |
+| SMS          | Twilio                                                          |
+| Peppol AP    | ion-AP (test: test.ion-ap.net)                                  |
+| Payments     | PayMe.sk QR + KVERKOM mTLS API                                  |
+| Blob Storage | Vercel Blob (XML documents)                                     |
+| Hosting      | Vercel                                                          |
+| Tests        | Vitest (71 tests)                                               |
 
 ## Database Schema
 
@@ -438,145 +438,145 @@ REACTIVATION:
 
 ## API Routes
 
-| Route | Method | Auth | Purpose |
-|---|---|---|---|
-| `/api/webhooks/pfs` | POST | HMAC-SHA256 | PFS company registration webhook |
-| `/api/webhooks/peppol-receive` | POST | None (ion-AP) | Incoming Peppol document webhook |
-| `/api/webhooks/payment-received` | POST | Bearer token | Payment confirmation webhook (fallback) |
-| `/api/auth/send-code` | POST | None | Send OTP code (email/SMS) |
-| `/api/auth/verify-code` | POST | None | Verify OTP + create session |
-| `/auth/callback` | GET | OAuth | OAuth callback (Google/Apple) |
-| `/invite/[token]/accept` | GET | None | Magic link invitation accept |
-| `/api/invitations/accept` | POST | Session | Manual invitation accept |
-| `/api/documents/list` | GET | Session | List documents with filtering/pagination |
-| `/api/documents/[id]/pdf` | GET | Session | PDF proxy to ion-AP |
-| `/api/documents/[id]/xml` | GET | Session | XML from blob storage |
-| `/api/departments/by-company` | GET | Session | List departments for a company |
-| `/api/departments/remove-member` | POST | Session | Remove user from department |
-| `/api/wallet/create-payment-link` | POST | Session | Generate QR payment link |
-| `/api/wallet/check-payment` | GET | None (UUID) | Poll for payment confirmation |
-| `/api/wallet/statement` | GET | Session | Export transaction statement (CSV) |
-| `/api/cron/maintenance` | GET | CRON_SECRET | Auto-heal: retry docs, check payments, retry activations, retry billing, manage partitions |
+| Route                             | Method | Auth          | Purpose                                                                                    |
+| --------------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------ |
+| `/api/webhooks/pfs`               | POST   | HMAC-SHA256   | PFS company registration webhook                                                           |
+| `/api/webhooks/peppol-receive`    | POST   | None (ion-AP) | Incoming Peppol document webhook                                                           |
+| `/api/webhooks/payment-received`  | POST   | Bearer token  | Payment confirmation webhook (fallback)                                                    |
+| `/api/auth/send-code`             | POST   | None          | Send OTP code (email/SMS)                                                                  |
+| `/api/auth/verify-code`           | POST   | None          | Verify OTP + create session                                                                |
+| `/auth/callback`                  | GET    | OAuth         | OAuth callback (Google/Apple)                                                              |
+| `/invite/[token]/accept`          | GET    | None          | Magic link invitation accept                                                               |
+| `/api/invitations/accept`         | POST   | Session       | Manual invitation accept                                                                   |
+| `/api/documents/list`             | GET    | Session       | List documents with filtering/pagination                                                   |
+| `/api/documents/[id]/pdf`         | GET    | Session       | PDF proxy to ion-AP                                                                        |
+| `/api/documents/[id]/xml`         | GET    | Session       | XML from blob storage                                                                      |
+| `/api/departments/by-company`     | GET    | Session       | List departments for a company                                                             |
+| `/api/departments/remove-member`  | POST   | Session       | Remove user from department                                                                |
+| `/api/wallet/create-payment-link` | POST   | Session       | Generate QR payment link                                                                   |
+| `/api/wallet/check-payment`       | GET    | None (UUID)   | Poll for payment confirmation                                                              |
+| `/api/wallet/statement`           | GET    | Session       | Export transaction statement (CSV)                                                         |
+| `/api/cron/maintenance`           | GET    | CRON_SECRET   | Auto-heal: retry docs, check payments, retry activations, retry billing, manage partitions |
 
 ## Dashboard Pages
 
-| Route | Roles | Purpose |
-|---|---|---|
-| `/dashboard` | All | Role-specific dashboard |
-| `/dashboard/inbox` | All | Received Peppol documents (clickable rows, PDF hover, mass download) |
-| `/dashboard/inbox/[id]` | All | Document detail, metadata, PDF |
-| `/dashboard/companies` | All | Companies list with Peppol status |
-| `/dashboard/companies/[id]` | All | Company detail, members, departments, Peppol activation, pricing |
-| `/dashboard/users` | SA, Admin | Users & invitations management |
-| `/dashboard/webhooks` | SA | Webhooks log |
-| `/dashboard/audit` | All | CEF audit log viewer |
-| `/dashboard/settings` | All | Profile + system settings (SA) |
-| `/dashboard/wallet` | All | Wallet balance, top-up, transaction history, statement export |
-| `/dashboard/wallet/[walletId]` | SA | Wallet detail, adjust balance |
-| `/dashboard/operations` | SA, Admin | Operations Center — retry activations, documents, payments, billing, invitations |
-| `/dashboard/test-tracker` | SA | Manual test progress tracker |
-| `/activate` | Genesis | Peppol activation landing page |
-| `/pay/[token]` | Public | Public payment page (QR, no login required) |
+| Route                          | Roles     | Purpose                                                                          |
+| ------------------------------ | --------- | -------------------------------------------------------------------------------- |
+| `/dashboard`                   | All       | Role-specific dashboard                                                          |
+| `/dashboard/inbox`             | All       | Received Peppol documents (clickable rows, PDF hover, mass download)             |
+| `/dashboard/inbox/[id]`        | All       | Document detail, metadata, PDF                                                   |
+| `/dashboard/companies`         | All       | Companies list with Peppol status                                                |
+| `/dashboard/companies/[id]`    | All       | Company detail, members, departments, Peppol activation, pricing                 |
+| `/dashboard/users`             | SA, Admin | Users & invitations management                                                   |
+| `/dashboard/webhooks`          | SA        | Webhooks log                                                                     |
+| `/dashboard/audit`             | All       | CEF audit log viewer                                                             |
+| `/dashboard/settings`          | All       | Profile + system settings (SA)                                                   |
+| `/dashboard/wallet`            | All       | Wallet balance, top-up, transaction history, statement export                    |
+| `/dashboard/wallet/[walletId]` | SA        | Wallet detail, adjust balance                                                    |
+| `/dashboard/operations`        | SA, Admin | Operations Center — retry activations, documents, payments, billing, invitations |
+| `/dashboard/test-tracker`      | SA        | Manual test progress tracker                                                     |
+| `/activate`                    | Genesis   | Peppol activation landing page                                                   |
+| `/pay/[token]`                 | Public    | Public payment page (QR, no login required)                                      |
 
 ## Audit Events (CEF Format)
 
-| Event ID | Severity | Description |
-|---|---|---|
-| AUTH_SIGN_IN | info | User signed in (google/apple/otp/magic_link) |
-| AUTH_SIGN_OUT | info | User signed out |
-| AUTH_OTP_SENT | info | OTP code sent (email/sms) |
-| AUTH_OTP_VERIFIED | info | OTP code verified |
-| INVITE_CREATED | info | Invitation created |
-| INVITE_ACCEPTED | info | Invitation accepted |
-| INVITATION_RESENT | info | Invitation resent |
-| INVITATION_REVOKED | warning | Invitation revoked (expired early) |
-| MEMBERSHIP_CREATED | info | Company membership created |
-| MEMBERSHIP_DEACTIVATED | warning | Company membership deactivated |
-| MEMBER_ROLES_UPDATED | info | Member roles changed |
-| WEBHOOK_RECEIVED | info | PFS webhook received |
-| PROFILE_UPDATED | info | Profile updated |
-| USER_ONBOARDED | info | User completed onboarding |
-| SUPER_ADMIN_GRANTED | warning | Super admin role granted |
-| DEPARTMENT_CREATED | info | Department created |
-| DEPARTMENT_RENAMED | info | Department renamed |
-| DEPARTMENT_DELETED | warning | Department deleted |
-| DEPARTMENT_MEMBER_ADDED | info | User added to department |
-| DEPARTMENT_MEMBER_REMOVED | info | User removed from department |
-| PEPPOL_COMPANY_ACTIVATED | info | Company activated on Peppol |
-| PEPPOL_ACTIVATION_FAILED | error | Peppol activation failed |
-| PEPPOL_DOCUMENT_RECEIVED | info | Peppol document received and processed |
-| DOCUMENT_READ | info | Document marked as read |
-| DOCUMENT_UNREAD | info | Document marked as unread |
-| DOCUMENT_ASSIGNED | info | Document assigned to department |
-| DOCUMENTS_BULK_ASSIGNED | info | Documents bulk assigned |
-| DOCUMENT_MANUAL_RETRY | info | Document processing manually retried |
-| DOCUMENT_PROCESSING_FAILED | error | Document processing failed (max retries) |
-| DOCUMENT_PROCESSING_RETRY | warning | Document processing failed, will retry |
-| DOCUMENT_CHARGED | info | Document charged to wallet |
-| DOCUMENT_UNBILLED | warning | Document arrived but wallet insufficient |
-| COMPANY_DEACTIVATED | warning | Company deactivated |
-| COMPANY_REACTIVATED | info | Company reactivated |
-| COMPANY_UPDATED | info | Company details updated |
-| COMPANY_PRICING_UPDATED | info | Company pricing changed |
-| WALLET_TOPPED_UP | info | Wallet received funds |
-| WALLET_ADJUSTED | info | Manual balance adjustment by super admin |
-| AUTO_BILL_COMPLETED | info | Auto-billing round completed |
-| PAYMENT_LINK_CREATED | info | Payment link generated |
-| PAYMENT_RECEIVED | info | QR payment confirmed and processed |
-| BILLING_INVOICE_SENT | info | Billing invoice sent via Peppol after payment |
-| ONBOARDING_REQUEST_SENT | info | Onboarding request sent to customer |
-| TEST_INVOICES_SENT | info | Test invoices sent to company |
-| SYSTEM_SETTINGS_UPDATED | info | System settings changed |
-| OPS_ACTIVATION_RETRIED | warning | Operator retried Peppol activation |
-| OPS_DOCUMENT_RETRIED | warning | Operator retried document processing |
-| OPS_DOCUMENTS_BULK_RETRIED | warning | Operator bulk retried failed documents |
-| OPS_DOCUMENT_STATUS_FORCED | warning | Super admin forced document status |
-| OPS_PAYMENT_FORCE_CHECKED | warning | Operator force-checked payment status |
-| OPS_PAYMENT_MANUALLY_COMPLETED | warning | Super admin manually completed payment |
-| OPS_AUTOBILL_RETRIED | warning | Operator retried auto-billing |
-| OPS_DOCUMENT_FORCE_BILLED | warning | Super admin force-billed document |
-| OPS_INVITATION_EXTENDED | info | Operator extended invitation expiry |
-| CRON_DOCUMENTS_RETRIED | info | Cron retried pending documents |
-| CRON_AUDIT_ARCHIVED | info | Cron archived audit partitions |
-| CRON_PAYMENTS_CONFIRMED | info | Cron confirmed pending payments |
-| CRON_ACTIVATIONS_HEALED | info | Cron auto-healed failed Peppol activations |
-| CRON_BILLING_HEALED | info | Cron auto-billed documents with positive balance |
+| Event ID                       | Severity | Description                                      |
+| ------------------------------ | -------- | ------------------------------------------------ |
+| AUTH_SIGN_IN                   | info     | User signed in (google/apple/otp/magic_link)     |
+| AUTH_SIGN_OUT                  | info     | User signed out                                  |
+| AUTH_OTP_SENT                  | info     | OTP code sent (email/sms)                        |
+| AUTH_OTP_VERIFIED              | info     | OTP code verified                                |
+| INVITE_CREATED                 | info     | Invitation created                               |
+| INVITE_ACCEPTED                | info     | Invitation accepted                              |
+| INVITATION_RESENT              | info     | Invitation resent                                |
+| INVITATION_REVOKED             | warning  | Invitation revoked (expired early)               |
+| MEMBERSHIP_CREATED             | info     | Company membership created                       |
+| MEMBERSHIP_DEACTIVATED         | warning  | Company membership deactivated                   |
+| MEMBER_ROLES_UPDATED           | info     | Member roles changed                             |
+| WEBHOOK_RECEIVED               | info     | PFS webhook received                             |
+| PROFILE_UPDATED                | info     | Profile updated                                  |
+| USER_ONBOARDED                 | info     | User completed onboarding                        |
+| SUPER_ADMIN_GRANTED            | warning  | Super admin role granted                         |
+| DEPARTMENT_CREATED             | info     | Department created                               |
+| DEPARTMENT_RENAMED             | info     | Department renamed                               |
+| DEPARTMENT_DELETED             | warning  | Department deleted                               |
+| DEPARTMENT_MEMBER_ADDED        | info     | User added to department                         |
+| DEPARTMENT_MEMBER_REMOVED      | info     | User removed from department                     |
+| PEPPOL_COMPANY_ACTIVATED       | info     | Company activated on Peppol                      |
+| PEPPOL_ACTIVATION_FAILED       | error    | Peppol activation failed                         |
+| PEPPOL_DOCUMENT_RECEIVED       | info     | Peppol document received and processed           |
+| DOCUMENT_READ                  | info     | Document marked as read                          |
+| DOCUMENT_UNREAD                | info     | Document marked as unread                        |
+| DOCUMENT_ASSIGNED              | info     | Document assigned to department                  |
+| DOCUMENTS_BULK_ASSIGNED        | info     | Documents bulk assigned                          |
+| DOCUMENT_MANUAL_RETRY          | info     | Document processing manually retried             |
+| DOCUMENT_PROCESSING_FAILED     | error    | Document processing failed (max retries)         |
+| DOCUMENT_PROCESSING_RETRY      | warning  | Document processing failed, will retry           |
+| DOCUMENT_CHARGED               | info     | Document charged to wallet                       |
+| DOCUMENT_UNBILLED              | warning  | Document arrived but wallet insufficient         |
+| COMPANY_DEACTIVATED            | warning  | Company deactivated                              |
+| COMPANY_REACTIVATED            | info     | Company reactivated                              |
+| COMPANY_UPDATED                | info     | Company details updated                          |
+| COMPANY_PRICING_UPDATED        | info     | Company pricing changed                          |
+| WALLET_TOPPED_UP               | info     | Wallet received funds                            |
+| WALLET_ADJUSTED                | info     | Manual balance adjustment by super admin         |
+| AUTO_BILL_COMPLETED            | info     | Auto-billing round completed                     |
+| PAYMENT_LINK_CREATED           | info     | Payment link generated                           |
+| PAYMENT_RECEIVED               | info     | QR payment confirmed and processed               |
+| BILLING_INVOICE_SENT           | info     | Billing invoice sent via Peppol after payment    |
+| ONBOARDING_REQUEST_SENT        | info     | Onboarding request sent to customer              |
+| TEST_INVOICES_SENT             | info     | Test invoices sent to company                    |
+| SYSTEM_SETTINGS_UPDATED        | info     | System settings changed                          |
+| OPS_ACTIVATION_RETRIED         | warning  | Operator retried Peppol activation               |
+| OPS_DOCUMENT_RETRIED           | warning  | Operator retried document processing             |
+| OPS_DOCUMENTS_BULK_RETRIED     | warning  | Operator bulk retried failed documents           |
+| OPS_DOCUMENT_STATUS_FORCED     | warning  | Super admin forced document status               |
+| OPS_PAYMENT_FORCE_CHECKED      | warning  | Operator force-checked payment status            |
+| OPS_PAYMENT_MANUALLY_COMPLETED | warning  | Super admin manually completed payment           |
+| OPS_AUTOBILL_RETRIED           | warning  | Operator retried auto-billing                    |
+| OPS_DOCUMENT_FORCE_BILLED      | warning  | Super admin force-billed document                |
+| OPS_INVITATION_EXTENDED        | info     | Operator extended invitation expiry              |
+| CRON_DOCUMENTS_RETRIED         | info     | Cron retried pending documents                   |
+| CRON_AUDIT_ARCHIVED            | info     | Cron archived audit partitions                   |
+| CRON_PAYMENTS_CONFIRMED        | info     | Cron confirmed pending payments                  |
+| CRON_ACTIVATIONS_HEALED        | info     | Cron auto-healed failed Peppol activations       |
+| CRON_BILLING_HEALED            | info     | Cron auto-billed documents with positive balance |
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
-| `RESEND_API_KEY` | Yes | Resend email API key |
-| `TWILIO_ACCOUNT_SID` | Yes | Twilio account SID |
-| `TWILIO_AUTH_TOKEN` | Yes | Twilio auth token |
-| `BLOB_READ_WRITE_TOKEN` | Yes | Vercel Blob storage token |
-| `CRON_SECRET` | Yes | Cron job authentication secret |
-| `PAYME_IBAN` | Yes | IBAN for QR payment links |
-| `PAYMENT_WEBHOOK_SECRET` | Yes | HMAC secret for payment webhook |
-| `KV_API_URL` | Yes | KVERKOM API URL for payment verification |
-| `KV_CERT` | Yes | mTLS client certificate (PEM) |
-| `KV_KEY` | Yes | mTLS client key (PEM) |
-| `KV_CA_BUNDLE` | Yes | mTLS CA bundle (PEM) |
-| `ION_AP_TEST_SENDER_TOKEN` | No | ion-AP token for test invoices and billing invoices |
-| `NEXT_PUBLIC_APP_URL` | No | App URL (default: www.peppolbox.sk) |
-| `PAYME_CREDITOR_NAME` | No | Creditor name for QR (default: peppolbox.sk) |
+| Variable                        | Required | Description                                         |
+| ------------------------------- | -------- | --------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Yes      | Supabase project URL                                |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes      | Supabase anon key                                   |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Yes      | Supabase service role key                           |
+| `RESEND_API_KEY`                | Yes      | Resend email API key                                |
+| `TWILIO_ACCOUNT_SID`            | Yes      | Twilio account SID                                  |
+| `TWILIO_AUTH_TOKEN`             | Yes      | Twilio auth token                                   |
+| `BLOB_READ_WRITE_TOKEN`         | Yes      | Vercel Blob storage token                           |
+| `CRON_SECRET`                   | Yes      | Cron job authentication secret                      |
+| `PAYME_IBAN`                    | Yes      | IBAN for QR payment links                           |
+| `PAYMENT_WEBHOOK_SECRET`        | Yes      | HMAC secret for payment webhook                     |
+| `KV_API_URL`                    | Yes      | KVERKOM API URL for payment verification            |
+| `KV_CERT`                       | Yes      | mTLS client certificate (PEM)                       |
+| `KV_KEY`                        | Yes      | mTLS client key (PEM)                               |
+| `KV_CA_BUNDLE`                  | Yes      | mTLS CA bundle (PEM)                                |
+| `ION_AP_TEST_SENDER_TOKEN`      | No       | ion-AP token for test invoices and billing invoices |
+| `NEXT_PUBLIC_APP_URL`           | No       | App URL (default: www.peppolbox.sk)                 |
+| `PAYME_CREDITOR_NAME`           | No       | Creditor name for QR (default: peppolbox.sk)        |
 
 System settings (editable in dashboard, override env vars):
 `resend_from_email`, `pfs_webhook_secret`, `pfs_activation_link`, `ion_ap_base_url`, `ion_ap_api_token`, `twilio_phone_number`
 
 ## Test Coverage (71 tests)
 
-| File | Tests | Coverage |
-|---|---|---|
-| billing.test.ts | 32 | Wallet ops, charging, auto-billing, all-or-nothing, edge cases |
-| ion-ap.test.ts | 8 | API client, lazy activation, error handling |
-| webhook.test.ts | 6 | Signature validation, payload validation, DIC format |
-| navigation.test.ts | 3 | Role-based nav items |
-| verification.test.ts | 5 | OTP code generation, verify, expiry |
-| invitations.test.ts | 4 | Create invite, pre-create user, genesis skip, URL format |
-| permissions.test.ts | 5 | Deactivation permission rules |
-| departments.test.ts | 5 | Department CRUD permissions |
-| audit.test.ts | 3 | CEF format, severity mapping, fire-and-forget |
+| File                 | Tests | Coverage                                                       |
+| -------------------- | ----- | -------------------------------------------------------------- |
+| billing.test.ts      | 32    | Wallet ops, charging, auto-billing, all-or-nothing, edge cases |
+| ion-ap.test.ts       | 8     | API client, lazy activation, error handling                    |
+| webhook.test.ts      | 6     | Signature validation, payload validation, DIC format           |
+| navigation.test.ts   | 3     | Role-based nav items                                           |
+| verification.test.ts | 5     | OTP code generation, verify, expiry                            |
+| invitations.test.ts  | 4     | Create invite, pre-create user, genesis skip, URL format       |
+| permissions.test.ts  | 5     | Deactivation permission rules                                  |
+| departments.test.ts  | 5     | Department CRUD permissions                                    |
+| audit.test.ts        | 3     | CEF format, severity mapping, fire-and-forget                  |
