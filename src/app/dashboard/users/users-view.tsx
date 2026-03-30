@@ -93,6 +93,12 @@ function roleLabel(role: string): string {
   return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  company_admin: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  operator: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  processor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+};
+
 export function UsersView({
   users,
   invitations,
@@ -390,13 +396,19 @@ function UserCard({
           )}
 
           {/* Company memberships */}
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-1.5">
             {member.memberships.map((m) => (
               <div key={m.id} className="flex items-center gap-2 text-sm">
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {m.roles?.map(roleLabel).join(", ")}
-                  {m.is_genesis && " (genesis)"}
-                </Badge>
+                <div className="flex items-center gap-1 shrink-0">
+                  {(m.roles ?? []).map((r) => (
+                    <Badge key={r} className={cn("text-xs", ROLE_BADGE_COLORS[r] ?? "")}>
+                      {roleLabel(r)}
+                    </Badge>
+                  ))}
+                  {m.is_genesis && (
+                    <Badge variant="secondary" className="text-xs">Genesis</Badge>
+                  )}
+                </div>
                 <span className="text-muted-foreground truncate">
                   {m.company?.legal_name ?? m.company?.dic ?? companyMap[m.company_id] ?? "Unknown"}
                 </span>
