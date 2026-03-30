@@ -86,9 +86,15 @@
 │ amount           │     │ description      │
 │ status (enum)    │     │ updated_by (FK)  │
 │ payme_url        │     └──────────────────┘
-│ is_public        │
-│ expires_at (24h) │
-└──────────────────┘
+│ is_public        │     ┌──────────────────┐
+│ expires_at (24h) │     │ document_notes   │
+└──────────────────┘     │──────────────────│
+                          │ document_id (FK) │
+                          │ user_id (FK)     │
+                          │ note             │
+                          │ type (comment/   │
+                          │   processed)     │
+                          └──────────────────┘
 ```
 
 ## Permission Model
@@ -492,6 +498,7 @@ REACTIVATION:
 | INVITATION_REVOKED             | warning  | Invitation revoked (expired early)               |
 | MEMBERSHIP_CREATED             | info     | Company membership created                       |
 | MEMBERSHIP_DEACTIVATED         | warning  | Company membership deactivated                   |
+| MEMBERSHIP_REACTIVATED         | info     | Company membership reactivated                   |
 | MEMBER_ROLES_UPDATED           | info     | Member roles changed                             |
 | WEBHOOK_RECEIVED               | info     | PFS webhook received                             |
 | PROFILE_UPDATED                | info     | Profile updated                                  |
@@ -505,8 +512,8 @@ REACTIVATION:
 | PEPPOL_COMPANY_ACTIVATED       | info     | Company activated on Peppol                      |
 | PEPPOL_ACTIVATION_FAILED       | error    | Peppol activation failed                         |
 | PEPPOL_DOCUMENT_RECEIVED       | info     | Peppol document received and processed           |
-| DOCUMENT_READ                  | info     | Document marked as read                          |
-| DOCUMENT_UNREAD                | info     | Document marked as unread                        |
+| DOCUMENT_PROCESSED             | info     | Document marked as processed (with note)         |
+| DOCUMENT_NOTE_ADDED            | info     | Note added to document                           |
 | DOCUMENT_ASSIGNED              | info     | Document assigned to department                  |
 | DOCUMENTS_BULK_ASSIGNED        | info     | Documents bulk assigned                          |
 | DOCUMENT_MANUAL_RETRY          | info     | Document processing manually retried             |

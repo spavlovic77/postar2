@@ -261,6 +261,26 @@
 | 5    | Sign in as apartmentvir1@gmail.com                    | Dashboard shows no companies (membership deactivated) |
 | 6    | Check Audit Log (as super admin)                      | `MEMBERSHIP_DEACTIVATED` event                        |
 
+### TC-5.8: Reactivate a Member (by Genesis Admin)
+
+| Step | Action                                                | Expected                                               |
+| ---- | ----------------------------------------------------- | ------------------------------------------------------ |
+| 1    | Sign in as efabox.sk@gmail.com                        | Company Admin dashboard                                |
+| 2    | Navigate to Companies → click company → Members table | Processor shows "Inactive" badge with "Reactivate" button |
+| 3    | Click "Reactivate" next to processor                  | Confirmation dialog: "regain access with original roles" |
+| 4    | Confirm                                               | Processor status changes back to "Active"              |
+| 5    | Sign in as apartmentvir1@gmail.com                    | Dashboard shows company again (membership restored)    |
+| 6    | Check Audit Log (as super admin)                      | `MEMBERSHIP_REACTIVATED` event                         |
+
+### TC-5.9: Webhooks Access (Company Admin)
+
+| Step | Action                                  | Expected                                                  |
+| ---- | --------------------------------------- | --------------------------------------------------------- |
+| 1    | Sign in as company admin (genesis)      | "Webhooks" visible in sidebar                             |
+| 2    | Navigate to Webhooks                    | Only webhooks for own companies' DICs visible             |
+| 3    | Sign in as super admin                  | All webhooks visible (no company filter)                  |
+| 4    | Sign in as operator                     | "Webhooks" NOT visible in sidebar                         |
+
 ---
 
 ## Group 6: OTP Sign-In Flow
@@ -346,17 +366,18 @@
 | Step | Action                          | Expected                                                                 |
 | ---- | ------------------------------- | ------------------------------------------------------------------------ |
 | 1    | Navigate to Inbox               | Documents listed with columns: checkbox, status icon, From, Amount, Date |
-| 2    | Observe unread documents        | Bold text, filled mail icon, subtle background highlight                 |
-| 3    | Observe read documents          | Normal text, open mail icon                                              |
-| 4    | Observe no "Document ID" column | Column removed from list view                                            |
+| 2    | Observe "new" documents         | Bold text, filled mail icon, subtle background highlight                 |
+| 3    | Observe "assigned" documents    | Normal text, folder icon                                                 |
+| 4    | Observe "processed" documents   | Normal text, check icon                                                  |
+| 5    | Status filters available        | New, Assigned, Processed, Pending, Failed (no "Read" filter)             |
 
 ### TC-8.2: Click Row to Open Detail
 
-| Step | Action                           | Expected                                         |
-| ---- | -------------------------------- | ------------------------------------------------ |
-| 1    | Click anywhere on a document row | Navigates to document detail page                |
-| 2    | Observe cursor                   | Pointer cursor on hover, row highlights on hover |
-| 3    | Go back to Inbox                 | Document now marked as read                      |
+| Step | Action                           | Expected                                                       |
+| ---- | -------------------------------- | -------------------------------------------------------------- |
+| 1    | Click anywhere on a document row | Navigates to document detail page                              |
+| 2    | Observe cursor                   | Pointer cursor on hover, row highlights on hover               |
+| 3    | Go back to Inbox                 | Document status unchanged (stays "new" until assigned/processed) |
 
 ### TC-8.3: PDF Hover Button
 
@@ -372,27 +393,39 @@
 | Step | Action                           | Expected                                                          |
 | ---- | -------------------------------- | ----------------------------------------------------------------- |
 | 1    | Click on a document row          | Document detail page                                              |
-| 2    | Observe status                   | Auto-marked as "read", badge shows "read"                         |
+| 2    | Observe status                   | Status stays "new" (no auto-mark-as-read)                         |
 | 3    | Observe metadata cards           | Sender, Receiver, Company, Received date                          |
-| 4    | Observe NO XML viewer            | XML viewer card is not present                                    |
-| 5    | Observe Transaction Details card | Transaction UUID, ion-AP Transaction ID, Document Type, Direction |
+| 4    | Observe Transaction Details card | Transaction UUID, ion-AP Transaction ID, Document Type, Direction |
+| 5    | Observe Activity & Notes section | Timeline of audit events + notes at the bottom                    |
 
-### TC-8.5: Mark Document as Unread
+### TC-8.5: Mark Document as Processed
 
-| Step | Action                                               | Expected                                 |
-| ---- | ---------------------------------------------------- | ---------------------------------------- |
-| 1    | On document detail, click the "..." menu (top right) | Dropdown opens                           |
-| 2    | Click "Mark as unread"                               | Page refreshes, status badge shows "new" |
-| 3    | Go back to Inbox                                     | Document shows as unread again           |
+| Step | Action                                               | Expected                                                      |
+| ---- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| 1    | On document detail, click "..." menu (top right)     | Dropdown opens with "Mark as Processed" and "Download PDF"    |
+| 2    | Click "Mark as Processed"                            | Dialog opens with note field                                  |
+| 3    | Enter note: "Payment verified, forwarded to accounting" | Note field populated                                       |
+| 4    | Click "Mark as Processed"                            | Dialog closes, status badge changes to "processed" (green)    |
+| 5    | Observe Activity & Notes timeline                    | New entry: "Marked as Processed" with the note               |
+| 6    | Check Audit Log                                      | `DOCUMENT_PROCESSED` event logged                             |
 
-### TC-8.6: Download PDF from Detail
+### TC-8.6: Add Note to Document
+
+| Step | Action                                       | Expected                                     |
+| ---- | -------------------------------------------- | -------------------------------------------- |
+| 1    | On document detail, find "Activity & Notes"  | Input field: "Add a note..." at the top      |
+| 2    | Type a note and press Enter (or click Add)   | Note appears in the timeline                 |
+| 3    | Add another note                             | Both notes visible, newest first             |
+| 4    | Check Audit Log                              | `DOCUMENT_NOTE_ADDED` event logged           |
+
+### TC-8.7: Download PDF from Detail
 
 | Step | Action                                           | Expected                               |
 | ---- | ------------------------------------------------ | -------------------------------------- |
 | 1    | On document detail, click "..." → "Download PDF" | New tab opens                          |
 | 2    | Observe                                          | PDF rendering of the invoice displayed |
 
-### TC-8.7: Company Switcher Filtering
+### TC-8.8: Company Switcher Filtering
 
 | Step | Action                                                      | Expected                                       |
 | ---- | ----------------------------------------------------------- | ---------------------------------------------- |
@@ -992,10 +1025,10 @@
 | 2. Company Onboarding via PFS                 | TC-2.1 to TC-2.3    | [ ]    |
 | 3. Genesis Admin Onboarding & Auto Activation | TC-3.1 to TC-3.4    | [ ]    |
 | 4. Peppol Activation (Manual Fallback)        | TC-4.1 to TC-4.2    | [ ]    |
-| 5. User Management & Invitations              | TC-5.1 to TC-5.7    | [ ]    |
+| 5. User Management & Invitations              | TC-5.1 to TC-5.9    | [ ]    |
 | 6. OTP Sign-In Flow                           | TC-6.1 to TC-6.4    | [ ]    |
 | 7. Test Invoices                              | TC-7.1 to TC-7.3    | [ ]    |
-| 8. Inbox & Document Viewing                   | TC-8.1 to TC-8.7    | [ ]    |
+| 8. Inbox & Document Viewing                   | TC-8.1 to TC-8.8    | [ ]    |
 | 9. Mass Download                              | TC-9.1 to TC-9.4    | [ ]    |
 | 10. Audit Log                                 | TC-10.1 to TC-10.4  | [ ]    |
 | 11. Company Deactivation                      | TC-11.1 to TC-11.3  | [ ]    |
@@ -1005,4 +1038,4 @@
 | 15. Edge Cases & Error Handling               | TC-15.1 to TC-15.9  | [ ]    |
 | 16. Operations Center                         | TC-16.1 to TC-16.9  | [ ]    |
 | 17. Responsive Design                         | TC-17.1 to TC-17.2  | [ ]    |
-| **Total**                                     | **102 test cases**  |        |
+| **Total**                                     | **105 test cases**  |        |
