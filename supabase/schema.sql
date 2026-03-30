@@ -1,5 +1,5 @@
 -- ============================================================
--- Postar Schema
+-- peppolbox.sk Schema
 -- Run this for a clean start. Drops everything and recreates.
 -- ============================================================
 
@@ -14,6 +14,7 @@ drop table if exists system_settings cascade;
 drop table if exists payment_links cascade;
 drop table if exists wallet_transactions cascade;
 drop table if exists wallets cascade;
+drop table if exists document_notes cascade;
 drop table if exists documents cascade;
 drop table if exists department_memberships cascade;
 drop table if exists departments cascade;
@@ -461,6 +462,7 @@ alter table audit_logs enable row level security;
 alter table wallets enable row level security;
 alter table wallet_transactions enable row level security;
 alter table payment_links enable row level security;
+alter table document_notes enable row level security;
 
 -- System Settings (super admin only)
 create policy "Super admins can view system settings"
@@ -681,6 +683,22 @@ create policy "Super admins can view all payment links"
   using (
     exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
   );
+
+-- Document Notes
+create policy "Users can view notes for documents they can access"
+  on document_notes for select
+  using (
+    exists (
+      select 1 from documents d
+      join company_memberships cm on cm.company_id = d.company_id and cm.user_id = auth.uid() and cm.status = 'active'
+      where d.id = document_notes.document_id
+    )
+    or exists (select 1 from profiles where id = auth.uid() and is_super_admin = true)
+  );
+
+create policy "Authenticated users can insert notes"
+  on document_notes for insert
+  with check (user_id = auth.uid());
 
 -- ============================================================
 -- Seed Super Admin
