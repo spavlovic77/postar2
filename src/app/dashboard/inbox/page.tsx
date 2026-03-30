@@ -97,8 +97,7 @@ export default async function InboxPage({
                 type: "select",
                 options: [
                   ...(canTriage ? [{ label: "Unassigned", value: "unassigned" }] : []),
-                  { label: "Unread", value: "new" },
-                  { label: "Read", value: "read" },
+                  { label: "New", value: "new" },
                   { label: "Assigned", value: "assigned" },
                   { label: "Processed", value: "processed" },
                   { label: "Pending", value: "pending" },

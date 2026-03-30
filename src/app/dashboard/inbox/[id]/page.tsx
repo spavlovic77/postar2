@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect, notFound } from "next/navigation";
-import { getUserWithRole, getDocument, updateDocumentStatus } from "@/lib/dal";
+import { getUserWithRole, getDocument } from "@/lib/dal";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,6 @@ function documentTypeLabel(type: string | null) {
 
 const STATUS_STYLES: Record<string, string> = {
   new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  read: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   assigned: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
   processed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
 };
@@ -91,20 +90,7 @@ export default async function DocumentDetailPage({
     );
   }
 
-  // Auto-mark as read on view
-  if (doc.status === "new") {
-    await updateDocumentStatus(id, "read");
-    doc.status = "read";
-
-    audit({
-      eventId: "DOCUMENT_READ",
-      eventName: "Document marked as read",
-      actorId: user.id,
-      actorEmail: user.email ?? undefined,
-      companyId: doc.company_id,
-      details: { documentId: doc.id, documentType: doc.document_type },
-    });
-  }
+  // No auto-mark-as-read — document stays "new" until assigned or processed
 
   const company = (doc as any).company;
 
