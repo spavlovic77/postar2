@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AuthModal } from "@/components/auth-modal";
 import { AnimatedPeppolboxLogo } from "@/components/animated-peppolbox-logo";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { getPfsActivationLink } from "@/lib/settings";
 
 export default async function Home() {
@@ -18,6 +19,11 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white dark:bg-[#0a0a0a]">
+      {/* Theme toggle */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       {/* Hero section */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-lg space-y-8 text-center">
