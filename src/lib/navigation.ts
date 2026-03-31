@@ -1,4 +1,4 @@
-import type { AppRole, NavigationItem } from "./types";
+import type { AppRole, CompanyMembership, NavigationItem } from "./types";
 
 const NAV_ITEMS: NavigationItem[] = [
   {
@@ -56,6 +56,27 @@ const NAV_ITEMS: NavigationItem[] = [
     roles: ["super_admin", "company_admin", "operator"],
   },
 ];
+
+/**
+ * Resolve the effective AppRole for a specific company, or the highest role if no company selected.
+ */
+export function getRoleForCompany(
+  memberships: CompanyMembership[],
+  companyId: string | null,
+  isSuperAdmin: boolean
+): AppRole {
+  if (isSuperAdmin) return "super_admin";
+
+  const relevant = companyId
+    ? memberships.filter((m) => m.company_id === companyId && m.status === "active")
+    : memberships.filter((m) => m.status === "active");
+
+  const allRoles = relevant.flatMap((m) => m.roles ?? []);
+
+  if (allRoles.includes("company_admin")) return "company_admin";
+  if (allRoles.includes("operator")) return "operator";
+  return "processor";
+}
 
 export function getNavForRole(role: AppRole): NavigationItem[] {
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role));

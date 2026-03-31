@@ -10,7 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, ScrollText, Settings } from "lucide-react";
+import { LogOut, ScrollText, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ROLE_LABELS, ROLE_COLORS } from "@/lib/types";
 import type { AppRole } from "@/lib/types";
 
 interface Props {
@@ -55,6 +57,9 @@ export function UserAvatar({ fullName, email, avatarUrl, role }: Props) {
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium">{fullName ?? "User"}</p>
           <p className="text-xs text-muted-foreground">{email}</p>
+          <span className={cn("mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium", ROLE_COLORS[role])}>
+            {ROLE_LABELS[role]}
+          </span>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>

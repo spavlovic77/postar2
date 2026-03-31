@@ -5,9 +5,9 @@
 | Role                    | Email                                 |
 | ----------------------- | ------------------------------------- |
 | Super Admin             | stanislav.pavlovic@fiinancnasprava.sk |
-| Company Admin (Genesis) | efabox.sk@gmail.com                   |
+| Company Admin (Genesis) | peppolbox.sk@gmail.com                   |
 | Operator                | operator@test.com                     |
-| Processor               | apartmentvir1@gmail.com               |
+| Processor               | jankouctovaník@gmail.com               |
 
 **Prerequisites:**
 - Fresh schema.sql executed in Supabase SQL Editor
@@ -106,8 +106,8 @@
 
 | Step | Action                                  | Expected                                                                                      |
 | ---- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 1    | Check "Recent Invitations" on Dashboard | New invitation for efabox.sk@gmail.com, role: company_admin, status: Pending                  |
-| 2    | Check efabox.sk@gmail.com inbox         | Email: "You've been invited to peppolbox.sk as Company Admin" with "Accept Invitation" button |
+| 1    | Check "Recent Invitations" on Dashboard | New invitation for peppolbox.sk@gmail.com, role: company_admin, status: Pending                  |
+| 2    | Check peppolbox.sk@gmail.com inbox         | Email: "You've been invited to peppolbox.sk as Company Admin" with "Accept Invitation" button |
 | 3    | Navigate to Users page                  | Invitation visible in Invitations table                                                       |
 
 ### TC-2.3: Send Manual Onboarding Request (New Customer)
@@ -128,7 +128,7 @@
 
 | Step | Action                                           | Expected                                                                                        |
 | ---- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| 1    | Open the invitation email in efabox.sk@gmail.com | Email with "Accept Invitation" button                                                           |
+| 1    | Open the invitation email in peppolbox.sk@gmail.com | Email with "Accept Invitation" button                                                           |
 | 2    | Click "Accept Invitation"                        | Redirected to `/activate` page (NOT welcome screen)                                             |
 | 3    | Observe activation page                          | Spinner with "Activating [Company Name] on Peppol", message about registering on Peppol network |
 | 4    | Wait for activation to complete                  | Green checkmark, "Your company is now active on Peppol!", Peppol ID shown (0245:DIC)            |
@@ -161,7 +161,7 @@
 | ---- | -------------------------- | ----------------------------------------------------------------------------------- |
 | 1    | Navigate to Companies page | Company listed                                                                      |
 | 2    | Click company              | Company detail page                                                                 |
-| 3    | Check Members table        | efabox.sk@gmail.com listed as "company admin" with "Genesis" badge, status "Active" |
+| 3    | Check Members table        | peppolbox.sk@gmail.com listed as "company admin" with "Genesis" badge, status "Active" |
 
 ---
 
@@ -195,7 +195,7 @@
 
 | Step | Action                                                                   | Expected                                                                |
 | ---- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| 1    | Sign in as efabox.sk@gmail.com (genesis admin)                           | Company Admin dashboard                                                 |
+| 1    | Sign in as peppolbox.sk@gmail.com (genesis admin)                           | Company Admin dashboard                                                 |
 | 2    | Navigate to Users page                                                   | Users table and Invitations table visible, "Invite User" button visible |
 | 3    | Click "Invite User"                                                      | Dialog opens with email, role, and company checkboxes                   |
 | 4    | Enter email: `newadmin@test.com`, role: Company Admin, check the company | Form filled                                                             |
@@ -216,15 +216,15 @@
 | Step | Action                                                                     | Expected                                                                             |
 | ---- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | 1    | On Users page, click "Invite User"                                         | Dialog opens                                                                         |
-| 2    | Enter email: `apartmentvir1@gmail.com`, role: Processor, check the company | Form filled                                                                          |
+| 2    | Enter email: `jankouctovaník@gmail.com`, role: Processor, check the company | Form filled                                                                          |
 | 3    | Click "Send Invitation"                                                    | Dialog closes, invitation appears                                                    |
-| 4    | Check apartmentvir1@gmail.com inbox                                        | Invitation email: "You've been invited to peppolbox.sk as Processor" with magic link |
+| 4    | Check jankouctovaník@gmail.com inbox                                        | Invitation email: "You've been invited to peppolbox.sk as Processor" with magic link |
 
 ### TC-5.4: Processor Accepts Invitation
 
 | Step | Action                                           | Expected                                                                |
 | ---- | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 1    | Open invitation email in apartmentvir1@gmail.com | Email with "Accept Invitation" button                                   |
+| 1    | Open invitation email in jankouctovaník@gmail.com | Email with "Accept Invitation" button                                   |
 | 2    | Click "Accept Invitation"                        | Redirected to peppolbox.sk, signed in                                   |
 | 3    | Observe Welcome screen                           | "Welcome to peppolbox.sk!", role badge: "Processor", company name shown |
 | 4    | Click "Go to Dashboard"                          | Redirected to Inbox (processor has no dashboard)                        |
@@ -254,22 +254,22 @@
 
 | Step | Action                                                | Expected                                              |
 | ---- | ----------------------------------------------------- | ----------------------------------------------------- |
-| 1    | Sign in as efabox.sk@gmail.com                        | Company Admin dashboard                               |
+| 1    | Sign in as peppolbox.sk@gmail.com                        | Company Admin dashboard                               |
 | 2    | Navigate to Companies → click company → Members table | Operator and processor listed                         |
 | 3    | Click "Deactivate" next to processor                  | Confirmation dialog                                   |
 | 4    | Confirm                                               | Processor status changes to "Inactive"                |
-| 5    | Sign in as apartmentvir1@gmail.com                    | Dashboard shows no companies (membership deactivated) |
+| 5    | Sign in as jankouctovaník@gmail.com                    | Dashboard shows no companies (membership deactivated) |
 | 6    | Check Audit Log (as super admin)                      | `MEMBERSHIP_DEACTIVATED` event                        |
 
 ### TC-5.8: Reactivate a Member (by Genesis Admin)
 
 | Step | Action                                                | Expected                                               |
 | ---- | ----------------------------------------------------- | ------------------------------------------------------ |
-| 1    | Sign in as efabox.sk@gmail.com                        | Company Admin dashboard                                |
+| 1    | Sign in as peppolbox.sk@gmail.com                        | Company Admin dashboard                                |
 | 2    | Navigate to Companies → click company → Members table | Processor shows "Inactive" badge with "Reactivate" button |
 | 3    | Click "Reactivate" next to processor                  | Confirmation dialog: "regain access with original roles" |
 | 4    | Confirm                                               | Processor status changes back to "Active"              |
-| 5    | Sign in as apartmentvir1@gmail.com                    | Dashboard shows company again (membership restored)    |
+| 5    | Sign in as jankouctovaník@gmail.com                    | Dashboard shows company again (membership restored)    |
 | 6    | Check Audit Log (as super admin)                      | `MEMBERSHIP_REACTIVATED` event                         |
 
 ### TC-5.9: Webhooks Access (Company Admin)
@@ -501,7 +501,7 @@
 
 | Step | Action                                         | Expected                                            |
 | ---- | ---------------------------------------------- | --------------------------------------------------- |
-| 1    | Sign in as company admin (efabox.sk@gmail.com) | Dashboard                                           |
+| 1    | Sign in as company admin (peppolbox.sk@gmail.com) | Dashboard                                           |
 | 2    | Navigate to Audit Log                          | Only events for own companies + own actions visible |
 | 3    | Verify super-admin-only events are NOT visible | No other company's events shown                     |
 
@@ -533,7 +533,7 @@
 | ---- | -------------------------------- | ----------------------------------------------------- |
 | 1    | Check company Peppol status      | "Not registered" (reset to pending)                   |
 | 2    | Check Members table              | All members status: "Inactive"                        |
-| 3    | Sign in as efabox.sk@gmail.com   | No companies visible (membership deactivated)         |
+| 3    | Sign in as peppolbox.sk@gmail.com   | No companies visible (membership deactivated)         |
 | 4    | Check Audit Log (as super admin) | `COMPANY_DEACTIVATED` event with details              |
 | 5    | Check ion-AP                     | Organization unpublished from SMP, identifier removed |
 
@@ -556,7 +556,7 @@
 | 1    | As super admin, open the deactivated company detail  | "Reactivate Company" card visible                                                                     |
 | 2    | Observe pre-filled fields                            | DIC (read-only), Peppol ID (read-only), Company Name, Company Email, Genesis Admin Email              |
 | 3    | Edit Company Name if needed                          | Field editable                                                                                        |
-| 4    | Change Genesis Admin Email to: `efabox.sk@gmail.com` | Field updated                                                                                         |
+| 4    | Change Genesis Admin Email to: `peppolbox.sk@gmail.com` | Field updated                                                                                         |
 | 5    | Click "Reactivate"                                   | Confirmation dialog                                                                                   |
 | 6    | Confirm                                              | Loading spinner, company status set to active, genesis invite sent                                    |
 | 7    | Observe company detail                               | Company status: active, Peppol status: still "Not registered" (activation deferred to genesis accept) |
@@ -565,7 +565,7 @@
 
 | Step | Action                             | Expected                                                 |
 | ---- | ---------------------------------- | -------------------------------------------------------- |
-| 1    | Check efabox.sk@gmail.com inbox    | New genesis admin invitation email received              |
+| 1    | Check peppolbox.sk@gmail.com inbox    | New genesis admin invitation email received              |
 | 2    | Click "Accept Invitation" in email | Redirected to `/activate` page                           |
 | 3    | Wait for Peppol activation         | Green checkmark, "Your company is now active on Peppol!" |
 | 4    | Click "Go to Dashboard"            | Dashboard (no welcome screen)                            |
@@ -581,7 +581,7 @@
 
 | Step | Action                                         | Expected                                                   |
 | ---- | ---------------------------------------------- | ---------------------------------------------------------- |
-| 1    | Sign in as genesis admin (efabox.sk@gmail.com) | Company Admin dashboard                                    |
+| 1    | Sign in as genesis admin (peppolbox.sk@gmail.com) | Company Admin dashboard                                    |
 | 2    | Navigate to Companies → click company          | Company detail page                                        |
 | 3    | Scroll to "Departments" section                | Department manager visible with "Create Department" button |
 | 4    | Click "Create Department"                      | Dialog with name field                                     |

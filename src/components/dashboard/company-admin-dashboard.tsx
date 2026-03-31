@@ -7,19 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { PeppolStatusBadge } from "./peppol-status-badge";
 import { SendTestInvoicesButton } from "./send-test-invoices-button";
 import { cn } from "@/lib/utils";
+import { ROLE_LABELS, ROLE_COLORS } from "@/lib/types";
 import type { Company, CompanyMembership } from "@/lib/types";
-
-const ROLE_LABELS: Record<string, string> = {
-  company_admin: "Company Admin",
-  operator: "Operator",
-  processor: "Processor",
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  company_admin: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  operator: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  processor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-};
 
 function getPermissions(roles: string[], isGenesis: boolean): { can: string[]; cannot: string[] } {
   const can: string[] = [];

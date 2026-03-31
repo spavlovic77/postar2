@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -10,11 +11,13 @@ import {
 import { SidebarNav } from "./sidebar-nav";
 import { BottomTabBar } from "./bottom-tab-bar";
 import { CompanySwitcher } from "./company-switcher";
+import { RoleBadge } from "./role-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { UserAvatar } from "./user-avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import type { AppRole, NavigationItem, Company } from "@/lib/types";
+import { getNavForRole, getRoleForCompany } from "@/lib/navigation";
+import type { AppRole, CompanyMembership, NavigationItem, Company } from "@/lib/types";
 
 interface Props {
   navItems: NavigationItem[];
@@ -23,18 +26,35 @@ interface Props {
   email: string | null;
   avatarUrl: string | null;
   role: AppRole;
+  memberships: CompanyMembership[];
+  isSuperAdmin: boolean;
   children: React.ReactNode;
 }
 
 export function AppShell({
-  navItems,
+  navItems: defaultNavItems,
   companies,
   fullName,
   email,
   avatarUrl,
-  role,
+  role: globalRole,
+  memberships,
+  isSuperAdmin,
   children,
 }: Props) {
+  const searchParams = useSearchParams();
+  const selectedCompanyId = searchParams.get("company");
+
+  // Resolve role for selected company
+  const activeRole = selectedCompanyId
+    ? getRoleForCompany(memberships, selectedCompanyId, isSuperAdmin)
+    : globalRole;
+
+  // Recompute nav items based on active role
+  const navItems = selectedCompanyId
+    ? getNavForRole(activeRole)
+    : defaultNavItems;
+
   return (
     <SidebarProvider>
       {/* Desktop sidebar */}
@@ -57,13 +77,14 @@ export function AppShell({
           <span className="text-lg font-bold md:hidden">Postar</span>
 
           <div className="flex-1" />
-          <CompanySwitcher companies={companies} />
+          <CompanySwitcher companies={companies} memberships={memberships} isSuperAdmin={isSuperAdmin} />
+          <RoleBadge role={activeRole} />
           <ThemeToggle />
           <UserAvatar
             fullName={fullName}
             email={email}
             avatarUrl={avatarUrl}
-            role={role}
+            role={activeRole}
           />
         </header>
 

@@ -45,6 +45,8 @@ export default async function DashboardLayout({
       email={user.email}
       avatarUrl={profile.avatar_url}
       role={role}
+      memberships={data.memberships}
+      isSuperAdmin={profile.is_super_admin}
     >
       {children}
     </AppShell>

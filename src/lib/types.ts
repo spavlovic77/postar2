@@ -180,3 +180,21 @@ export interface NavigationItem {
   icon: string;
   roles: AppRole[];
 }
+
+// ============================================================
+// Role display constants
+// ============================================================
+
+export const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super Admin",
+  company_admin: "Company Admin",
+  operator: "Operator",
+  processor: "Processor",
+};
+
+export const ROLE_COLORS: Record<string, string> = {
+  super_admin: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  company_admin: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  operator: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  processor: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+};
