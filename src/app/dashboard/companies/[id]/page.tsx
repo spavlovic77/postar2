@@ -230,8 +230,18 @@ export default async function CompanyDetailPage({
                   const profile = (m as any).profile;
                   const memberEmail = (m as any).email;
                   const displayName = profile?.full_name || memberEmail || "Unnamed";
+                  // Match backend rules: genesis can only be deactivated by super_admin,
+                  // other admins only by genesis or super_admin
+                  const isTargetGenesis = m.is_genesis;
+                  const isTargetAdmin = m.roles?.includes("company_admin");
+                  const isSuperAdmin = role === "super_admin";
+                  const isCurrentGenesis = myMembership?.is_genesis ?? false;
                   const canDeactivate =
-                    canManageMembers && m.status === "active" && m.user_id !== user.id;
+                    canManageMembers &&
+                    m.status === "active" &&
+                    m.user_id !== user.id &&
+                    (isSuperAdmin ||
+                      (!isTargetGenesis && (!isTargetAdmin || isCurrentGenesis)));
 
                   return (
                     <TableRow key={m.id}>
