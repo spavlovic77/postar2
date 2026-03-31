@@ -29,7 +29,7 @@ const NAV_ITEMS: NavigationItem[] = [
     label: "Webhooks",
     href: "/dashboard/webhooks",
     icon: "Webhook",
-    roles: ["super_admin", "company_admin"],
+    roles: ["super_admin"],
   },
   {
     label: "Wallet",
@@ -42,18 +42,6 @@ const NAV_ITEMS: NavigationItem[] = [
     href: "/dashboard/operations",
     icon: "Activity",
     roles: ["super_admin", "company_admin"],
-  },
-  {
-    label: "Audit Log",
-    href: "/dashboard/audit",
-    icon: "ScrollText",
-    roles: ["super_admin", "company_admin", "operator"],
-  },
-  {
-    label: "Settings",
-    href: "/dashboard/settings",
-    icon: "Settings",
-    roles: ["super_admin", "company_admin", "operator"],
   },
 ];
 

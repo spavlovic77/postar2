@@ -66,12 +66,10 @@ export function UserAvatar({ fullName, email, avatarUrl, role }: Props) {
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
-        {role === "processor" && (
-          <DropdownMenuItem onClick={() => router.push("/dashboard/audit")}>
-            <ScrollText className="mr-2 h-4 w-4" />
-            Audit Log
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={() => router.push("/dashboard/audit")}>
+          <ScrollText className="mr-2 h-4 w-4" />
+          Audit Log
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
