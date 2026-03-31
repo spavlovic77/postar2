@@ -31,8 +31,8 @@ import {
   ChevronDown,
   Pencil,
 } from "lucide-react";
-import { assignUserToCompany } from "@/lib/actions";
-import { deactivateMembership } from "@/lib/actions";
+import { assignUserToCompany, deactivateMembership } from "@/lib/actions";
+import { updateMemberRoles } from "@/app/dashboard/companies/[id]/company-actions";
 import type { AppRole, Company, CompanyRole } from "@/lib/types";
 
 interface Membership {
@@ -153,15 +153,20 @@ function MembershipRow({
   isCurrentUser: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editRoles, setEditRoles] = useState<Set<string>>(
+    new Set(membership.roles ?? [])
+  );
   const { toast } = useToast();
 
   const companyName =
     membership.company?.legal_name ?? membership.company?.dic ?? "Unknown";
 
-  const canRemove =
+  const canEdit =
     !isCurrentUser &&
-    !membership.is_genesis &&
     (viewerRole === "super_admin" || viewerRole === "company_admin");
+
+  const canRemove = canEdit && !membership.is_genesis;
 
   const handleRemove = () => {
     startTransition(async () => {
@@ -174,44 +179,153 @@ function MembershipRow({
     });
   };
 
+  const toggleEditRole = (role: string) => {
+    setEditRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(role)) {
+        if (next.size > 1) next.delete(role);
+      } else {
+        next.add(role);
+      }
+      return next;
+    });
+  };
+
+  const handleSaveRoles = () => {
+    startTransition(async () => {
+      const result = await updateMemberRoles(
+        membership.id,
+        Array.from(editRoles)
+      );
+      if (result.error) {
+        toast(result.error, "error");
+      } else {
+        toast(`Roles updated for ${companyName}`);
+        setIsEditing(false);
+      }
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditRoles(new Set(membership.roles ?? []));
+    setIsEditing(false);
+  };
+
+  // Check if roles actually changed
+  const currentRoles = new Set(membership.roles ?? []);
+  const rolesChanged =
+    editRoles.size !== currentRoles.size ||
+    [...editRoles].some((r) => !currentRoles.has(r));
+
   return (
-    <div className="flex items-start gap-3 rounded-lg border p-3 group">
-      <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{companyName}</p>
-        <div className="flex flex-wrap items-center gap-1 mt-1">
-          {(membership.roles ?? []).map((r) => (
-            <span
-              key={r}
-              className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-medium",
-                ROLE_COLORS[r] ?? ""
+    <div className="rounded-lg border p-3 group">
+      <div className="flex items-start gap-3">
+        <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{companyName}</p>
+
+          {!isEditing ? (
+            /* View mode */
+            <div className="flex flex-wrap items-center gap-1 mt-1">
+              {(membership.roles ?? []).map((r) => (
+                <span
+                  key={r}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                    ROLE_COLORS[r] ?? ""
+                  )}
+                >
+                  {ROLE_LABELS[r] ?? r}
+                </span>
+              ))}
+              {membership.is_genesis && (
+                <Badge variant="secondary" className="text-[10px] h-5">
+                  Genesis
+                </Badge>
               )}
-            >
-              {ROLE_LABELS[r] ?? r}
-            </span>
-          ))}
-          {membership.is_genesis && (
-            <Badge variant="secondary" className="text-[10px] h-5">
-              Genesis
-            </Badge>
+            </div>
+          ) : (
+            /* Edit mode — toggleable role badges */
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {AVAILABLE_ROLES.map((role) => (
+                <button
+                  key={role}
+                  onClick={() => toggleEditRole(role)}
+                  disabled={isPending}
+                  className={cn(
+                    "rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                    editRoles.has(role)
+                      ? cn("border-transparent", ROLE_COLORS[role])
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {editRoles.has(role) && (
+                    <Check className="mr-1 h-3 w-3 inline" />
+                  )}
+                  {ROLE_LABELS[role]}
+                </button>
+              ))}
+            </div>
           )}
         </div>
+
+        {/* Action buttons */}
+        {canEdit && !isEditing && (
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setIsEditing(true)}
+              disabled={isPending}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            {canRemove && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={handleRemove}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
-      {canRemove && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-destructive"
-          onClick={handleRemove}
-          disabled={isPending}
-        >
-          {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <X className="h-3.5 w-3.5" />
-          )}
-        </Button>
+
+      {/* Edit mode save/cancel */}
+      {isEditing && (
+        <div className="flex items-center gap-2 mt-2 ml-7">
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            onClick={handleSaveRoles}
+            disabled={isPending || !rolesChanged}
+          >
+            {isPending ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : (
+              <Check className="mr-1 h-3 w-3" />
+            )}
+            Save
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={handleCancelEdit}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+        </div>
       )}
     </div>
   );
