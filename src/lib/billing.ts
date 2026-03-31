@@ -105,6 +105,44 @@ export async function getWalletForUser(
 }
 
 // ============================================================
+// Atomic wallet helpers (race-condition safe)
+// ============================================================
+
+/**
+ * Atomically deduct from wallet using SQL-level arithmetic.
+ * Returns the new balance, or null if insufficient funds.
+ */
+async function atomicDeduct(
+  walletId: string,
+  amount: number
+): Promise<number | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("wallet_deduct", {
+    p_wallet_id: walletId,
+    p_amount: amount,
+  });
+  if (error || data === null || data < 0) return null;
+  return data as number;
+}
+
+/**
+ * Atomically add to wallet using SQL-level arithmetic.
+ * Returns the new balance.
+ */
+async function atomicCredit(
+  walletId: string,
+  amount: number
+): Promise<number | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("wallet_credit", {
+    p_wallet_id: walletId,
+    p_amount: amount,
+  });
+  if (error || data === null) return null;
+  return data as number;
+}
+
+// ============================================================
 // Billing
 // ============================================================
 
@@ -145,24 +183,11 @@ export async function chargeForDocument(
 
   const { wallet } = walletInfo;
 
-  // Atomic deduction: only succeeds if balance is sufficient
-  const { data: updated, error: updateError } = await supabase
-    .from("wallets")
-    .update({
-      available_balance: wallet.available_balance - price,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", wallet.id)
-    .gte("available_balance", price)
-    .select("available_balance")
-    .single();
-
-  if (updateError || !updated) {
-    // Insufficient balance
+  // Atomic deduction via RPC — no read-then-write race
+  const newBalance = await atomicDeduct(wallet.id, price);
+  if (newBalance === null) {
     return false;
   }
-
-  const newBalance = updated.available_balance;
 
   // Record transaction
   const { data: txn } = await supabase
@@ -216,30 +241,18 @@ export async function topUpWallet(
 
   const supabase = getSupabaseAdmin();
 
-  // Add to balance
-  const { data: wallet, error: fetchError } = await supabase
+  // Atomic credit via RPC
+  const newBalance = await atomicCredit(walletId, amount);
+  if (newBalance === null) {
+    return { success: false, error: "Wallet not found or credit failed" };
+  }
+
+  // Get owner for audit
+  const { data: wallet } = await supabase
     .from("wallets")
-    .select("available_balance, owner_id")
+    .select("owner_id")
     .eq("id", walletId)
     .single();
-
-  if (fetchError || !wallet) {
-    return { success: false, error: "Wallet not found" };
-  }
-
-  const newBalance = wallet.available_balance + amount;
-
-  const { error: updateError } = await supabase
-    .from("wallets")
-    .update({
-      available_balance: newBalance,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", walletId);
-
-  if (updateError) {
-    return { success: false, error: `Failed to update balance: ${updateError.message}` };
-  }
 
   // Record transaction
   await supabase.from("wallet_transactions").insert({
@@ -255,7 +268,7 @@ export async function topUpWallet(
   audit({
     eventId: "WALLET_TOPPED_UP",
     eventName: "Wallet topped up",
-    actorId: createdBy ?? wallet.owner_id,
+    actorId: createdBy ?? wallet?.owner_id,
     details: { walletId, amount, balanceAfter: newBalance, ...metadata },
   });
 
@@ -342,29 +355,14 @@ export async function autoBillUnbilledDocuments(
   // All-or-nothing check for chargeable docs
   if (chargeableDocs.length === 0) return { billed: freeDocs.length, totalCost: 0 };
 
-  if (wallet.available_balance < totalCost) {
-    console.log(`[BILLING] Auto-bill skipped: balance ${wallet.available_balance} < total cost ${totalCost} for ${chargeableDocs.length} docs`);
+  // Atomic deduction via RPC
+  const newBalance = await atomicDeduct(walletId, totalCost);
+  if (newBalance === null) {
+    console.log(`[BILLING] Auto-bill skipped: insufficient balance for total cost ${totalCost} across ${chargeableDocs.length} docs`);
     return { billed: freeDocs.length, totalCost };
   }
 
-  // Atomic deduction
-  const { data: updatedWallet, error: deductError } = await supabase
-    .from("wallets")
-    .update({
-      available_balance: wallet.available_balance - totalCost,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", walletId)
-    .gte("available_balance", totalCost)
-    .select("available_balance")
-    .single();
-
-  if (deductError || !updatedWallet) {
-    console.warn("[BILLING] Auto-bill atomic deduction failed (race condition)");
-    return { billed: freeDocs.length, totalCost };
-  }
-
-  let runningBalance = updatedWallet.available_balance + totalCost; // pre-deduction
+  let runningBalance = newBalance + totalCost; // pre-deduction balance
 
   // Create transactions and mark documents as billed
   for (const doc of chargeableDocs) {
@@ -402,11 +400,11 @@ export async function autoBillUnbilledDocuments(
       walletId,
       documentsBilled: totalBilled,
       totalCost,
-      balanceAfter: updatedWallet.available_balance,
+      balanceAfter: newBalance,
     },
   });
 
-  console.log(`[BILLING] Auto-billed ${totalBilled} documents, cost ${totalCost}, balance ${updatedWallet.available_balance}`);
+  console.log(`[BILLING] Auto-billed ${totalBilled} documents, cost ${totalCost}, balance ${newBalance}`);
 
   return { billed: totalBilled, totalCost };
 }
@@ -429,29 +427,15 @@ export async function adjustWallet(
 
   const supabase = getSupabaseAdmin();
 
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("available_balance, owner_id")
-    .eq("id", walletId)
-    .single();
-
-  if (!wallet) return { success: false, error: "Wallet not found" };
-
-  const newBalance = wallet.available_balance + amount;
-  if (newBalance < 0) {
-    return { success: false, error: `Adjustment would result in negative balance (${newBalance})` };
+  let newBalance: number | null;
+  if (amount > 0) {
+    newBalance = await atomicCredit(walletId, amount);
+  } else {
+    newBalance = await atomicDeduct(walletId, Math.abs(amount));
   }
 
-  const { error: updateError } = await supabase
-    .from("wallets")
-    .update({
-      available_balance: newBalance,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", walletId);
-
-  if (updateError) {
-    return { success: false, error: updateError.message };
+  if (newBalance === null) {
+    return { success: false, error: amount < 0 ? "Insufficient balance for adjustment" : "Wallet not found" };
   }
 
   await supabase.from("wallet_transactions").insert({

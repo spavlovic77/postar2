@@ -25,6 +25,8 @@ drop table if exists companies cascade;
 drop table if exists pfs_verifications cascade;
 drop table if exists profiles cascade;
 
+drop function if exists wallet_deduct(uuid, numeric);
+drop function if exists wallet_credit(uuid, numeric);
 drop function if exists create_audit_partition(text);
 drop function if exists archive_audit_partition(text);
 drop table if exists audit_logs cascade;
@@ -296,6 +298,42 @@ create table wallets (
 );
 
 create index idx_wallets_owner on wallets (owner_id);
+
+-- ----------------------
+-- Wallet atomic operations (race-condition safe)
+-- Uses UPDATE ... SET col = col - amount with RETURNING
+-- so the read + write is a single atomic SQL statement.
+-- ----------------------
+create or replace function wallet_deduct(p_wallet_id uuid, p_amount numeric)
+returns numeric as $$
+declare
+  new_bal numeric;
+begin
+  update wallets
+    set available_balance = available_balance - p_amount,
+        updated_at = now()
+    where id = p_wallet_id
+      and available_balance >= p_amount
+    returning available_balance into new_bal;
+
+  return new_bal; -- null when row not matched (insufficient funds)
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create or replace function wallet_credit(p_wallet_id uuid, p_amount numeric)
+returns numeric as $$
+declare
+  new_bal numeric;
+begin
+  update wallets
+    set available_balance = available_balance + p_amount,
+        updated_at = now()
+    where id = p_wallet_id
+    returning available_balance into new_bal;
+
+  return new_bal; -- null when wallet not found
+end;
+$$ language plpgsql security definer set search_path = public;
 
 -- ----------------------
 -- Wallet Transactions (full audit trail)

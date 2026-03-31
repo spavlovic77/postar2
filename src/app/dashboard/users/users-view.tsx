@@ -30,6 +30,7 @@ import {
 import { InviteUserDialog } from "./invite-user-dialog";
 import { ResendInvitationButton } from "./resend-invitation-button";
 import { RevokeInvitationButton } from "./revoke-invitation-button";
+import { UserDetailDrawer } from "./user-detail-drawer";
 import type { AppRole, Company } from "@/lib/types";
 
 interface UserEntry {
@@ -112,6 +113,7 @@ export function UsersView({
     initialTab === "invitations" ? "invitations" : "team"
   );
   const [search, setSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const now = new Date();
 
@@ -183,6 +185,16 @@ export function UsersView({
 
     return [...activeUsers, ...pendingPeople];
   }, [users, pendingInvitations, search, currentUserId]);
+
+  // Find the selected user for the drawer
+  const selectedUserDetail = useMemo(() => {
+    if (!selectedUserId) return null;
+    const member = teamMembers.find(
+      (m) => m.type === "user" && m.id === selectedUserId
+    );
+    if (!member || member.type !== "user") return null;
+    return member;
+  }, [selectedUserId, teamMembers]);
 
   // Filtered invitations for Invitations tab
   const filteredInvitations = useMemo(() => {
@@ -273,6 +285,7 @@ export function UsersView({
           members={teamMembers}
           companyMap={companyMap}
           role={role}
+          onSelectUser={setSelectedUserId}
         />
       ) : (
         <InvitationsTab
@@ -281,6 +294,17 @@ export function UsersView({
           role={role}
         />
       )}
+
+      {/* User detail drawer */}
+      <UserDetailDrawer
+        user={selectedUserDetail}
+        open={!!selectedUserId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedUserId(null);
+        }}
+        companies={companies}
+        viewerRole={role}
+      />
     </div>
   );
 }
@@ -293,6 +317,7 @@ function TeamTab({
   members,
   companyMap,
   role,
+  onSelectUser,
 }: {
   members: (
     | {
@@ -325,6 +350,7 @@ function TeamTab({
   )[];
   companyMap: Record<string, string>;
   role: AppRole;
+  onSelectUser: (userId: string) => void;
 }) {
   if (members.length === 0) {
     return (
@@ -340,7 +366,7 @@ function TeamTab({
     <div className="space-y-2">
       {members.map((member) =>
         member.type === "user" ? (
-          <UserCard key={`user-${member.id}`} member={member} companyMap={companyMap} role={role} />
+          <UserCard key={`user-${member.id}`} member={member} companyMap={companyMap} role={role} onSelect={() => onSelectUser(member.id)} />
         ) : (
           <InvitationCard key={`inv-${member.id}`} invitation={member} companyMap={companyMap} role={role} />
         )
@@ -353,6 +379,7 @@ function UserCard({
   member,
   companyMap,
   role: viewerRole,
+  onSelect,
 }: {
   member: {
     id: string;
@@ -371,9 +398,13 @@ function UserCard({
   };
   companyMap: Record<string, string>;
   role: AppRole;
+  onSelect: () => void;
 }) {
   return (
-    <div className="rounded-lg border p-4 transition-colors hover:bg-muted/30">
+    <div
+      className="rounded-lg border p-4 transition-colors hover:bg-muted/30 cursor-pointer"
+      onClick={onSelect}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {/* Name + email */}

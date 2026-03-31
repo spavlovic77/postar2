@@ -910,3 +910,105 @@ export async function revokeInvitation(invitationId: string) {
   revalidatePath("/dashboard/users");
   return { success: true };
 }
+
+/**
+ * Directly assign an existing (onboarded) user to a company with specified roles.
+ * No invitation flow — instant membership creation.
+ */
+export async function assignUserToCompany(
+  targetUserId: string,
+  companyId: string,
+  roles: string[]
+) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  if (roles.length === 0) return { error: "At least one role is required" };
+
+  // Validate the target user exists and is onboarded
+  const { data: targetProfile } = await admin
+    .from("profiles")
+    .select("id, onboarded_at")
+    .eq("id", targetUserId)
+    .single();
+
+  if (!targetProfile) return { error: "User not found" };
+  if (!targetProfile.onboarded_at) return { error: "User has not completed onboarding" };
+
+  // Check permissions: must be super_admin or company_admin for target company
+  const { data: myProfile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  const isSuperAdmin = myProfile?.is_super_admin ?? false;
+
+  if (!isSuperAdmin) {
+    const { data: myMembership } = await admin
+      .from("company_memberships")
+      .select("roles, is_genesis")
+      .eq("user_id", user.id)
+      .eq("company_id", companyId)
+      .eq("status", "active")
+      .single();
+
+    if (!myMembership || !myMembership.roles?.includes("company_admin")) {
+      return { error: "You must be a company admin of the target company" };
+    }
+
+    // Only genesis or super_admin can assign company_admin role
+    if (roles.includes("company_admin") && !myMembership.is_genesis) {
+      return { error: "Only genesis admin or super admin can assign the Company Admin role" };
+    }
+  }
+
+  // Check if membership already exists
+  const { data: existing } = await admin
+    .from("company_memberships")
+    .select("id, status")
+    .eq("user_id", targetUserId)
+    .eq("company_id", companyId)
+    .single();
+
+  if (existing) {
+    if (existing.status === "active") {
+      return { error: "User is already a member of this company" };
+    }
+    // Reactivate inactive membership with new roles
+    await admin
+      .from("company_memberships")
+      .update({ status: "active", roles })
+      .eq("id", existing.id);
+  } else {
+    await admin.from("company_memberships").insert({
+      user_id: targetUserId,
+      company_id: companyId,
+      roles,
+      is_genesis: false,
+      status: "active",
+      invited_by: user.id,
+    });
+  }
+
+  // Get company info for audit
+  const { data: company } = await admin
+    .from("companies")
+    .select("dic")
+    .eq("id", companyId)
+    .single();
+
+  audit({
+    eventId: "MEMBER_ASSIGNED",
+    eventName: "User directly assigned to company",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId,
+    companyDic: company?.dic ?? undefined,
+    details: { targetUserId, roles },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/companies");
+  return { success: true };
+}
