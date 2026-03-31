@@ -401,7 +401,7 @@ export function OpsCenter({ companies, documents, payments, billing, invitations
                       <TableRow key={inv.id}>
                         <TableCell className="text-sm">{inv.email}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">{inv.roles?.join(", ").replace(/_/g, " ")}</Badge>
+                          <Badge variant="outline" className="text-xs">{(inv.roles ?? []).map((r: string) => r.replace(/_/g, " ")).join(", ")}</Badge>
                         </TableCell>
                         <TableCell>{inv.is_genesis ? "Yes" : "-"}</TableCell>
                         <TableCell className="text-sm">{formatDate(inv.expires_at)}</TableCell>

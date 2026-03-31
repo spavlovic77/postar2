@@ -37,7 +37,7 @@ export interface CompanyMembership {
   id: string;
   user_id: string;
   company_id: string;
-  roles: CompanyRole[];
+  role: CompanyRole;
   is_genesis: boolean;
   status: "active" | "inactive";
   invited_by: string | null;

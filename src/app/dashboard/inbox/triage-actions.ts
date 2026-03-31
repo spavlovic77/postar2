@@ -36,14 +36,13 @@ export async function assignDocumentToDepartment(
   if (!profile?.is_super_admin) {
     const { data: membership } = await admin
       .from("company_memberships")
-      .select("roles")
+      .select("role")
       .eq("user_id", user.id)
       .eq("company_id", doc.company_id)
       .eq("status", "active")
       .single();
 
-    const roles: string[] = membership?.roles ?? [];
-    if (!roles.includes("company_admin") && !roles.includes("operator")) {
+    if (membership?.role !== "company_admin" && membership?.role !== "operator") {
       return { error: "Only admins and operators can assign documents" };
     }
   }
@@ -117,14 +116,13 @@ export async function bulkAssignDocuments(
   if (!profile?.is_super_admin) {
     const { data: membership } = await admin
       .from("company_memberships")
-      .select("roles")
+      .select("role")
       .eq("user_id", user.id)
       .eq("company_id", dept.company_id)
       .eq("status", "active")
       .single();
 
-    const roles: string[] = membership?.roles ?? [];
-    if (!roles.includes("company_admin") && !roles.includes("operator")) {
+    if (membership?.role !== "company_admin" && membership?.role !== "operator") {
       return { error: "Only admins and operators can assign documents" };
     }
   }

@@ -21,7 +21,7 @@ export default async function InboxPage({
   const pageSize = 20;
 
   // Determine if user can triage (super admin, company admin, or operator)
-  const allRoles = memberships.flatMap((m) => m.roles ?? []);
+  const allRoles = memberships.map((m) => m.role);
   const canTriage =
     role === "super_admin" ||
     allRoles.includes("company_admin") ||

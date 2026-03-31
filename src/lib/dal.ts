@@ -51,7 +51,7 @@ export async function getUserWithRole(): Promise<UserWithRole | null> {
   if (profile.is_super_admin) {
     role = "super_admin";
   } else {
-    const allRoles = (memberships ?? []).flatMap((m: CompanyMembership) => m.roles ?? []);
+    const allRoles = (memberships ?? []).map((m: CompanyMembership) => m.role);
     if (allRoles.includes("company_admin")) {
       role = "company_admin";
     } else if (allRoles.includes("operator")) {

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   const isSuperAdmin = profile?.is_super_admin ?? false;
 
   // Determine if user is processor-only (no admin/operator roles)
-  const allRoles = (memberships ?? []).flatMap((m: any) => m.roles ?? []);
+  const allRoles = (memberships ?? []).map((m: any) => m.role);
   const isProcessorOnly =
     !isSuperAdmin &&
     !allRoles.includes("company_admin") &&

@@ -13,15 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { ROLE_LABELS, ROLE_COLORS } from "@/lib/types";
 import { inviteUser } from "@/lib/actions";
 import type { Company } from "@/lib/types";
 import { UserPlus } from "lucide-react";
 
-const AVAILABLE_ROLES = [
-  { value: "company_admin", label: "Company Admin" },
-  { value: "operator", label: "Operator" },
-  { value: "processor", label: "Processor" },
-];
+const AVAILABLE_ROLES = ["company_admin", "operator", "processor"] as const;
 
 interface Props {
   companies: Company[];
@@ -32,7 +30,7 @@ export function InviteUserDialog({ companies }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
-  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
+  const [selectedRole, setSelectedRole] = useState<string>("");
   const router = useRouter();
 
   const toggleCompany = (id: string) => {
@@ -40,15 +38,6 @@ export function InviteUserDialog({ companies }: Props) {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleRole = (role: string) => {
-    setSelectedRoles((prev) => {
-      const next = new Set(prev);
-      if (next.has(role)) next.delete(role);
-      else next.add(role);
       return next;
     });
   };
@@ -62,9 +51,7 @@ export function InviteUserDialog({ companies }: Props) {
     for (const id of selectedCompanies) {
       formData.append("companyIds", id);
     }
-    for (const role of selectedRoles) {
-      formData.append("roles", role);
-    }
+    formData.set("role", selectedRole);
 
     const result = await inviteUser(formData);
 
@@ -74,7 +61,7 @@ export function InviteUserDialog({ companies }: Props) {
     } else {
       setOpen(false);
       setSelectedCompanies(new Set());
-      setSelectedRoles(new Set());
+      setSelectedRole("");
       setIsLoading(false);
       router.refresh();
     }
@@ -107,27 +94,33 @@ export function InviteUserDialog({ companies }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Roles</Label>
+            <Label>Role</Label>
             <div className="space-y-2 rounded-lg border p-3">
-              {AVAILABLE_ROLES.map((r) => (
+              {AVAILABLE_ROLES.map((role) => (
                 <label
-                  key={r.value}
-                  className="flex cursor-pointer items-center gap-2 text-sm"
+                  key={role}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-md p-1.5 text-sm transition-colors hover:bg-muted",
+                    selectedRole === role && "bg-muted"
+                  )}
                 >
                   <input
-                    type="checkbox"
-                    checked={selectedRoles.has(r.value)}
-                    onChange={() => toggleRole(r.value)}
+                    type="radio"
+                    name="roleSelect"
+                    checked={selectedRole === role}
+                    onChange={() => setSelectedRole(role)}
                     disabled={isLoading}
-                    className="rounded"
+                    className="accent-primary"
                   />
-                  {r.label}
+                  <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", ROLE_COLORS[role])}>
+                    {ROLE_LABELS[role]}
+                  </span>
                 </label>
               ))}
             </div>
-            {selectedRoles.size === 0 && (
+            {!selectedRole && (
               <p className="text-xs text-muted-foreground">
-                Select at least one role
+                Select a role
               </p>
             )}
           </div>
@@ -166,7 +159,7 @@ export function InviteUserDialog({ companies }: Props) {
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading || selectedCompanies.size === 0 || selectedRoles.size === 0}
+            disabled={isLoading || selectedCompanies.size === 0 || !selectedRole}
           >
             {isLoading ? "Sending..." : "Send Invitation"}
           </Button>

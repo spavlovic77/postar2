@@ -10,13 +10,13 @@ import { cn } from "@/lib/utils";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/types";
 import type { Company, CompanyMembership } from "@/lib/types";
 
-function getPermissions(roles: string[], isGenesis: boolean): { can: string[]; cannot: string[] } {
+function getPermissions(role: string, isGenesis: boolean): { can: string[]; cannot: string[] } {
   const can: string[] = [];
   const cannot: string[] = [];
 
-  const isAdmin = roles.includes("company_admin");
-  const isOperator = roles.includes("operator");
-  const isProcessor = roles.includes("processor");
+  const isAdmin = role === "company_admin";
+  const isOperator = role === "operator";
+  const isProcessor = role === "processor";
 
   // What you CAN do
   can.push("View & download invoices");
@@ -114,8 +114,8 @@ function CompanyCard({
   pendingCount: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const roles = membership.roles ?? [];
-  const { can, cannot } = getPermissions(roles, membership.is_genesis);
+  const role = membership.role ?? "processor";
+  const { can, cannot } = getPermissions(role, membership.is_genesis);
 
   return (
     <Card>
@@ -138,13 +138,11 @@ function CompanyCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Role badges */}
+        {/* Role badge */}
         <div className="flex flex-wrap gap-1.5">
-          {roles.map((role) => (
-            <Badge key={role} className={cn("text-xs", ROLE_COLORS[role] ?? "")}>
-              {ROLE_LABELS[role] ?? role}
-            </Badge>
-          ))}
+          <Badge className={cn("text-xs", ROLE_COLORS[role] ?? "")}>
+            {ROLE_LABELS[role] ?? role}
+          </Badge>
         </div>
 
         {/* Expandable permissions */}

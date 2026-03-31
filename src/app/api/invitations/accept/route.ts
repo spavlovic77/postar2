@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         const { error } = await supabase
           .from("company_memberships")
           .update({
-            roles: (invitation.roles ?? []).filter((r: string) => r !== "super_admin") as any,
+            role: ((invitation.roles ?? []).find((r: string) => r !== "super_admin") ?? "processor") as any,
             is_genesis: invitation.is_genesis ?? false,
             status: "active",
             invited_by: invitation.invited_by,
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
           .insert({
             user_id: user.id,
             company_id: companyId,
-            roles: (invitation.roles ?? []).filter((r: string) => r !== "super_admin") as any,
+            role: ((invitation.roles ?? []).find((r: string) => r !== "super_admin") ?? "processor") as any,
             is_genesis: invitation.is_genesis ?? false,
             status: "active",
             invited_by: invitation.invited_by,

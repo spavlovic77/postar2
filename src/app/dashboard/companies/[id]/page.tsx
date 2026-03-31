@@ -20,7 +20,7 @@ import { DeactivateCompanyButton } from "./deactivate-company-button";
 import { ReactivateCompanyForm } from "./reactivate-company-form";
 import { EditCompanyDialog } from "./edit-company-dialog";
 import { SendGenesisInvitation } from "./send-genesis-invitation";
-import { EditRolesDialog } from "./edit-roles-dialog";
+import { EditRoleDialog } from "./edit-role-dialog";
 import { DepartmentManager } from "@/components/dashboard/department-manager";
 import { PricingCard } from "./pricing-card";
 
@@ -56,14 +56,14 @@ export default async function CompanyDetailPage({
 
   const myMembership = memberships.find((m) => m.company_id === id);
   const canManageMembers =
-    role === "super_admin" || (myMembership?.roles?.includes("company_admin") ?? false) || (myMembership?.roles?.includes("operator") ?? false);
+    role === "super_admin" || myMembership?.role === "company_admin" || myMembership?.role === "operator";
   const canManageDepartments =
-    role === "super_admin" || (myMembership?.roles?.includes("company_admin") ?? false);
+    role === "super_admin" || myMembership?.role === "company_admin";
   const isDeactivated = company.status === "deactivated";
   const canActivatePeppol =
     !isDeactivated && company.ion_ap_status !== "active" && role === "super_admin";
   const hasActiveGenesis = members.some(
-    (m) => m.is_genesis && m.status === "active" && m.roles?.includes("company_admin")
+    (m) => m.is_genesis && m.status === "active" && m.role === "company_admin"
   );
   const showGenesisInvite =
     role === "super_admin" && !isDeactivated && !hasActiveGenesis;
@@ -233,7 +233,7 @@ export default async function CompanyDetailPage({
                   // Match backend rules: genesis can only be deactivated by super_admin,
                   // other admins only by genesis or super_admin
                   const isTargetGenesis = m.is_genesis;
-                  const isTargetAdmin = m.roles?.includes("company_admin");
+                  const isTargetAdmin = m.role === "company_admin";
                   const isSuperAdmin = role === "super_admin";
                   const isCurrentGenesis = myMembership?.is_genesis ?? false;
                   const canDeactivate =
@@ -256,7 +256,7 @@ export default async function CompanyDetailPage({
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
-                            {m.roles?.join(", ").replace(/_/g, " ")}
+                            {m.role?.replace(/_/g, " ")}
                           </Badge>
                           {m.is_genesis && (
                             <Badge variant="secondary" className="text-xs">
@@ -264,9 +264,9 @@ export default async function CompanyDetailPage({
                             </Badge>
                           )}
                           {canManageMembers && m.user_id !== user.id && (
-                            <EditRolesDialog
+                            <EditRoleDialog
                               membershipId={m.id}
-                              currentRoles={m.roles ?? []}
+                              currentRole={m.role ?? "processor"}
                               memberName={displayName}
                             />
                           )}

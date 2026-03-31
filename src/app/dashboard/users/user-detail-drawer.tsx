@@ -32,13 +32,13 @@ import {
   Pencil,
 } from "lucide-react";
 import { assignUserToCompany, deactivateMembership } from "@/lib/actions";
-import { updateMemberRoles } from "@/app/dashboard/companies/[id]/company-actions";
+import { updateMemberRole } from "@/app/dashboard/companies/[id]/company-actions";
 import type { AppRole, Company, CompanyRole } from "@/lib/types";
 
 interface Membership {
   id: string;
   company_id: string;
-  roles?: string[];
+  role?: string;
   is_genesis: boolean;
   status: string;
   company?: { id: string; dic: string; legal_name?: string | null } | null;
@@ -154,9 +154,7 @@ function MembershipRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
-  const [editRoles, setEditRoles] = useState<Set<string>>(
-    new Set(membership.roles ?? [])
-  );
+  const [editRole, setEditRole] = useState(membership.role ?? "processor");
   const { toast } = useToast();
 
   const companyName =
@@ -179,43 +177,24 @@ function MembershipRow({
     });
   };
 
-  const toggleEditRole = (role: string) => {
-    setEditRoles((prev) => {
-      const next = new Set(prev);
-      if (next.has(role)) {
-        if (next.size > 1) next.delete(role);
-      } else {
-        next.add(role);
-      }
-      return next;
-    });
-  };
-
-  const handleSaveRoles = () => {
+  const handleSaveRole = () => {
     startTransition(async () => {
-      const result = await updateMemberRoles(
-        membership.id,
-        Array.from(editRoles)
-      );
+      const result = await updateMemberRole(membership.id, editRole);
       if (result.error) {
         toast(result.error, "error");
       } else {
-        toast(`Roles updated for ${companyName}`);
+        toast(`Role updated for ${companyName}`);
         setIsEditing(false);
       }
     });
   };
 
   const handleCancelEdit = () => {
-    setEditRoles(new Set(membership.roles ?? []));
+    setEditRole(membership.role ?? "processor");
     setIsEditing(false);
   };
 
-  // Check if roles actually changed
-  const currentRoles = new Set(membership.roles ?? []);
-  const rolesChanged =
-    editRoles.size !== currentRoles.size ||
-    [...editRoles].some((r) => !currentRoles.has(r));
+  const roleChanged = editRole !== (membership.role ?? "processor");
 
   return (
     <div className="rounded-lg border p-3 group">
@@ -227,17 +206,16 @@ function MembershipRow({
           {!isEditing ? (
             /* View mode */
             <div className="flex flex-wrap items-center gap-1 mt-1">
-              {(membership.roles ?? []).map((r) => (
+              {membership.role && (
                 <span
-                  key={r}
                   className={cn(
                     "rounded px-1.5 py-0.5 text-[10px] font-medium",
-                    ROLE_COLORS[r] ?? ""
+                    ROLE_COLORS[membership.role] ?? ""
                   )}
                 >
-                  {ROLE_LABELS[r] ?? r}
+                  {ROLE_LABELS[membership.role] ?? membership.role}
                 </span>
-              ))}
+              )}
               {membership.is_genesis && (
                 <Badge variant="secondary" className="text-[10px] h-5">
                   Genesis
@@ -245,21 +223,21 @@ function MembershipRow({
               )}
             </div>
           ) : (
-            /* Edit mode — toggleable role badges */
+            /* Edit mode — radio role selection */
             <div className="flex flex-wrap gap-1.5 mt-2">
               {AVAILABLE_ROLES.map((role) => (
                 <button
                   key={role}
-                  onClick={() => toggleEditRole(role)}
+                  onClick={() => setEditRole(role)}
                   disabled={isPending}
                   className={cn(
                     "rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
-                    editRoles.has(role)
+                    editRole === role
                       ? cn("border-transparent", ROLE_COLORS[role])
                       : "border-border text-muted-foreground hover:bg-muted"
                   )}
                 >
-                  {editRoles.has(role) && (
+                  {editRole === role && (
                     <Check className="mr-1 h-3 w-3 inline" />
                   )}
                   {ROLE_LABELS[role]}
@@ -306,8 +284,8 @@ function MembershipRow({
           <Button
             size="sm"
             className="h-7 text-xs"
-            onClick={handleSaveRoles}
-            disabled={isPending || !rolesChanged}
+            onClick={handleSaveRole}
+            disabled={isPending || !roleChanged}
           >
             {isPending ? (
               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -347,9 +325,7 @@ function AssignToCompany({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
-    new Set(["processor"])
-  );
+  const [selectedRole, setSelectedRole] = useState<string>("processor");
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -363,25 +339,13 @@ function AssignToCompany({
     );
   }, [companies, search]);
 
-  const toggleRole = (role: string) => {
-    setSelectedRoles((prev) => {
-      const next = new Set(prev);
-      if (next.has(role)) {
-        if (next.size > 1) next.delete(role);
-      } else {
-        next.add(role);
-      }
-      return next;
-    });
-  };
-
   const handleAssign = () => {
     if (!selectedCompany) return;
     startTransition(async () => {
       const result = await assignUserToCompany(
         userId,
         selectedCompany.id,
-        Array.from(selectedRoles)
+        selectedRole
       );
       if (result.error) {
         toast(result.error, "error");
@@ -398,7 +362,7 @@ function AssignToCompany({
   const reset = () => {
     setSelectedCompany(null);
     setSearch("");
-    setSelectedRoles(new Set(["processor"]));
+    setSelectedRole("processor");
     setIsOpen(false);
   };
 
@@ -488,15 +452,15 @@ function AssignToCompany({
               {AVAILABLE_ROLES.map((role) => (
                 <button
                   key={role}
-                  onClick={() => toggleRole(role)}
+                  onClick={() => setSelectedRole(role)}
                   className={cn(
                     "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                    selectedRoles.has(role)
+                    selectedRole === role
                       ? cn("border-transparent", ROLE_COLORS[role])
                       : "border-border text-muted-foreground hover:bg-muted"
                   )}
                 >
-                  {selectedRoles.has(role) && (
+                  {selectedRole === role && (
                     <Check className="mr-1 h-3 w-3 inline" />
                   )}
                   {ROLE_LABELS[role]}
@@ -508,7 +472,7 @@ function AssignToCompany({
           <Button
             className="w-full"
             onClick={handleAssign}
-            disabled={isPending || selectedRoles.size === 0}
+            disabled={isPending || !selectedRole}
           >
             {isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

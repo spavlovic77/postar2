@@ -164,7 +164,7 @@ create table company_memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   company_id uuid not null references companies(id) on delete cascade,
-  roles company_role[] not null default '{}',
+  role company_role not null default 'processor',
   is_genesis boolean not null default false,
   status membership_status not null default 'active',
   invited_by uuid references profiles(id) on delete set null,

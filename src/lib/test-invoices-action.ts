@@ -25,14 +25,13 @@ export async function sendTestInvoices(companyId: string) {
   if (!profile?.is_super_admin) {
     const { data: membership } = await admin
       .from("company_memberships")
-      .select("roles")
+      .select("role")
       .eq("user_id", user.id)
       .eq("company_id", companyId)
       .eq("status", "active")
       .single();
 
-    const roles: string[] = membership?.roles ?? [];
-    if (!roles.includes("company_admin")) {
+    if (membership?.role !== "company_admin") {
       return { error: "Only company admins can send test invoices" };
     }
   }

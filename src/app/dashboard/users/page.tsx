@@ -45,7 +45,7 @@ export default async function UsersPage({
       ? companies
       : companies.filter((c) =>
           memberships.some(
-            (m) => m.company_id === c.id && m.roles?.includes("company_admin")
+            (m) => m.company_id === c.id && m.role === "company_admin"
           )
         );
 

@@ -29,14 +29,13 @@ async function verifyOpsAccess(companyId?: string) {
   if (companyId) {
     const { data: membership } = await admin
       .from("company_memberships")
-      .select("roles")
+      .select("role")
       .eq("user_id", user.id)
       .eq("company_id", companyId)
       .eq("status", "active")
       .single();
 
-    const roles: string[] = membership?.roles ?? [];
-    if (roles.includes("company_admin")) return { user, admin, isSuperAdmin };
+    if (membership?.role === "company_admin") return { user, admin, isSuperAdmin };
   }
 
   throw new Error("Insufficient permissions for operations");

@@ -42,7 +42,7 @@ interface UserEntry {
   memberships?: {
     id: string;
     company_id: string;
-    roles?: string[];
+    role?: string;
     is_genesis: boolean;
     status: string;
     company?: { id: string; dic: string; legal_name?: string | null } | null;
@@ -331,7 +331,7 @@ function TeamTab({
         memberships: {
           id: string;
           company_id: string;
-          roles?: string[];
+          role?: string;
           is_genesis: boolean;
           company?: { id: string; dic: string; legal_name?: string | null } | null;
         }[];
@@ -391,7 +391,7 @@ function UserCard({
     memberships: {
       id: string;
       company_id: string;
-      roles?: string[];
+      role?: string;
       is_genesis: boolean;
       company?: { id: string; dic: string; legal_name?: string | null } | null;
     }[];
@@ -431,11 +431,11 @@ function UserCard({
             {member.memberships.map((m) => (
               <div key={m.id} className="flex items-center gap-2 text-sm">
                 <div className="flex items-center gap-1 shrink-0">
-                  {(m.roles ?? []).map((r) => (
-                    <Badge key={r} className={cn("text-xs", ROLE_BADGE_COLORS[r] ?? "")}>
-                      {roleLabel(r)}
+                  {m.role && (
+                    <Badge className={cn("text-xs", ROLE_BADGE_COLORS[m.role] ?? "")}>
+                      {roleLabel(m.role)}
                     </Badge>
-                  ))}
+                  )}
                   {m.is_genesis && (
                     <Badge variant="secondary" className="text-xs">Genesis</Badge>
                   )}
@@ -497,7 +497,7 @@ function InvitationCard({
               <div key={cid} className="flex items-center gap-2 text-sm">
                 <Badge variant="outline" className="text-xs shrink-0">
                   {invitation.roles.map(roleLabel).join(", ")}
-                  {invitation.isGenesis && " (genesis)"}
+                  {invitation.isGenesis ? " (genesis)" : ""}
                 </Badge>
                 <span className="text-muted-foreground truncate">
                   {companyMap[cid] ?? cid.slice(0, 8)}

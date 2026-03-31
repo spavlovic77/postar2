@@ -49,11 +49,11 @@ export async function inviteUser(formData: FormData) {
   const admin = getSupabaseAdmin();
 
   const email = formData.get("email") as string;
-  const roles = (formData.getAll("roles") as string[]).filter(Boolean);
+  const role = formData.get("role") as string;
   const companyIds = (formData.getAll("companyIds") as string[]).filter(Boolean);
 
-  if (!email || roles.length === 0 || companyIds.length === 0) {
-    return { error: "Email, at least one role, and at least one company are required" };
+  if (!email || !role || companyIds.length === 0) {
+    return { error: "Email, a role, and at least one company are required" };
   }
 
   // Verify the current user has permission to invite for these companies
@@ -68,7 +68,7 @@ export async function inviteUser(formData: FormData) {
       .from("company_memberships")
       .select("company_id")
       .eq("user_id", user.id)
-      .contains("roles", ["company_admin"])
+      .eq("role", "company_admin")
       .eq("status", "active");
 
     const userCompanyIds = (userMemberships ?? []).map((m) => m.company_id);
@@ -82,7 +82,7 @@ export async function inviteUser(formData: FormData) {
   try {
     const result = await createInvitation(admin, {
       email,
-      roles,
+      roles: [role],
       companyIds,
       invitedBy: user.id,
     });
@@ -107,7 +107,7 @@ export async function inviteUser(formData: FormData) {
     await sendInvitationEmail({
       to: email,
       inviteUrl: getInviteUrl(result.token, baseUrl),
-      roles,
+      roles: role,
       companyNames,
     });
 
@@ -118,7 +118,7 @@ export async function inviteUser(formData: FormData) {
         actorId: user.id,
         actorEmail: user.email,
         inviteeEmail: email,
-        roles,
+        roles: [role],
         companyId: companyIds[i],
         companyDic: companyDics[i] ?? null,
         isGenesis: false,
@@ -159,13 +159,13 @@ export async function deactivateMembership(membershipId: string) {
     // Non-super-admin: must be company_admin for this company
     const { data: myMembership } = await admin
       .from("company_memberships")
-      .select("roles, is_genesis")
+      .select("role, is_genesis")
       .eq("user_id", user.id)
       .eq("company_id", membership.company_id)
       .eq("status", "active")
       .single();
 
-    if (!myMembership || !myMembership.roles?.includes("company_admin")) {
+    if (!myMembership || myMembership.role !== "company_admin") {
       return { error: "You don't have permission to deactivate this member" };
     }
 
@@ -175,7 +175,7 @@ export async function deactivateMembership(membershipId: string) {
     }
 
     // Non-genesis admin can't deactivate other admins
-    if (membership.roles?.includes("company_admin") && !myMembership.is_genesis) {
+    if (membership.role === "company_admin" && !myMembership.is_genesis) {
       return { error: "Only genesis admin or super admin can deactivate other admins" };
     }
   }
@@ -221,13 +221,13 @@ export async function reactivateMembership(membershipId: string) {
   if (!profile?.is_super_admin) {
     const { data: myMembership } = await admin
       .from("company_memberships")
-      .select("roles")
+      .select("role")
       .eq("user_id", user.id)
       .eq("company_id", membership.company_id)
       .eq("status", "active")
       .single();
 
-    if (!myMembership || !myMembership.roles?.includes("company_admin")) {
+    if (!myMembership || myMembership.role !== "company_admin") {
       return { error: "You don't have permission to reactivate this member" };
     }
   }
@@ -297,10 +297,10 @@ async function verifyCompanyAdmin(userId: string, companyId: string) {
 
   const { data: membership } = await admin
     .from("company_memberships")
-    .select("roles")
+    .select("role")
     .eq("user_id", userId)
     .eq("company_id", companyId)
-    .contains("roles", ["company_admin"])
+    .eq("role", "company_admin")
     .eq("status", "active")
     .single();
 
@@ -320,15 +320,14 @@ async function verifyCompanyAdminOrOperator(userId: string, companyId: string) {
 
   const { data: membership } = await admin
     .from("company_memberships")
-    .select("roles")
+    .select("role")
     .eq("user_id", userId)
     .eq("company_id", companyId)
     .eq("status", "active")
     .single();
 
   if (!membership) return false;
-  const roles: string[] = membership.roles ?? [];
-  return roles.includes("company_admin") || roles.includes("operator");
+  return membership.role === "company_admin" || membership.role === "operator";
 }
 
 export async function createDepartment(formData: FormData) {
@@ -918,12 +917,12 @@ export async function revokeInvitation(invitationId: string) {
 export async function assignUserToCompany(
   targetUserId: string,
   companyId: string,
-  roles: string[]
+  role: string
 ) {
   const user = await getAuthUser();
   const admin = getSupabaseAdmin();
 
-  if (roles.length === 0) return { error: "At least one role is required" };
+  if (!role) return { error: "A role is required" };
 
   // Validate the target user exists and is onboarded
   const { data: targetProfile } = await admin
@@ -947,18 +946,18 @@ export async function assignUserToCompany(
   if (!isSuperAdmin) {
     const { data: myMembership } = await admin
       .from("company_memberships")
-      .select("roles, is_genesis")
+      .select("role, is_genesis")
       .eq("user_id", user.id)
       .eq("company_id", companyId)
       .eq("status", "active")
       .single();
 
-    if (!myMembership || !myMembership.roles?.includes("company_admin")) {
+    if (!myMembership || myMembership.role !== "company_admin") {
       return { error: "You must be a company admin of the target company" };
     }
 
     // Only genesis or super_admin can assign company_admin role
-    if (roles.includes("company_admin") && !myMembership.is_genesis) {
+    if (role === "company_admin" && !myMembership.is_genesis) {
       return { error: "Only genesis admin or super admin can assign the Company Admin role" };
     }
   }
@@ -975,16 +974,16 @@ export async function assignUserToCompany(
     if (existing.status === "active") {
       return { error: "User is already a member of this company" };
     }
-    // Reactivate inactive membership with new roles
+    // Reactivate inactive membership with new role
     await admin
       .from("company_memberships")
-      .update({ status: "active", roles })
+      .update({ status: "active", role })
       .eq("id", existing.id);
   } else {
     await admin.from("company_memberships").insert({
       user_id: targetUserId,
       company_id: companyId,
-      roles,
+      role,
       is_genesis: false,
       status: "active",
       invited_by: user.id,
@@ -1005,7 +1004,7 @@ export async function assignUserToCompany(
     actorEmail: user.email ?? undefined,
     companyId,
     companyDic: company?.dic ?? undefined,
-    details: { targetUserId, roles },
+    details: { targetUserId, role },
   });
 
   revalidatePath("/dashboard/users");

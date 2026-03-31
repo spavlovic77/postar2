@@ -59,7 +59,7 @@ export function getRoleForCompany(
     ? memberships.filter((m) => m.company_id === companyId && m.status === "active")
     : memberships.filter((m) => m.status === "active");
 
-  const allRoles = relevant.flatMap((m) => m.roles ?? []);
+  const allRoles = relevant.map((m) => m.role);
 
   if (allRoles.includes("company_admin")) return "company_admin";
   if (allRoles.includes("operator")) return "operator";
