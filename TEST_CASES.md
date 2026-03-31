@@ -76,7 +76,7 @@
 
 | Step | Action                           | Expected                                                                                             |
 | ---- | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 1    | Observe sidebar                  | Shows: Dashboard, Inbox, Companies, Users, Webhooks, Audit Log, Settings. Brand text: "peppolbox.sk" |
+| 1    | Observe sidebar                  | Shows: Dashboard, Inbox, Companies, Users, Webhooks, Operations. Brand text: "peppolbox.sk" |
 | 2    | Click each item                  | Navigates to correct page, active item highlighted                                                   |
 | 3    | Click sidebar toggle (hamburger) | Sidebar collapses/expands                                                                            |
 
@@ -272,13 +272,13 @@
 | 5    | Sign in as jankouctovaník@gmail.com                    | Dashboard shows company again (membership restored)    |
 | 6    | Check Audit Log (as super admin)                      | `MEMBERSHIP_REACTIVATED` event                         |
 
-### TC-5.9: Webhooks Access (Company Admin)
+### TC-5.9: Webhooks Access (Super Admin Only)
 
 | Step | Action                                  | Expected                                                  |
 | ---- | --------------------------------------- | --------------------------------------------------------- |
-| 1    | Sign in as company admin (genesis)      | "Webhooks" visible in sidebar                             |
-| 2    | Navigate to Webhooks                    | Only webhooks for own companies' DICs visible             |
-| 3    | Sign in as super admin                  | All webhooks visible (no company filter)                  |
+| 1    | Sign in as super admin                  | "Webhooks" visible in sidebar                             |
+| 2    | Navigate to Webhooks                    | All webhooks visible (no company filter)                  |
+| 3    | Sign in as company admin (genesis)      | "Webhooks" NOT visible in sidebar                         |
 | 4    | Sign in as operator                     | "Webhooks" NOT visible in sidebar                         |
 
 ---
@@ -446,17 +446,64 @@
 | 3    | Click "Select All" checkbox in header | All documents selected                     |
 | 4    | Click "Clear" in toolbar              | All deselected, toolbar disappears         |
 
-### TC-9.2: Download Individual Files (1-4 selected)
+### TC-9.2: Bulk Download XML Shows Confirmation
 
-| Step | Action                                                 | Expected                                                    |
-| ---- | ------------------------------------------------------ | ----------------------------------------------------------- |
-| 1    | Select 2 documents                                     | Toolbar shows: "2 selected", Download button                |
-| 2    | Click "Download" → "Download XML"                      | 2 XML files downloaded individually with ~300ms delay       |
-| 3    | Select 2 documents, click "Download" → "Download PDF"  | 2 PDF files downloaded individually                         |
-| 4    | Select 2 documents, click "Download" → "Download Both" | 4 files downloaded (2 XML + 2 PDF)                          |
-| 5    | Check filenames                                        | Named by document ID (e.g., `TEST-001.xml`, `TEST-001.pdf`) |
+| Step | Action                                    | Expected                                                                     |
+| ---- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| 1    | Select 2 documents                        | Toolbar shows: "2 selected", Download button                                 |
+| 2    | Click "Download" → "Download XML"         | Confirmation dialog: "Exporting XML marks 2 document(s) as processed"        |
+| 3    | Observe note field                        | Required textarea, placeholder text                                          |
+| 4    | Try clicking "Export XML & Process" empty  | Button disabled (note required)                                              |
+| 5    | Enter note: "Batch export to SAP"         | Button enabled                                                               |
+| 6    | Click "Export XML & Process"              | Files download, documents marked as processed                                |
+| 7    | Check Inbox                               | Documents show "processed" status                                            |
+| 8    | Check document timeline                   | Note "Batch export to SAP" visible with "processed" type                     |
+| 9    | Check Audit Log                           | `DOCUMENTS_BULK_PROCESSED` event with note and document count                |
 
-### TC-9.3: Download as ZIP (5+ selected)
+### TC-9.3: Bulk Download PDF Does NOT Mark as Processed
+
+| Step | Action                                    | Expected                                             |
+| ---- | ----------------------------------------- | ---------------------------------------------------- |
+| 1    | Select 2 documents with status "new"      | Toolbar visible                                      |
+| 2    | Click "Download" → "Download PDF"         | PDFs download directly — NO confirmation dialog      |
+| 3    | Check Inbox                               | Documents still show "new" status (unchanged)        |
+
+### TC-9.4: Bulk Download Both Shows Confirmation
+
+| Step | Action                                    | Expected                                                       |
+| ---- | ----------------------------------------- | -------------------------------------------------------------- |
+| 1    | Select documents                          | Toolbar visible                                                |
+| 2    | Click "Download" → "Download Both"        | Confirmation dialog (same as XML — because XML is included)    |
+| 3    | Enter note, confirm                       | XML + PDF files download, documents marked as processed        |
+
+### TC-9.5: Export XML & Process on Document Detail
+
+| Step | Action                                           | Expected                                                              |
+| ---- | ------------------------------------------------ | --------------------------------------------------------------------- |
+| 1    | Open a document with status "new" or "assigned"  | Document detail page                                                  |
+| 2    | Click "..." menu                                 | "Export XML & Process", "Mark as Processed", "Download PDF" visible   |
+| 3    | Click "Export XML & Process"                     | Dialog: "The XML file is the legally valid electronic invoice..."     |
+| 4    | Enter note: "Imported to accounting"             | Note field populated                                                  |
+| 5    | Click "Export XML & Process"                     | XML file downloads, status changes to "processed"                     |
+| 6    | Check timeline                                   | Note visible with "processed" type                                    |
+
+### TC-9.6: Download PDF from Detail Does NOT Mark as Processed
+
+| Step | Action                                    | Expected                                       |
+| ---- | ----------------------------------------- | ---------------------------------------------- |
+| 1    | Open a document with status "new"         | Document detail page                           |
+| 2    | Click "..." → "Download PDF"             | PDF opens in new tab                           |
+| 3    | Go back, observe status                   | Still "new" (unchanged)                        |
+
+### TC-9.7: Download Individual Files (1-4 selected)
+
+| Step | Action                                                | Expected                                                    |
+| ---- | ----------------------------------------------------- | ----------------------------------------------------------- |
+| 1    | Select 2 documents                                    | Toolbar shows: "2 selected", Download button                |
+| 2    | Click "Download" → "Download PDF"                     | 2 PDF files downloaded individually with ~300ms delay       |
+| 3    | Check filenames                                       | Named by document ID (e.g., `TEST-001.pdf`)                 |
+
+### TC-9.8: Download as ZIP (5+ selected)
 
 | Step | Action                            | Expected                                              |
 | ---- | --------------------------------- | ----------------------------------------------------- |
@@ -467,7 +514,7 @@
 | 5    | Repeat with "Download PDF"        | ZIP with PDF files                                    |
 | 6    | Repeat with "Download Both"       | ZIP with both XML and PDF files                       |
 
-### TC-9.4: Toolbar Layout for Triage Users
+### TC-9.9: Toolbar Layout for Triage Users
 
 | Step | Action                                                 | Expected                                                                                              |                                              |
 | ---- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
@@ -505,12 +552,14 @@
 | 2    | Navigate to Audit Log                          | Only events for own companies + own actions visible |
 | 3    | Verify super-admin-only events are NOT visible | No other company's events shown                     |
 
-### TC-10.4: Audit Log Visibility (Accountant)
+### TC-10.4: Audit Log Visibility (Operator)
 
-| Step | Action                                  | Expected                                   |
-| ---- | --------------------------------------- | ------------------------------------------ |
-| 1    | Sign in as accountant (if still active) | Dashboard                                  |
-| 2    | Navigate to Audit Log                   | Only own actions + assigned company events |
+| Step | Action                         | Expected                                                       |
+| ---- | ------------------------------ | -------------------------------------------------------------- |
+| 1    | Sign in as operator            | Dashboard                                                      |
+| 2    | Open user avatar dropdown      | "Audit Log" menu item visible                                  |
+| 3    | Click "Audit Log"              | Only own actions + assigned company events visible             |
+| 4    | Verify other company events    | NOT visible                                                    |
 
 ---
 
@@ -867,7 +916,7 @@
 
 | Step | Action                                                | Expected                                                               |
 | ---- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1    | As accountant, try to access `/dashboard/users`       | Redirected (no access)                                                 |
+| 1    | As processor, try to access `/dashboard/users`        | Redirected (no access)                                                 |
 | 2    | As company admin, try to deactivate the genesis admin | Error: "Genesis admin can only be deactivated by a super admin"        |
 | 3    | As non-genesis admin, try to deactivate another admin | Error: "Only genesis admin or super admin can deactivate other admins" |
 
@@ -1017,6 +1066,97 @@
 
 ---
 
+## Group 18: User Detail Drawer & Direct Assignment
+
+### TC-18.1: Open User Detail Drawer
+
+| Step | Action                                  | Expected                                                              |
+| ---- | --------------------------------------- | --------------------------------------------------------------------- |
+| 1    | Navigate to Users → Team tab            | User cards listed                                                     |
+| 2    | Click on a user card                    | Slide-out drawer opens from the right                                 |
+| 3    | Observe drawer header                   | User name, email, Super Admin badge (if applicable)                   |
+| 4    | Observe company assignments list        | Each company shown with role badge and Genesis badge where applicable |
+| 5    | Close drawer (click outside or X)       | Drawer closes                                                         |
+
+### TC-18.2: Edit Member Role via Drawer
+
+| Step | Action                                              | Expected                                      |
+| ---- | --------------------------------------------------- | --------------------------------------------- |
+| 1    | Open user detail drawer for a non-current user      | Drawer opens with company assignments          |
+| 2    | Hover over a membership row                         | Pencil (edit) and X (remove) icons appear     |
+| 3    | Click pencil icon                                   | Role selector appears with radio-style buttons |
+| 4    | Click a different role (e.g., switch to Operator)   | Role button highlighted                        |
+| 5    | Click "Save"                                        | Toast: "Role updated for [company]"            |
+| 6    | Observe membership row                              | Role badge updated to new role                 |
+
+### TC-18.3: Remove Member via Drawer
+
+| Step | Action                                        | Expected                                      |
+| ---- | --------------------------------------------- | --------------------------------------------- |
+| 1    | Open user detail drawer                       | Drawer with company assignments               |
+| 2    | Hover over a non-genesis membership row       | X (remove) button visible                     |
+| 3    | Click X                                       | Toast: "Removed from [company]"               |
+| 4    | Membership disappears from drawer             | Assignment removed                            |
+| 5    | Hover over genesis membership row             | No X button visible (protected)               |
+
+### TC-18.4: Direct Assignment to Company
+
+| Step | Action                                                 | Expected                                                |
+| ---- | ------------------------------------------------------ | ------------------------------------------------------- |
+| 1    | Open user detail drawer for a user NOT in all companies | "Assign to Company" button visible at bottom            |
+| 2    | Click "Assign to Company"                              | Searchable company list appears                         |
+| 3    | Type company name in search                            | List filters as you type                                |
+| 4    | Click a company                                        | Company selected, role picker appears                   |
+| 5    | Select role (radio buttons: Admin, Operator, Processor) | Role highlighted                                       |
+| 6    | Click "Assign"                                         | Toast: "User assigned to [company]", drawer closes      |
+| 7    | Reopen drawer                                          | New company assignment visible in list                  |
+
+### TC-18.5: Direct Assignment — Permission Checks
+
+| Step | Action                                                           | Expected                                                         |
+| ---- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 1    | As non-genesis company admin, try to assign company_admin role   | Error: "Only genesis admin or super admin can assign..."         |
+| 2    | As company admin, only companies you admin appear in the list    | Other companies not shown                                        |
+| 3    | Try to assign a user who is already in the company               | Error: "User is already a member of this company"                |
+
+---
+
+## Group 19: Company Switcher & Context-Aware Roles
+
+### TC-19.1: Company Switcher Shows Roles
+
+| Step | Action                                          | Expected                                                    |
+| ---- | ----------------------------------------------- | ----------------------------------------------------------- |
+| 1    | Sign in as user with multiple company memberships | Company switcher visible in top bar                        |
+| 2    | Click company switcher dropdown                 | Each company shows name + colored role badge                |
+| 3    | Observe role colors                             | Blue = Admin, Purple = Operator, Orange = Processor         |
+
+### TC-19.2: Role Changes on Company Selection
+
+| Step | Action                                                      | Expected                                                 |
+| ---- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| 1    | User is admin in Company A, processor in Company B          | Default: highest role (admin), full sidebar nav          |
+| 2    | Select Company B from switcher                              | Role badge changes to "Processor", sidebar reduces       |
+| 3    | Observe sidebar                                             | Only Inbox and Companies visible                         |
+| 4    | Select "All Companies"                                      | Role reverts to admin, full sidebar nav                  |
+
+### TC-19.3: Role Badge in Top Bar
+
+| Step | Action                     | Expected                                                     |
+| ---- | -------------------------- | ------------------------------------------------------------ |
+| 1    | Observe top bar (desktop)  | Colored role badge visible between company switcher and theme toggle |
+| 2    | Select different company   | Role badge updates to match role in selected company         |
+| 3    | On mobile                  | Role badge hidden (max-md:hidden)                            |
+
+### TC-19.4: User Avatar Shows Role
+
+| Step | Action                       | Expected                                           |
+| ---- | ---------------------------- | -------------------------------------------------- |
+| 1    | Click user avatar (top right) | Dropdown shows name, email, and colored role badge |
+| 2    | Select different company      | Role badge in dropdown updates                     |
+
+---
+
 ## Execution Checklist
 
 | Group                                         | Tests               | Status |
@@ -1029,7 +1169,7 @@
 | 6. OTP Sign-In Flow                           | TC-6.1 to TC-6.4    | [ ]    |
 | 7. Test Invoices                              | TC-7.1 to TC-7.3    | [ ]    |
 | 8. Inbox & Document Viewing                   | TC-8.1 to TC-8.8    | [ ]    |
-| 9. Mass Download                              | TC-9.1 to TC-9.4    | [ ]    |
+| 9. Mass Download & Export                      | TC-9.1 to TC-9.9    | [ ]    |
 | 10. Audit Log                                 | TC-10.1 to TC-10.4  | [ ]    |
 | 11. Company Deactivation                      | TC-11.1 to TC-11.3  | [ ]    |
 | 12. Company Reactivation                      | TC-12.1 to TC-12.2  | [ ]    |
@@ -1038,4 +1178,6 @@
 | 15. Edge Cases & Error Handling               | TC-15.1 to TC-15.9  | [ ]    |
 | 16. Operations Center                         | TC-16.1 to TC-16.9  | [ ]    |
 | 17. Responsive Design                         | TC-17.1 to TC-17.2  | [ ]    |
-| **Total**                                     | **105 test cases**  |        |
+| 18. User Detail Drawer & Direct Assignment    | TC-18.1 to TC-18.5  | [ ]    |
+| 19. Company Switcher & Context-Aware Roles    | TC-19.1 to TC-19.4  | [ ]    |
+| **Total**                                     | **119 test cases**  |        |

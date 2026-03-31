@@ -30,6 +30,7 @@ export default async function DashboardPage() {
         memberships={adminData.memberships}
         memberCounts={adminData.memberCounts}
         pendingInvitations={adminData.pendingInvitations}
+        slaStats={adminData.slaStats}
       />
     );
   }

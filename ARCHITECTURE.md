@@ -36,7 +36,7 @@
 │──────────────────│     │   document       │     └──────────────────┘
 │ user_id (FK)      │     └──────────────────┘
 │ company_id (FK)   │              │
-│ roles[]           │              │
+│ role (single)     │              │
 │ is_genesis        │     ┌────────┴─────────┐
 │ status            │     │   documents      │
 │ invited_by (FK)   │     │──────────────────│
@@ -99,30 +99,37 @@
 
 ## Permission Model
 
+Each user has a **single role per company** (`company_memberships.role`). Roles are hierarchical:
+`company_admin > operator > processor`. Super admin is a global flag on the profile.
+
 ```
-Super Admin (global)
+Super Admin (global, profiles.is_super_admin)
 ├── See everything
 ├── Create other super admins
 ├── Activate/deactivate companies on Peppol
 ├── Reactivate deactivated companies
 ├── Send onboarding requests
 ├── Manage all users and invitations
+├── Directly assign existing users to companies
 ├── Adjust wallet balances
 ├── Set company pricing
 ├── View all audit logs
-└── Access any wallet detail page
+├── Access any wallet detail page
+└── Nav: Dashboard, Inbox, Companies, Users, Webhooks, Operations
 
-Genesis Company Admin (per company)
+Genesis Company Admin (per company, is_genesis=true)
 ├── Invited automatically from PFS webhook
 ├── Cannot be removed by other company admins
 ├── Invite other company admins (for own companies)
 ├── Invite operators and processors
 ├── Deactivate non-genesis admins, operators, processors
+├── Directly assign existing users to own companies
 ├── Create and manage departments
 ├── Manage department members
 ├── Triage documents (assign to departments)
 ├── Download documents (XML/PDF)
-└── Owns the wallet (shared across their companies)
+├── Owns the wallet (shared across their companies)
+└── Nav: Dashboard, Inbox, Companies, Users, Wallet, Operations
 
 Company Admin (per company)
 ├── Invited by genesis admin or super admin
@@ -130,21 +137,26 @@ Company Admin (per company)
 ├── Cannot deactivate other admins
 ├── Triage documents (assign to departments)
 ├── Download documents (XML/PDF)
-└── View own company data
+├── View own company data
+└── Nav: Dashboard, Inbox, Companies, Users, Wallet, Operations
 
 Operator (per company)
 ├── Invited by company admin
 ├── Triage documents (assign to departments)
 ├── Manage department members
 ├── View documents for assigned companies
-└── Cannot invite anyone
+├── Cannot invite anyone
+└── Nav: Dashboard, Inbox, Companies, Users, Wallet
 
 Processor (per company)
 ├── Invited by company admin
 ├── Can only see documents assigned to their department(s)
 ├── Read-only access
 ├── Cannot triage or invite anyone
-└── Redirected to Inbox (no dashboard)
+├── Redirected to Inbox (no dashboard)
+└── Nav: Inbox, Companies
+
+Settings and Audit Log are accessible from the user avatar dropdown (all roles).
 ```
 
 ## Flows
@@ -473,10 +485,10 @@ REACTIVATION:
 | `/dashboard/inbox/[id]`        | All       | Document detail, metadata, PDF                                                   |
 | `/dashboard/companies`         | All       | Companies list with Peppol status                                                |
 | `/dashboard/companies/[id]`    | All       | Company detail, members, departments, Peppol activation, pricing                 |
-| `/dashboard/users`             | SA, Admin | Users & invitations management                                                   |
-| `/dashboard/webhooks`          | SA        | Webhooks log                                                                     |
-| `/dashboard/audit`             | All       | CEF audit log viewer                                                             |
-| `/dashboard/settings`          | All       | Profile + system settings (SA)                                                   |
+| `/dashboard/users`             | SA, Admin | Users & invitations management, user detail drawer with direct assignment        |
+| `/dashboard/webhooks`          | SA        | PFS webhook log (super admin only)                                               |
+| `/dashboard/audit`             | All       | CEF audit log viewer (accessed via user avatar dropdown)                         |
+| `/dashboard/settings`          | All       | Profile + system settings (SA) (accessed via user avatar dropdown)               |
 | `/dashboard/wallet`            | All       | Wallet balance, top-up, transaction history, statement export                    |
 | `/dashboard/wallet/[walletId]` | SA        | Wallet detail, adjust balance                                                    |
 | `/dashboard/operations`        | SA, Admin | Operations Center — retry activations, documents, payments, billing, invitations |
@@ -499,7 +511,8 @@ REACTIVATION:
 | MEMBERSHIP_CREATED             | info     | Company membership created                       |
 | MEMBERSHIP_DEACTIVATED         | warning  | Company membership deactivated                   |
 | MEMBERSHIP_REACTIVATED         | info     | Company membership reactivated                   |
-| MEMBER_ROLES_UPDATED           | info     | Member roles changed                             |
+| MEMBER_ROLE_UPDATED            | info     | Member role changed                              |
+| MEMBER_ASSIGNED                | info     | User directly assigned to company (no invite)    |
 | WEBHOOK_RECEIVED               | info     | PFS webhook received                             |
 | PROFILE_UPDATED                | info     | Profile updated                                  |
 | USER_ONBOARDED                 | info     | User completed onboarding                        |
@@ -513,6 +526,7 @@ REACTIVATION:
 | PEPPOL_ACTIVATION_FAILED       | error    | Peppol activation failed                         |
 | PEPPOL_DOCUMENT_RECEIVED       | info     | Peppol document received and processed           |
 | DOCUMENT_PROCESSED             | info     | Document marked as processed (with note)         |
+| DOCUMENTS_BULK_PROCESSED       | info     | Documents bulk exported (XML) and marked processed |
 | DOCUMENT_NOTE_ADDED            | info     | Note added to document                           |
 | DOCUMENT_ASSIGNED              | info     | Document assigned to department                  |
 | DOCUMENTS_BULK_ASSIGNED        | info     | Documents bulk assigned                          |

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Users, Mail, ChevronDown, Check, X } from "lucide-react";
+import Link from "next/link";
+import { Building2, Users, Mail, ChevronDown, Check, X, Clock, AlertTriangle, CheckCircle2, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PeppolStatusBadge } from "./peppol-status-badge";
@@ -18,7 +19,6 @@ function getPermissions(role: string, isGenesis: boolean): { can: string[]; cann
   const isOperator = role === "operator";
   const isProcessor = role === "processor";
 
-  // What you CAN do
   can.push("View & download invoices");
 
   if (isAdmin || isOperator) {
@@ -42,7 +42,6 @@ function getPermissions(role: string, isGenesis: boolean): { can: string[]; cann
     can.push("View audit logs");
   }
 
-  // What you CANNOT do
   if (isProcessor) {
     cannot.push("Only see documents in your department(s)");
     cannot.push("Cannot assign or triage documents");
@@ -60,16 +59,27 @@ function getPermissions(role: string, isGenesis: boolean): { can: string[]; cann
   return { can, cannot };
 }
 
+interface SlaStats {
+  awaitingTriage: number;
+  awaitingProcess: number;
+  processedToday: number;
+  overdueTriageCount: number;
+  overdueProcessCount: number;
+  processorStats: { userId: string; fullName: string | null; processedToday: number }[];
+}
+
 interface Props {
   memberships: (CompanyMembership & { company: Company })[];
   memberCounts: Record<string, number>;
   pendingInvitations: Record<string, number>;
+  slaStats: Record<string, SlaStats>;
 }
 
 export function CompanyAdminDashboard({
   memberships,
   memberCounts,
   pendingInvitations,
+  slaStats,
 }: Props) {
   return (
     <div className="space-y-6">
@@ -87,6 +97,7 @@ export function CompanyAdminDashboard({
               company={company}
               memberCount={memberCounts[company.id] ?? 0}
               pendingCount={pendingInvitations[company.id] ?? 0}
+              sla={slaStats[company.id]}
             />
           );
         })}
@@ -107,15 +118,18 @@ function CompanyCard({
   company,
   memberCount,
   pendingCount,
+  sla,
 }: {
   membership: CompanyMembership;
   company: Company;
   memberCount: number;
   pendingCount: number;
+  sla?: SlaStats;
 }) {
   const [expanded, setExpanded] = useState(false);
   const role = membership.role ?? "processor";
   const { can, cannot } = getPermissions(role, membership.is_genesis);
+  const isAdminOrOperator = role === "company_admin" || role === "operator";
 
   return (
     <Card>
@@ -144,6 +158,74 @@ function CompanyCard({
             {ROLE_LABELS[role] ?? role}
           </Badge>
         </div>
+
+        {/* SLA Status — visible to admin and operator */}
+        {isAdminOrOperator && sla && (sla.awaitingTriage > 0 || sla.awaitingProcess > 0 || sla.processedToday > 0) && (
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Link
+              href={`/dashboard/inbox?company=${company.id}&status=new`}
+              className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+            >
+              <div className={cn("text-lg font-bold", sla.overdueTriageCount > 0 ? "text-destructive" : "text-foreground")}>
+                {sla.awaitingTriage}
+              </div>
+              <div className="text-[10px] text-muted-foreground leading-tight">Triage</div>
+              {sla.overdueTriageCount > 0 && (
+                <div className="flex items-center justify-center gap-0.5 mt-1">
+                  <AlertTriangle className="h-3 w-3 text-destructive" />
+                  <span className="text-[10px] font-medium text-destructive">{sla.overdueTriageCount} overdue</span>
+                </div>
+              )}
+            </Link>
+            <Link
+              href={`/dashboard/inbox?company=${company.id}&status=assigned`}
+              className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+            >
+              <div className={cn("text-lg font-bold", sla.overdueProcessCount > 0 ? "text-orange-600 dark:text-orange-400" : "text-foreground")}>
+                {sla.awaitingProcess}
+              </div>
+              <div className="text-[10px] text-muted-foreground leading-tight">Process</div>
+              {sla.overdueProcessCount > 0 && (
+                <div className="flex items-center justify-center gap-0.5 mt-1">
+                  <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                  <span className="text-[10px] font-medium text-orange-600 dark:text-orange-400">{sla.overdueProcessCount} overdue</span>
+                </div>
+              )}
+            </Link>
+            <div className="rounded-lg border p-2">
+              <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                {sla.processedToday}
+              </div>
+              <div className="text-[10px] text-muted-foreground leading-tight">Processed</div>
+              <div className="text-[10px] text-muted-foreground mt-1">today</div>
+            </div>
+          </div>
+        )}
+
+        {/* SLA config hint */}
+        {isAdminOrOperator && sla && (sla.awaitingTriage > 0 || sla.awaitingProcess > 0) && (
+          <p className="text-[10px] text-muted-foreground">
+            SLA: triage {company.sla_triage_hours ?? 8}h, process {company.sla_process_hours ?? 24}h
+          </p>
+        )}
+
+        {/* Per-person stats */}
+        {isAdminOrOperator && sla && sla.processorStats.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Today's activity</p>
+            {sla.processorStats.map((p) => (
+              <div key={p.userId} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="truncate">{p.fullName ?? "Unnamed"}</span>
+                </div>
+                <span className="font-medium text-green-600 dark:text-green-400 shrink-0">
+                  {p.processedToday} processed
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Expandable permissions */}
         <button

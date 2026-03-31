@@ -89,6 +89,8 @@ export default async function CompanyDetailPage({
               legalName={company.legal_name ?? ""}
               companyEmail={company.company_email ?? ""}
               companyPhone={company.company_phone ?? ""}
+              slaTriageHours={company.sla_triage_hours ?? 8}
+              slaProcessHours={company.sla_process_hours ?? 24}
             />
           )}
         </div>

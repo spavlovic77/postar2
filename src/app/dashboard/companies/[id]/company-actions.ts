@@ -144,14 +144,18 @@ export async function updateCompanyDetails(formData: FormData) {
     }
   }
 
-  const updates: Record<string, string | null> = {};
+  const updates: Record<string, any> = {};
   const legalName = formData.get("legalName") as string;
   const companyEmail = formData.get("companyEmail") as string;
   const companyPhone = formData.get("companyPhone") as string;
+  const slaTriageHours = formData.get("slaTriageHours") as string;
+  const slaProcessHours = formData.get("slaProcessHours") as string;
 
   if (legalName !== undefined) updates.legal_name = legalName || null;
   if (companyEmail !== undefined) updates.company_email = companyEmail || null;
   if (companyPhone !== undefined) updates.company_phone = companyPhone || null;
+  if (slaTriageHours) updates.sla_triage_hours = parseInt(slaTriageHours, 10) || 8;
+  if (slaProcessHours) updates.sla_process_hours = parseInt(slaProcessHours, 10) || 24;
 
   if (Object.keys(updates).length === 0) {
     return { error: "No changes" };

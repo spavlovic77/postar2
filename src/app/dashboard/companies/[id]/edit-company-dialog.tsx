@@ -20,6 +20,8 @@ interface Props {
   legalName: string;
   companyEmail: string;
   companyPhone: string;
+  slaTriageHours: number;
+  slaProcessHours: number;
 }
 
 export function EditCompanyDialog({
@@ -27,6 +29,8 @@ export function EditCompanyDialog({
   legalName,
   companyEmail,
   companyPhone,
+  slaTriageHours,
+  slaProcessHours,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +98,31 @@ export function EditCompanyDialog({
               placeholder="+421 9XX XXX XXX"
               disabled={isLoading}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-sla-triage">Triage SLA (hours)</Label>
+              <Input
+                id="edit-sla-triage"
+                name="slaTriageHours"
+                type="number"
+                min="1"
+                defaultValue={slaTriageHours}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-sla-process">Process SLA (hours)</Label>
+              <Input
+                id="edit-sla-process"
+                name="slaProcessHours"
+                type="number"
+                min="1"
+                defaultValue={slaProcessHours}
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

@@ -24,7 +24,16 @@ import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { assignDocumentToDepartment, bulkAssignDocuments } from "./triage-actions";
+import { bulkMarkDocumentsProcessed } from "./[id]/actions";
 import { TopUpDialog } from "@/app/dashboard/wallet/top-up-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function formatDate(date: string) {
   const d = new Date(date);
@@ -239,6 +248,9 @@ export function InboxList({
   const [downloadProgress, setDownloadProgress] = useState("");
   const [showTopUp, setShowTopUp] = useState(false);
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
+  const [exportType, setExportType] = useState<"xml" | "pdf" | "both">("xml");
+  const [exportNote, setExportNote] = useState("");
   const { toast } = useToast();
 
   // Sync with server data when props change (after router.refresh)
@@ -303,7 +315,19 @@ export function InboxList({
     }
   };
 
-  const handleBulkDownload = async (type: "xml" | "pdf" | "both") => {
+  const handleBulkDownload = (type: "xml" | "pdf" | "both") => {
+    if (type === "xml" || type === "both") {
+      // XML export marks documents as processed — show confirmation
+      setExportType(type);
+      setExportNote("");
+      setShowExportConfirm(true);
+    } else {
+      // PDF-only is just visualization — download directly
+      performDownload(type);
+    }
+  };
+
+  const performDownload = async (type: "xml" | "pdf" | "both") => {
     const ids = Array.from(selectedIds);
     setIsDownloading(true);
     setDownloadProgress("");
@@ -325,6 +349,25 @@ export function InboxList({
     }
     setIsDownloading(false);
     setDownloadProgress("");
+  };
+
+  const handleExportAndProcess = async () => {
+    if (!exportNote.trim()) return;
+    setShowExportConfirm(false);
+
+    // 1. Download the files
+    await performDownload(exportType);
+
+    // 2. Mark as processed
+    const ids = Array.from(selectedIds);
+    const result = await bulkMarkDocumentsProcessed(ids, exportNote.trim());
+    if (result.error) {
+      toast(result.error, "error");
+    } else if (result.count && result.count > 0) {
+      toast(`${result.count} document(s) marked as processed`);
+      setSelectedIds(new Set());
+      router.refresh();
+    }
   };
 
   const allDepts = Object.values(departments).flat();
@@ -559,6 +602,32 @@ export function InboxList({
 
           <LoadMore hasMore={!!cursor} isLoading={isLoadingMore} onLoadMore={loadMore} loadedCount={documents.length} total={total} />
         </>
+      )}
+
+      {showExportConfirm && (
+        <Dialog open onOpenChange={(open) => !open && setShowExportConfirm(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Export & Mark as Processed</DialogTitle>
+              <DialogDescription>
+                Exporting XML marks {selectedIds.size} document(s) as processed. This is the standard workflow for acknowledging receipt of electronic invoices. Add a note for the audit trail.
+              </DialogDescription>
+            </DialogHeader>
+            <textarea
+              value={exportNote}
+              onChange={(e) => setExportNote(e.target.value)}
+              placeholder="e.g., Exported to accounting system, batch import #42..."
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowExportConfirm(false)}>Cancel</Button>
+              <Button onClick={handleExportAndProcess} disabled={isDownloading || !exportNote.trim()}>
+                {isDownloading ? "Exporting..." : `Export ${exportType === "both" ? "XML + PDF" : "XML"} & Process`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {showTopUp && walletId && (

@@ -14,17 +14,38 @@
 
 ## Navigation Access
 
+### Sidebar Navigation
+
+| Page       | Super Admin | Company Admin | Operator | Processor |
+| ---------- | ----------- | ------------- | -------- | --------- |
+| Dashboard  | Yes         | Yes           | Yes      | No (→ Inbox) |
+| Inbox      | Yes         | Yes           | Yes      | Yes       |
+| Companies  | Yes         | Yes           | Yes      | Yes       |
+| Users      | Yes         | Yes           | Yes      | No        |
+| Webhooks   | Yes         | No            | No       | No        |
+| Wallet     | No          | Yes           | Yes      | No        |
+| Operations | Yes         | Yes           | No       | No        |
+
+### User Avatar Dropdown (all roles)
+
+| Page       | Access                                      |
+| ---------- | ------------------------------------------- |
+| Settings   | All roles (system settings visible to SA only) |
+| Audit Log  | All roles (data scoped by role)             |
+
+### Data Access
+
 | Page       | Super Admin        | Genesis Admin                 | Company Admin                 | Operator        | Processor           |
 | ---------- | ------------------ | ----------------------------- | ----------------------------- | --------------- | ------------------- |
 | Dashboard  | Stats + onboarding | Company cards + test invoices | Company cards + test invoices | Company cards   | Redirected to Inbox |
 | Inbox      | All documents      | Own companies                 | Own companies                 | Own companies   | Own department only |
 | Companies  | All                | Own                           | Own                           | Own (read-only) | Own (read-only)     |
-| Users      | All                | Own companies                 | Own companies                 | View only       | No access           |
-| Webhooks   | Yes (all)          | Own companies                 | Own companies                 | No              | No                  |
+| Users      | All                | Own companies                 | Own companies                 | Own companies   | No access           |
+| Webhooks   | All                | No access                     | No access                     | No access       | No access           |
 | Wallet     | Via company detail | Yes (owner)                   | Yes (shared)                  | Yes (shared)    | No                  |
 | Operations | Full access        | Own companies only            | No                            | No              | No                  |
-| Audit Log  | All events         | Own companies                 | Own companies                 | Own companies   | No                  |
-| Settings   | Profile + system   | Profile only                  | Profile only                  | Profile only    | No                  |
+| Audit Log  | All events         | Own companies                 | Own companies                 | Own companies   | Own actions only    |
+| Settings   | Profile + system   | Profile only                  | Profile only                  | Profile only    | Profile only        |
 
 ---
 
@@ -50,13 +71,14 @@
 | Invite company admin          | Yes         | Yes                            | No            | No       | No        |
 | Invite operator               | Yes         | Yes                            | Yes           | No       | No        |
 | Invite processor              | Yes         | Yes                            | Yes           | No       | No        |
-| Resend invitation             | Yes         | Yes                            | Yes           | No       | No        |
-| Revoke invitation             | Yes         | Yes                            | Yes           | No       | No        |
+| Resend invitation             | Yes         | No                             | No            | No       | No        |
+| Revoke invitation             | Yes         | Own invites                    | Own invites   | No       | No        |
 | Deactivate genesis admin      | Yes         | No                             | No            | No       | No        |
 | Deactivate company admin      | Yes         | Yes                            | No            | No       | No        |
 | Deactivate operator/processor | Yes         | Yes                            | Yes           | No       | No        |
 | Reactivate member             | Yes         | Yes                            | Yes           | No       | No        |
-| Update member roles           | Yes         | Yes (can assign company_admin) | No            | No       | No        |
+| Update member role            | Yes         | Yes (can assign company_admin) | Yes (not admin) | No     | No        |
+| Assign user to company        | Yes         | Yes (own companies)            | No            | No       | No        |
 
 ### Department Management
 
@@ -82,6 +104,8 @@
 | Mass download (select + download) | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Mark as read (auto on view)       | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Mark as Processed (with note)     | Yes           | Yes                | Yes                | Yes                | Yes                |
+| Export XML & Process (with note)  | Yes           | Yes                | Yes                | Yes                | Yes                |
+| Bulk Export XML & Process         | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Add note to document              | Yes           | Yes                | Yes                | Yes                | Yes                |
 | View document activity timeline   | Yes           | Yes                | Yes                | Yes                | Yes                |
 | Assign to department (triage)     | Yes           | Yes                | Yes                | Yes                | No                 |
@@ -167,3 +191,22 @@
 ### Inbox Smart Defaults
 - Operators land on Inbox with `?status=unassigned` filter (focus on triage).
 - Processors land on Inbox with `?status=assigned` filter (focus on their work).
+
+### Company Switcher & Context-Aware Roles
+- Top bar shows a company switcher dropdown with role badge per company.
+- Selecting a company changes the active role to the user's role *in that company*.
+- Navigation items, role badge, and user avatar dropdown all update reactively.
+- Example: user is company_admin in Company A but operator in Company B — switching companies changes their visible nav items.
+- "All Companies" mode uses the highest global role.
+- Super admin role is always super_admin regardless of company selection.
+
+### Single Role per Company
+- Each company membership has exactly one role (not an array).
+- Roles are hierarchical: `company_admin > operator > processor`.
+- UI uses radio buttons (not checkboxes) for role selection everywhere.
+- The invite dialog, edit role dialog, user drawer, and direct assignment all enforce single selection.
+
+### Direct User Assignment
+- Company admins and super admins can assign existing onboarded users to companies directly from the user detail drawer.
+- No invitation email flow — instant membership creation.
+- Reactivates previously deactivated memberships if they exist.

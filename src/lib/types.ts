@@ -30,6 +30,8 @@ export interface Company {
   ion_ap_error: string | null;
   ion_ap_activated_at: string | null;
   price_per_document: number | null;
+  sla_triage_hours: number;
+  sla_process_hours: number;
   created_at: string;
 }
 

@@ -172,10 +172,125 @@ export async function getCompanyAdminData(userId: string) {
     }
   }
 
+  // SLA stats per company
+  let slaStats: Record<string, {
+    awaitingTriage: number;
+    awaitingProcess: number;
+    processedToday: number;
+    overdueTriageCount: number;
+    overdueProcessCount: number;
+    processorStats: { userId: string; fullName: string | null; processedToday: number }[];
+  }> = {};
+
+  if (companyIds.length > 0) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+
+    // Get all relevant documents for these companies
+    const { data: docs } = await admin
+      .from("documents")
+      .select("id, company_id, status, peppol_created_at, department_id")
+      .in("company_id", companyIds)
+      .eq("direction", "received")
+      .in("status", ["new", "assigned"]);
+
+    // Get documents processed today
+    const { data: processedDocs } = await admin
+      .from("document_notes")
+      .select("document_id, user_id, created_at")
+      .eq("type", "processed")
+      .gte("created_at", todayStart);
+
+    // Get document company mappings for processed docs
+    const processedDocIds = (processedDocs ?? []).map((n) => n.document_id);
+    let processedDocCompanyMap: Record<string, string> = {};
+    if (processedDocIds.length > 0) {
+      const { data: pDocs } = await admin
+        .from("documents")
+        .select("id, company_id")
+        .in("id", processedDocIds)
+        .in("company_id", companyIds);
+      for (const d of pDocs ?? []) {
+        processedDocCompanyMap[d.id] = d.company_id;
+      }
+    }
+
+    // Get company SLA settings
+    const { data: companySettings } = await admin
+      .from("companies")
+      .select("id, sla_triage_hours, sla_process_hours")
+      .in("id", companyIds);
+
+    const slaMap: Record<string, { triage: number; process: number }> = {};
+    for (const c of companySettings ?? []) {
+      slaMap[c.id] = { triage: c.sla_triage_hours ?? 8, process: c.sla_process_hours ?? 24 };
+    }
+
+    // Get profiles for processor stats
+    const processorUserIds = [...new Set((processedDocs ?? []).map((n) => n.user_id))];
+    let profileMap: Record<string, string | null> = {};
+    if (processorUserIds.length > 0) {
+      const { data: profiles } = await admin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", processorUserIds);
+      for (const p of profiles ?? []) {
+        profileMap[p.id] = p.full_name;
+      }
+    }
+
+    for (const cid of companyIds) {
+      const companyDocs = (docs ?? []).filter((d) => d.company_id === cid);
+      const sla = slaMap[cid] ?? { triage: 8, process: 24 };
+
+      let awaitingTriage = 0;
+      let awaitingProcess = 0;
+      let overdueTriageCount = 0;
+      let overdueProcessCount = 0;
+
+      for (const doc of companyDocs) {
+        const receivedAt = doc.peppol_created_at ? new Date(doc.peppol_created_at) : null;
+        const hoursElapsed = receivedAt ? (now.getTime() - receivedAt.getTime()) / (1000 * 60 * 60) : 0;
+
+        if (doc.status === "new") {
+          awaitingTriage++;
+          if (hoursElapsed > sla.triage) overdueTriageCount++;
+        } else if (doc.status === "assigned") {
+          awaitingProcess++;
+          if (hoursElapsed > sla.process) overdueProcessCount++;
+        }
+      }
+
+      // Per-person processed today stats
+      const companyProcessedNotes = (processedDocs ?? []).filter(
+        (n) => processedDocCompanyMap[n.document_id] === cid
+      );
+      const byUser: Record<string, number> = {};
+      for (const n of companyProcessedNotes) {
+        byUser[n.user_id] = (byUser[n.user_id] ?? 0) + 1;
+      }
+      const processorStats = Object.entries(byUser).map(([uid, count]) => ({
+        userId: uid,
+        fullName: profileMap[uid] ?? null,
+        processedToday: count,
+      })).sort((a, b) => b.processedToday - a.processedToday);
+
+      slaStats[cid] = {
+        awaitingTriage,
+        awaitingProcess,
+        processedToday: companyProcessedNotes.length,
+        overdueTriageCount,
+        overdueProcessCount,
+        processorStats,
+      };
+    }
+  }
+
   return {
     memberships: memberships ?? [],
     memberCounts,
     pendingInvitations,
+    slaStats,
   };
 }
 

@@ -136,6 +136,8 @@ create table companies (
   ion_ap_error text,
   ion_ap_activated_at timestamptz,
   price_per_document numeric(10,4),
+  sla_triage_hours integer not null default 8,
+  sla_process_hours integer not null default 24,
   created_at timestamptz not null default now()
 );
 
