@@ -1157,6 +1157,574 @@
 
 ---
 
+## Group 20: Legal Pages & Cookie Consent
+
+### TC-20.1: Public Legal Pages
+
+| Step | Action                                              | Expected                                                       |
+| ---- | --------------------------------------------------- | -------------------------------------------------------------- |
+| 1    | Open `/legal/vop` in incognito (no auth)            | VOP page renders with formatted Slovak text, navigation bar    |
+| 2    | Open `/legal/ochrana-udajov`                        | Privacy Policy page renders                                    |
+| 3    | Open `/legal/dpa`                                   | DPA page renders                                               |
+| 4    | Click between tabs (VOP / Ochrana / DPA)            | Navigation works, content updates                              |
+| 5    | Click "Späť" (Back link)                            | Returns to landing page                                        |
+
+### TC-20.2: Footer Links on Landing Page
+
+| Step | Action                              | Expected                                            |
+| ---- | ----------------------------------- | --------------------------------------------------- |
+| 1    | Open landing page                   | Footer shows: "VOP · Ochrana údajov · DPA"          |
+| 2    | Click "VOP"                         | Navigates to `/legal/vop`                           |
+| 3    | Click "Ochrana údajov"              | Navigates to `/legal/ochrana-udajov`                |
+| 4    | Click "DPA"                         | Navigates to `/legal/dpa`                           |
+
+### TC-20.3: Cookie Consent Banner — First Visit
+
+| Step | Action                                          | Expected                                                                  |
+| ---- | ----------------------------------------------- | ------------------------------------------------------------------------- |
+| 1    | Open app in fresh incognito window              | Cookie banner appears (bottom right) after ~300ms                         |
+| 2    | Observe banner content                          | Slovak text mentioning functional and analytics cookies, link to privacy  |
+| 3    | Verify banner has "Iba nevyhnutné" and "Prijať všetky" buttons | Both buttons visible                                       |
+
+### TC-20.4: Accept All Cookies
+
+| Step | Action                                                  | Expected                                                            |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1    | Click "Prijať všetky"                                   | Banner disappears                                                   |
+| 2    | Open browser DevTools → Application → Local Storage     | `peppolbox_cookie_consent` = `accepted`                             |
+| 3    | Refresh page                                            | Banner does NOT reappear                                            |
+| 4    | View page source / network tab                          | Vercel Analytics script is loaded                                   |
+
+### TC-20.5: Reject Cookies (Iba nevyhnutné)
+
+| Step | Action                                                  | Expected                                                            |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1    | Clear local storage, refresh page                       | Banner appears again                                                |
+| 2    | Click "Iba nevyhnutné"                                  | Banner disappears                                                   |
+| 3    | Check local storage                                     | `peppolbox_cookie_consent` = `rejected`                             |
+| 4    | View page source / network tab                          | Vercel Analytics script is NOT loaded                               |
+
+---
+
+## Group 21: ToS Acceptance Gate at Activation
+
+### TC-21.1: Initial Activation Page Shows ToS Gate
+
+| Step | Action                                              | Expected                                                                |
+| ---- | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | New genesis admin clicks magic link in invitation   | Redirected to `/activate?company=...&name=...`                          |
+| 2    | Observe activation page                             | Shows "Súhlas s podmienkami pred aktiváciou" (NOT auto-activating)       |
+| 3    | Two card buttons visible                            | "Všeobecné obchodné podmienky" and "Zásady ochrany osobných údajov"      |
+| 4    | Consent checkbox is disabled                        | Cannot be clicked                                                       |
+| 5    | Submit button is disabled                           | "Súhlasím a pokračovať v aktivácii" greyed out                          |
+
+### TC-21.2: Download VOP Document
+
+| Step | Action                                          | Expected                                                  |
+| ---- | ----------------------------------------------- | --------------------------------------------------------- |
+| 1    | Click "Všeobecné obchodné podmienky" card       | New tab opens at `/legal/vop`                             |
+| 2    | Return to activation tab                        | Card now shows green checkmark and "Stiahnuté ✓"           |
+| 3    | Consent checkbox still disabled                 | Privacy Policy not yet downloaded                         |
+
+### TC-21.3: Download Privacy Policy
+
+| Step | Action                                          | Expected                                                  |
+| ---- | ----------------------------------------------- | --------------------------------------------------------- |
+| 1    | Click "Zásady ochrany osobných údajov" card     | New tab opens at `/legal/ochrana-udajov`                  |
+| 2    | Return to activation tab                        | Card now shows green checkmark                            |
+| 3    | Consent checkbox is now enabled                 | Can be clicked                                            |
+| 4    | Submit button still disabled                    | Until checkbox is checked                                 |
+
+### TC-21.4: Confirm and Activate
+
+| Step | Action                                          | Expected                                                              |
+| ---- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | Check the consent checkbox                      | Submit button becomes enabled                                         |
+| 2    | Click "Súhlasím a pokračovať v aktivácii"       | "Ukladám súhlas..." → activation spinner appears                      |
+| 3    | Wait for activation                             | Green checkmark, "Vaša spoločnosť je aktívna na sieti Peppol!"        |
+| 4    | Peppol ID displayed in monospace                | 0245:DIC                                                              |
+| 5    | Click "Pokračovať na dashboard"                  | Redirected to dashboard                                              |
+
+### TC-21.5: Verify ToS Acceptance Audit Trail
+
+| Step | Action                                                                                | Expected                                                                                       |
+| ---- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1    | Sign in as super admin, open Audit Log                                                 | Audit log visible                                                                              |
+| 2    | Filter by event ID "TOS_ACCEPTED"                                                     | New entry: "Terms of Service and Privacy Policy accepted" with VOP/Privacy versions in details |
+| 3    | Run SQL: `select * from tos_acceptances where user_id = '<genesis user id>'`          | Row exists with vop_downloaded_at, privacy_downloaded_at, accepted_at timestamps               |
+
+### TC-21.6: Cannot Skip ToS Gate
+
+| Step | Action                                          | Expected                                                  |
+| ---- | ----------------------------------------------- | --------------------------------------------------------- |
+| 1    | Open `/activate?company=X` directly             | Page loads in `consent` state, not `activating`           |
+| 2    | Try to manipulate state via DevTools            | Server-side activation requires `recordTosAcceptance` call first (cannot bypass via UI) |
+| 3    | Submit attempt without download                 | Button disabled, no request sent                          |
+
+---
+
+## Group 22: Magic Link Auto Sign-in from Email
+
+### TC-22.1: Document Email Contains Magic Link
+
+| Step | Action                                                                       | Expected                                                                                          |
+| ---- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 1    | Receive a Peppol invoice (e.g., send test invoices)                          | Notification email arrives at company_email                                                       |
+| 2    | Inspect email source / hover "View Invoice" button                           | URL is `https://app/api/auth/magic?token=...` (NOT direct `/dashboard/inbox/[id]`)               |
+| 3    | Confirm token is 64 hex characters                                           | Random unguessable token                                                                          |
+
+### TC-22.2: Click Magic Link While Signed Out
+
+| Step | Action                                          | Expected                                                                |
+| ---- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | Sign out of all sessions                        | Landing page                                                            |
+| 2    | Click "View Invoice" in email                   | Browser opens magic link URL                                            |
+| 3    | Wait for redirect                               | Auto-signed in, lands directly on `/dashboard/inbox/[id]` (the invoice) |
+| 4    | Check audit log                                 | New entry: `AUTH_SIGN_IN` with `method: "magic_link"`                   |
+
+### TC-22.3: Magic Link Single-use
+
+| Step | Action                                          | Expected                                                            |
+| ---- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| 1    | Click the same magic link a second time        | Redirected to landing with `?error=link_used`                        |
+| 2    | Check `magic_links` table in DB                 | Row has `consumed_at` timestamp set                                 |
+
+### TC-22.4: Magic Link Expiration
+
+| Step | Action                                                                                  | Expected                                          |
+| ---- | --------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 1    | In Supabase, manually set a magic_link `expires_at = now() - interval '1 day'`          | Updated                                           |
+| 2    | Click the link                                                                          | Redirected to landing with `?error=link_expired`  |
+
+### TC-22.5: Magic Link Fallback for Unknown Email
+
+| Step | Action                                                                       | Expected                                                                          |
+| ---- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 1    | Set company_email to an email NOT registered in auth.users                   | Email saved                                                                       |
+| 2    | Receive a new document (or send test invoices)                               | Notification email arrives                                                        |
+| 3    | Inspect "View Invoice" URL                                                   | URL is direct `/dashboard/inbox/[id]` (no magic token, fallback to sign-in flow)  |
+
+---
+
+## Group 23: Welcome Credit System Setting
+
+### TC-23.1: Default Welcome Credit Value
+
+| Step | Action                                                                      | Expected                                                |
+| ---- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 1    | After fresh schema install, sign in as super admin                          | Super admin dashboard                                   |
+| 2    | Navigate to Settings → System Settings                                      | "Welcome Credit (EUR)" field visible with value `0.03`  |
+| 3    | Description shown                                                           | "Amount credited to wallet on first Peppol activation. Set to 0 to disable." |
+
+### TC-23.2: Change Welcome Credit Amount
+
+| Step | Action                                                  | Expected                                                |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------- |
+| 1    | In System Settings, change "Welcome Credit (EUR)" to `0.10` | Field updated                                       |
+| 2    | Click "Save System Settings"                            | "Settings saved" message                                |
+| 3    | Trigger a new genesis activation (via PFS webhook + accept) | Wallet created with balance of 0.10 EUR             |
+| 4    | Check transaction history                               | One Top Up: +0.10 EUR, "Welcome credit on Peppol activation" |
+| 5    | Check audit log                                         | `WALLET_TOPPED_UP` event with metadata `{type: "initial_credit"}` |
+
+### TC-23.3: Disable Welcome Credit (Set to 0)
+
+| Step | Action                                              | Expected                                                       |
+| ---- | --------------------------------------------------- | -------------------------------------------------------------- |
+| 1    | Set "Welcome Credit (EUR)" to `0`                   | Field updated                                                  |
+| 2    | Save                                                | Saved                                                          |
+| 3    | Trigger a new genesis activation                    | Wallet created with balance 0 EUR (no welcome credit)          |
+| 4    | Check transaction history                           | No initial Top Up entry                                        |
+
+### TC-23.4: Welcome Credit Audit (Super Admin Settings Change)
+
+| Step | Action                                          | Expected                                                                |
+| ---- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | Change welcome credit value and save            | Saved                                                                   |
+| 2    | Open Audit Log                                  | New `SYSTEM_SETTINGS_UPDATED` entry containing `welcome_credit_amount`  |
+
+---
+
+## Group 24: Wallet Refund Mechanism
+
+### TC-24.1: Refund Button Visibility (Active Companies)
+
+| Step | Action                                                                        | Expected                                                         |
+| ---- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 1    | Sign in as super admin                                                        | Super admin dashboard                                            |
+| 2    | Navigate to a wallet detail page (`/dashboard/wallet/[walletId]`) where genesis admin still has active companies | Wallet detail with balance card visible       |
+| 3    | Observe "Issue Refund" button                                                 | Visible but disabled with tooltip explaining ineligibility       |
+| 4    | Hover button                                                                  | Tooltip: "Refund only after deactivation"                        |
+
+### TC-24.2: Refund Button Visibility (Balance Too Low)
+
+| Step | Action                                                                                                 | Expected                                                               |
+| ---- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| 1    | Find a wallet where all companies are deactivated AND balance < 5.00 EUR (e.g., 2.50 EUR)              | Wallet visible                                                         |
+| 2    | Open wallet detail                                                                                     | "Issue Refund" button is disabled with tooltip about minimum balance   |
+
+### TC-24.3: Open Refund Dialog (Eligible)
+
+| Step | Action                                                                                          | Expected                                                                                |
+| ---- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 1    | Find a wallet with ≥ 5 EUR balance AND no active genesis memberships                            | Wallet visible                                                                          |
+| 2    | Click "Issue Refund"                                                                            | Dialog opens with title "Issue Refund"                                                  |
+| 3    | Observe refundable amount card                                                                  | Shows the full balance (e.g., 12.50 EUR)                                                |
+| 4    | Observe form fields                                                                             | IBAN input, Note textarea, confirmation checkbox                                        |
+| 5    | Submit button initially disabled                                                                | Until all fields filled and checkbox checked                                            |
+
+### TC-24.4: IBAN Format Validation
+
+| Step | Action                                              | Expected                                                                |
+| ---- | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | Enter invalid IBAN (e.g., "12345")                  | Field accepts text                                                      |
+| 2    | Fill note, check confirmation, click "Issue Refund" | Toast error: "Invalid IBAN format"                                      |
+| 3    | Enter valid IBAN: `SK0000000000000000000000`        | Refund proceeds                                                         |
+| 4    | IBAN with spaces: `SK00 0000 0000 0000 0000 0000`   | Spaces stripped before validation, accepted                             |
+
+### TC-24.5: Required Confirmation Checkbox
+
+| Step | Action                                              | Expected                                                                |
+| ---- | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | Fill IBAN and note but do not check the box         | Submit button remains disabled                                          |
+| 2    | Check confirmation checkbox                         | Submit button becomes enabled                                           |
+
+### TC-24.6: Successful Refund
+
+| Step | Action                                                                       | Expected                                                                                |
+| ---- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 1    | Open eligible wallet, click "Issue Refund"                                   | Dialog opens                                                                            |
+| 2    | Fill IBAN, note ("Customer closure request"), check confirmation             | Submit enabled                                                                          |
+| 3    | Click "Issue Refund"                                                         | "Processing..." → toast "Refunded X.XX EUR"                                             |
+| 4    | Page refreshes                                                               | Wallet balance now `0.00 EUR`                                                           |
+| 5    | Open Transaction History                                                     | New row: type=Refund, amount=−X.XX EUR, description includes IBAN and note              |
+| 6    | Open Audit Log, filter by `WALLET_REFUNDED`                                  | New entry with severity `warning`, includes wallet ID, IBAN, amount, note               |
+
+### TC-24.7: Refund Server-side Eligibility Re-check
+
+| Step | Action                                                                                                          | Expected                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1    | Open refund dialog for eligible wallet                                                                          | Dialog opens                                                                        |
+| 2    | In another tab, reactivate one of the companies for that genesis admin                                          | Company active again                                                                |
+| 3    | Return to refund dialog, submit                                                                                  | Toast error: "Refund can only be issued after all companies under this wallet have been deactivated" |
+
+### TC-24.8: Non-Super-Admin Cannot Issue Refund
+
+| Step | Action                                                                | Expected                                          |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| 1    | Sign in as company admin                                              | Dashboard                                         |
+| 2    | Try to navigate to `/dashboard/wallet/[walletId]` directly            | 404 (super admin only page)                       |
+
+---
+
+## Group 25: Inbox Sorting & Status Column
+
+### TC-25.1: Status Column Replaces Icon Column
+
+| Step | Action                                                         | Expected                                                                 |
+| ---- | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Navigate to Inbox                                              | Table renders                                                            |
+| 2    | Observe first data column                                      | "Status" header (sortable), color-coded badges per row                   |
+| 3    | Status colors                                                  | new=blue, assigned=yellow, processed=green, pending=muted, failed=red    |
+| 4    | Pending document                                               | Spinner icon next to badge                                               |
+| 5    | Failed document                                                | AlertCircle icon next to badge                                           |
+
+### TC-25.2: Click Date Header to Sort
+
+| Step | Action                              | Expected                                                |
+| ---- | ----------------------------------- | ------------------------------------------------------- |
+| 1    | Open Inbox (default sort by Date desc) | Newest documents at top                              |
+| 2    | Click "Date" header                 | Documents re-sort ascending (oldest first), chevron up |
+| 3    | Click "Date" again                  | Documents re-sort descending, chevron down              |
+
+### TC-25.3: Sort by Amount
+
+| Step | Action                              | Expected                                    |
+| ---- | ----------------------------------- | ------------------------------------------- |
+| 1    | Click "Amount" header               | Sorted ascending (lowest first)             |
+| 2    | Click again                         | Descending (highest first)                  |
+| 3    | Documents without amount            | Treated as 0, sorted at the start           |
+
+### TC-25.4: Sort by From (Sender)
+
+| Step | Action                              | Expected                                       |
+| ---- | ----------------------------------- | ---------------------------------------------- |
+| 1    | Click "From" header                 | Sorted alphabetically by supplier name (A-Z)   |
+| 2    | Click again                         | Reverse alphabetical (Z-A)                     |
+
+### TC-25.5: Sort by Status
+
+| Step | Action                              | Expected                                                                 |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Click "Status" header               | Sorted by status order: new → assigned → processed → pending → processing → failed |
+| 2    | Click again                         | Reverse order                                                            |
+
+### TC-25.6: Sort State Is Session-only
+
+| Step | Action                              | Expected                                                |
+| ---- | ----------------------------------- | ------------------------------------------------------- |
+| 1    | Sort by amount asc                  | Documents sorted                                        |
+| 2    | Refresh the page                    | Sort resets to default Date desc                        |
+| 3    | URL has no `?sort=` param           | Confirmed                                               |
+
+### TC-25.7: "To" Column for Multi-Company Users
+
+| Step | Action                                                                       | Expected                                                                 |
+| ---- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Sign in as user with 2+ companies, ensure no company filter (All Companies)  | Inbox visible                                                            |
+| 2    | Observe table headers                                                        | "To" column visible between From and Amount                              |
+| 3    | Each row                                                                     | Shows the receiving company's legal name (or DIC)                        |
+| 4    | Select a specific company in switcher                                        | "To" column hidden (redundant)                                           |
+| 5    | Single-company user                                                          | "To" column never visible                                                |
+| 6    | On mobile (max-md)                                                           | "To" column hidden                                                       |
+
+---
+
+## Group 26: Status Picker, Reset Unassigned, Return to Triage
+
+### TC-26.1: Status Picker (Admin/Operator)
+
+| Step | Action                                                  | Expected                                                              |
+| ---- | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | Sign in as company admin or operator                    | Inbox                                                                 |
+| 2    | Hover over a status badge in a row                      | Cursor changes; chevron visible next to badge                         |
+| 3    | Click the status badge                                  | Dropdown opens with options: New / Assigned / Processed                |
+| 4    | Each option shows colored badge                         | Confirmed                                                             |
+| 5    | Current status has checkmark                            | Confirmed                                                             |
+
+### TC-26.2: Change Status to Assigned (Requires Department)
+
+| Step | Action                                                  | Expected                                                              |
+| ---- | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | On a "new" document with NO department, open status picker | Click "Assigned"                                                  |
+| 2    | Result                                                  | Toast error: "Assign the document to a department first"             |
+| 3    | Status remains "new"                                    | Confirmed                                                             |
+
+### TC-26.3: Change Status to New (Clears Department)
+
+| Step | Action                                          | Expected                                                              |
+| ---- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | On an "assigned" document, open status picker   | Dropdown opens                                                        |
+| 2    | Click "New"                                     | Toast: "Status changed to new"                                        |
+| 3    | Row updates                                     | Status badge → New, department field → empty                          |
+| 4    | Audit log                                       | `DOCUMENT_STATUS_UPDATED` with old/new status                         |
+
+### TC-26.4: Change Status to Processed (Triggers Note Dialog)
+
+| Step | Action                                          | Expected                                                              |
+| ---- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | On any non-processed document, click status badge → "Processed" | Note dialog opens                                     |
+| 2    | Try to confirm without note                     | Save button disabled                                                  |
+| 3    | Type a note, confirm                            | Toast: "Marked as processed", row updates                             |
+| 4    | Audit log                                       | `DOCUMENT_PROCESSED` event with note                                  |
+
+### TC-26.5: Status Picker Hidden for Pending/Failed Documents
+
+| Step | Action                                              | Expected                                            |
+| ---- | --------------------------------------------------- | --------------------------------------------------- |
+| 1    | View a pending document in inbox                    | Status badge has no chevron (read-only)             |
+| 2    | View a failed document                              | Same — no chevron, read-only                        |
+| 3    | Click on the badge                                  | Nothing happens                                     |
+
+### TC-26.6: Status Picker Hidden for Processors
+
+| Step | Action                                  | Expected                                                  |
+| ---- | --------------------------------------- | --------------------------------------------------------- |
+| 1    | Sign in as processor                    | Inbox                                                     |
+| 2    | View any document badge                 | No chevron, read-only                                     |
+| 3    | Click badge                             | No dropdown                                               |
+
+### TC-26.7: Reset Document to Unassigned via DeptPicker
+
+| Step | Action                                              | Expected                                                              |
+| ---- | --------------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | As admin/operator, find an "assigned" document      | Department badge shows current dept                                   |
+| 2    | Click the department badge                          | Dropdown opens                                                        |
+| 3    | Observe top of dropdown                             | "Unassigned" option visible (only when currently assigned)            |
+| 4    | Click "Unassigned"                                  | Toast: "Reset to unassigned"                                          |
+| 5    | Row updates                                         | Department empty, status reverts to "new"                             |
+
+### TC-26.8: Return to Triage (Processor Workflow)
+
+| Step | Action                                                                | Expected                                                                              |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1    | Sign in as processor with assigned documents                          | Inbox shows their assigned documents                                                  |
+| 2    | Open a wrongly assigned document                                      | Detail page                                                                           |
+| 3    | Click "..." menu                                                      | "Return to Triage" option visible                                                     |
+| 4    | Click "Return to Triage"                                              | Dialog opens with required note textarea                                              |
+| 5    | Try to confirm without note                                           | Button disabled                                                                       |
+| 6    | Enter note: "Wrong department, this is an IT invoice not accounting"  | Button enabled                                                                        |
+| 7    | Click "Return to Triage"                                              | Document unassigned, status → new, redirected back to Inbox                           |
+| 8    | Audit log                                                             | `DOCUMENT_RETURNED_TO_TRIAGE` with note and previous department ID                    |
+| 9    | Sign in as operator                                                   | Document now visible in their unassigned/new triage queue                             |
+
+---
+
+## Group 27: Quick Row Download (PDF / XML & Process)
+
+### TC-27.1: Hover Reveals Download Icon
+
+| Step | Action                                              | Expected                                                  |
+| ---- | --------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Navigate to Inbox                                   | Document table visible                                    |
+| 2    | Hover over a non-locked row                         | Download icon (↓) appears at right edge                   |
+| 3    | Move mouse away                                     | Icon disappears                                           |
+| 4    | Hover over a pending or failed row                  | No icon (download not available)                          |
+
+### TC-27.2: Download PDF from Row (Instant)
+
+| Step | Action                                          | Expected                                                              |
+| ---- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | Hover row, click Download icon                  | Mini dropdown: "PDF" and (optionally) "XML & Process"                 |
+| 2    | Click "PDF"                                     | PDF opens in new tab                                                  |
+| 3    | Document status                                 | Unchanged (PDF download is visualization only)                        |
+
+### TC-27.3: Export XML & Process from Row
+
+| Step | Action                                                  | Expected                                                                              |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1    | On a "new" or "assigned" document, click Download → "XML & Process" | Dialog opens: "Export XML & Mark as Processed"                            |
+| 2    | Required note textarea                                  | Empty                                                                                 |
+| 3    | Try to confirm without note                             | Button disabled                                                                       |
+| 4    | Type note: "Imported into accounting system"            | Button enabled                                                                        |
+| 5    | Click "Export XML & Process"                            | XML file downloaded (NOT opened in new tab), toast "XML exported, marked as processed" |
+| 6    | Row updates                                             | Status → processed                                                                    |
+| 7    | Audit log                                               | `DOCUMENT_PROCESSED` with note                                                        |
+
+### TC-27.4: XML & Process Hidden for Already-Processed Documents
+
+| Step | Action                                              | Expected                                                |
+| ---- | --------------------------------------------------- | ------------------------------------------------------- |
+| 1    | On a "processed" document, click Download icon      | Dropdown shows only "PDF" (no XML & Process option)     |
+
+### TC-27.5: Detail Page — Export XML & Process
+
+| Step | Action                                              | Expected                                                                              |
+| ---- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1    | Open a non-processed document detail page          | Action menu visible                                                                   |
+| 2    | Click "..." → "Export XML & Process"                | Dialog opens with note field                                                          |
+| 3    | Enter note, confirm                                 | XML downloads as a file (not browser tab), document marked processed                  |
+
+### TC-27.6: Quick Download Available to All Roles (Including Processor)
+
+| Step | Action                                              | Expected                                                  |
+| ---- | --------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Sign in as processor                                | Inbox                                                     |
+| 2    | Hover row, click Download                           | Both PDF and XML & Process options visible                |
+| 3    | Use XML & Process                                   | Works (processors can mark documents processed)           |
+
+---
+
+## Group 28: SLA Dashboard & Per-person Stats
+
+### TC-28.1: SLA Configuration in Company Edit Dialog
+
+| Step | Action                                                  | Expected                                                              |
+| ---- | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | Sign in as company admin, navigate to a company detail page | Edit button visible                                               |
+| 2    | Click "Edit"                                            | Dialog opens                                                          |
+| 3    | Observe form                                            | "Triage SLA (hours)" and "Process SLA (hours)" fields visible         |
+| 4    | Default values                                          | 8 and 24 respectively                                                 |
+| 5    | Change to 4 and 12, save                                | "Save Changes" → company updated                                      |
+| 6    | Reopen dialog                                           | Values persisted                                                      |
+
+### TC-28.2: SLA Cards Visible on Company Admin Dashboard
+
+| Step | Action                                                                   | Expected                                                                                                  |
+| ---- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| 1    | Sign in as company admin/operator                                        | Dashboard with company cards                                                                              |
+| 2    | Receive at least one document for that company                           | Document arrives                                                                                          |
+| 3    | Refresh dashboard                                                        | Three SLA boxes inside the company card: Triage / Process / Processed                                     |
+| 4    | Triage box                                                               | Shows count of "new" documents                                                                            |
+| 5    | Process box                                                              | Shows count of "assigned" documents                                                                       |
+| 6    | Processed box                                                            | Shows count of documents marked processed today                                                           |
+| 7    | "SLA: triage 8h, process 24h" line below                                 | Visible if any documents are pending                                                                      |
+
+### TC-28.3: Overdue Highlighting
+
+| Step | Action                                                                                                 | Expected                                                                |
+| ---- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| 1    | Have a "new" document received more than 8 hours ago (manual SQL update of `peppol_created_at` if needed) | Document is overdue for triage                                       |
+| 2    | Refresh company dashboard                                                                               | Triage box count is in red, with "AlertTriangle" icon and "X overdue" |
+| 3    | Have an "assigned" document older than 24 hours                                                         |                                                                         |
+| 4    | Refresh                                                                                                 | Process box shows orange overdue badge                                  |
+
+### TC-28.4: SLA Box Click Navigation
+
+| Step | Action                                                  | Expected                                                          |
+| ---- | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1    | Click the Triage SLA box on a company card              | Navigates to `/dashboard/inbox?company=<id>&status=new`           |
+| 2    | Click the Process SLA box                               | Navigates to `/dashboard/inbox?company=<id>&status=assigned`      |
+| 3    | Verify inbox is filtered to that company and status     | Confirmed                                                         |
+
+### TC-28.5: Per-Person Stats — Today's Activity
+
+| Step | Action                                                                           | Expected                                                                            |
+| ---- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1    | Have multiple processors who processed documents today                           | Documents in `processed` status with notes from today                               |
+| 2    | Sign in as company admin                                                         | Company dashboard                                                                   |
+| 3    | Observe company card                                                             | "Today's activity" section shows each processor with their full name and count     |
+| 4    | Sort order                                                                       | Most-active processors at top                                                       |
+| 5    | Counts                                                                           | Reflect documents marked processed by each user today                               |
+
+### TC-28.6: Empty State
+
+| Step | Action                                                         | Expected                                                          |
+| ---- | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1    | Brand new company with no documents at all                     | Company card has no SLA boxes (hidden when there's nothing to show) |
+| 2    | No processors active today                                     | "Today's activity" section hidden                                 |
+
+### TC-28.7: SLA Dashboard Hidden for Processors
+
+| Step | Action                          | Expected                                            |
+| ---- | ------------------------------- | --------------------------------------------------- |
+| 1    | Sign in as processor            | Redirected to Inbox (no dashboard for this role)    |
+| 2    | Cannot see SLA stats            | Confirmed (the dashboard route is unavailable)      |
+
+---
+
+## Group 29: Sidebar Tidy-up (Settings/Audit/Webhooks)
+
+### TC-29.1: Settings Removed from Sidebar
+
+| Step | Action                                  | Expected                                                       |
+| ---- | --------------------------------------- | -------------------------------------------------------------- |
+| 1    | Sign in as any role                     | Sidebar visible                                                |
+| 2    | Observe sidebar items                   | NO "Settings" entry                                            |
+| 3    | Click user avatar (top right)           | Dropdown shows "Settings" entry                                |
+| 4    | Click "Settings"                        | Navigates to `/dashboard/settings`                             |
+
+### TC-29.2: Audit Log Removed from Sidebar
+
+| Step | Action                                  | Expected                                                       |
+| ---- | --------------------------------------- | -------------------------------------------------------------- |
+| 1    | Sign in as super admin                  | Sidebar visible                                                |
+| 2    | Observe sidebar                         | NO "Audit Log" entry                                           |
+| 3    | Click user avatar                       | Dropdown includes "Audit Log"                                  |
+| 4    | Click "Audit Log"                       | Navigates to `/dashboard/audit`                                |
+
+### TC-29.3: Webhooks — Super Admin Only
+
+| Step | Action                                  | Expected                                                       |
+| ---- | --------------------------------------- | -------------------------------------------------------------- |
+| 1    | Sign in as super admin                  | "Webhooks" visible in sidebar                                  |
+| 2    | Sign in as company admin (genesis)      | NO "Webhooks" in sidebar                                       |
+| 3    | Sign in as operator                     | NO "Webhooks" in sidebar                                       |
+| 4    | Sign in as processor                    | NO "Webhooks" in sidebar                                       |
+| 5    | Try to access `/dashboard/webhooks` as company admin | Redirected to dashboard (or 404)                  |
+
+### TC-29.4: Final Sidebar per Role
+
+| Role          | Sidebar items (in order)                                              |
+| ------------- | --------------------------------------------------------------------- |
+| Super Admin   | Dashboard, Inbox, Companies, Users, Webhooks, Operations              |
+| Company Admin | Dashboard, Inbox, Companies, Users, Wallet, Operations                 |
+| Operator      | Dashboard, Inbox, Companies, Users, Wallet                            |
+| Processor     | Inbox, Companies                                                      |
+
+Verify each role's sidebar matches this table.
+
+---
+
 ## Execution Checklist
 
 | Group                                         | Tests               | Status |
@@ -1180,4 +1748,14 @@
 | 17. Responsive Design                         | TC-17.1 to TC-17.2  | [ ]    |
 | 18. User Detail Drawer & Direct Assignment    | TC-18.1 to TC-18.5  | [ ]    |
 | 19. Company Switcher & Context-Aware Roles    | TC-19.1 to TC-19.4  | [ ]    |
-| **Total**                                     | **119 test cases**  |        |
+| 20. Legal Pages & Cookie Consent              | TC-20.1 to TC-20.5  | [ ]    |
+| 21. ToS Acceptance Gate at Activation         | TC-21.1 to TC-21.6  | [ ]    |
+| 22. Magic Link Auto Sign-in from Email        | TC-22.1 to TC-22.5  | [ ]    |
+| 23. Welcome Credit System Setting             | TC-23.1 to TC-23.4  | [ ]    |
+| 24. Wallet Refund Mechanism                   | TC-24.1 to TC-24.8  | [ ]    |
+| 25. Inbox Sorting & Status Column             | TC-25.1 to TC-25.7  | [ ]    |
+| 26. Status Picker, Reset Unassigned, Return to Triage | TC-26.1 to TC-26.8 | [ ] |
+| 27. Quick Row Download (PDF / XML & Process)  | TC-27.1 to TC-27.6  | [ ]    |
+| 28. SLA Dashboard & Per-person Stats          | TC-28.1 to TC-28.7  | [ ]    |
+| 29. Sidebar Tidy-up                           | TC-29.1 to TC-29.4  | [ ]    |
+| **Total**                                     | **179 test cases**  |        |
