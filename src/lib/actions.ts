@@ -600,7 +600,7 @@ export async function activateCompanyOnPeppol(companyId: string) {
         if (wallet.available_balance === 0) {
           await topUpWallet(
             wallet.id,
-            0.50,
+            0.03,
             { type: "initial_credit", reason: "Welcome credit on Peppol activation" },
             user.id,
           );

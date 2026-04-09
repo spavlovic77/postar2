@@ -135,8 +135,8 @@
 | 5    | Observe notification message                     | "You will receive email notifications when new invoices arrive in your inbox."                  |
 | 6    | Click "Go to Dashboard"                          | Company Admin dashboard with company card (NO welcome screen)                                   |
 | 7    | Check company card                               | Shows company name, DIC, Peppol status "Active"                                                 |
-| 8    | Navigate to Wallet                               | Wallet exists with 0.50 EUR balance ("Welcome credit on Peppol activation")                     |
-| 9    | Check Transaction History                        | One "Top Up" transaction: +0.50 EUR                                                             |
+| 8    | Navigate to Wallet                               | Wallet exists with 0.03 EUR balance ("Welcome credit on Peppol activation")                     |
+| 9    | Check Transaction History                        | One "Top Up" transaction: +0.03 EUR                                                             |
 
 ### TC-3.2: Verify Auto Activation Effects
 
@@ -710,7 +710,7 @@
 
 | Step | Action                                                                                  | Expected                                           |
 | ---- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| 1    | Ensure wallet has balance (e.g., 0.50 EUR welcome credit) and company price is 0.01 EUR | Prerequisites met (default after onboarding)       |
+| 1    | Ensure wallet has balance (e.g., 0.03 EUR welcome credit) and company price is 0.01 EUR | Prerequisites met (default after onboarding)       |
 | 2    | Send test invoices (3 invoices)                                                         | Invoices arrive in inbox                           |
 | 3    | Navigate to Wallet → Transaction History                                                | 3 "Charge" transactions, -0.01 EUR each            |
 | 4    | Check balance                                                                           | Reduced by 0.03 EUR (3 × 0.01), balance = 0.47 EUR |
