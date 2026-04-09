@@ -570,16 +570,24 @@ export function InboxList({
   const handleConfirmXmlExport = async () => {
     if (!xmlExportDialog || !xmlExportNote.trim()) return;
     setIsXmlExporting(true);
-    // Download XML first
-    window.open(`/api/documents/${xmlExportDialog.documentId}/xml`, "_blank");
+
+    // Download XML as a file (not open in new tab)
+    const docId = xmlExportDialog.documentId;
+    const doc = documents.find((d: any) => d.id === docId);
+    const label = doc?.document_id ?? doc?.ion_ap_transaction_id ?? docId.slice(0, 8);
+    const blob = await fetchFileBlob(`/api/documents/${docId}/xml`);
+    if (blob) {
+      triggerBlobDownload(blob, `${label}.xml`);
+    }
+
     // Then mark as processed
-    const result = await markDocumentProcessed(xmlExportDialog.documentId, xmlExportNote.trim());
+    const result = await markDocumentProcessed(docId, xmlExportNote.trim());
     setIsXmlExporting(false);
     if (result.error) {
       toast(result.error, "error");
     } else {
       toast("XML exported, marked as processed");
-      handleStatusChanged(xmlExportDialog.documentId, "processed");
+      handleStatusChanged(docId, "processed");
       setXmlExportDialog(null);
       setXmlExportNote("");
     }

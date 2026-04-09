@@ -68,8 +68,22 @@ export function DocumentActions({ documentId, status, ionApTransactionId }: Prop
   const handleExportXmlAndProcess = async () => {
     if (!note.trim()) return;
     setIsLoading(true);
-    // Download XML first
-    window.open(`/api/documents/${documentId}/xml`, "_blank");
+
+    // Download XML as a file (not open in new tab)
+    try {
+      const res = await fetch(`/api/documents/${documentId}/xml`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `document-${documentId.slice(0, 8)}.xml`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    } catch {
+      // Non-fatal: still mark as processed
+    }
+
     // Then mark as processed
     const result = await markDocumentProcessed(documentId, note);
     setIsLoading(false);
