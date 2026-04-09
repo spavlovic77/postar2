@@ -74,16 +74,14 @@ interface Props {
 
 function DeptPicker({
   documentId,
-  companyId,
   currentDeptId,
   departments,
   onAssigned,
 }: {
   documentId: string;
-  companyId: string;
   currentDeptId: string | null;
   departments: Department[];
-  onAssigned: () => void;
+  onAssigned: (deptId: string) => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -99,7 +97,7 @@ function DeptPicker({
     } else {
       const dept = departments.find((d) => d.id === deptId);
       toast(`Assigned to ${dept?.name ?? "department"}`);
-      onAssigned();
+      onAssigned(deptId);
     }
   };
 
@@ -147,6 +145,15 @@ type SortDir = "asc" | "desc";
 
 const STATUS_ORDER: Record<string, number> = {
   new: 0, assigned: 1, processed: 2, pending: 3, processing: 4, failed: 5,
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  assigned: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  processed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  pending: "bg-muted text-muted-foreground",
+  processing: "bg-muted text-muted-foreground",
+  failed: "bg-destructive/10 text-destructive",
 };
 
 const ZIP_THRESHOLD = 5;
@@ -359,14 +366,32 @@ export function InboxList({
   };
 
   const handleBulkAssign = async (departmentId: string) => {
+    const idsToAssign = Array.from(selectedIds);
     setIsBulkAssigning(true);
-    const result = await bulkAssignDocuments(Array.from(selectedIds), departmentId);
+    const result = await bulkAssignDocuments(idsToAssign, departmentId);
     setIsBulkAssigning(false);
     if (result.error) { toast(result.error, "error"); } else {
       toast(`${result.count} document(s) assigned`);
       setSelectedIds(new Set());
-      window.location.reload();
+      // Update local state instead of full reload
+      setDocuments((prev: any[]) =>
+        prev.map((d) =>
+          idsToAssign.includes(d.id)
+            ? { ...d, department_id: departmentId, status: d.status === "new" ? "assigned" : d.status }
+            : d
+        )
+      );
     }
+  };
+
+  const handleSingleAssign = (documentId: string, deptId: string) => {
+    setDocuments((prev: any[]) =>
+      prev.map((d) =>
+        d.id === documentId
+          ? { ...d, department_id: deptId, status: d.status === "new" ? "assigned" : d.status }
+          : d
+      )
+    );
   };
 
   const handleBulkDownload = (type: "xml" | "pdf" | "both") => {
@@ -537,7 +562,12 @@ export function InboxList({
                   <TableHead className="w-[30px]">
                     <input type="checkbox" checked={selectedIds.size === sortedDocuments.length && sortedDocuments.length > 0} onChange={toggleSelectAll} className="rounded" />
                   </TableHead>
-                  <TableHead className="w-[30px]" />
+                  <TableHead className="w-[100px]">
+                    <button onClick={() => toggleSort("status")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      Status
+                      {sortField === "status" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+                    </button>
+                  </TableHead>
                   <TableHead>
                     <button onClick={() => toggleSort("from")} className="flex items-center gap-1 hover:text-foreground transition-colors">
                       From
@@ -596,11 +626,14 @@ export function InboxList({
                       <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="rounded" />
                       </TableCell>
-                      <TableCell className="pr-0">
-                        {isFailed ? <AlertCircle className="h-4 w-4 text-destructive" />
-                          : isPending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                          : isUnread ? <Mail className="h-4 w-4 text-primary" />
-                          : <MailOpen className="h-4 w-4 text-muted-foreground" />}
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+                          {isFailed && <AlertCircle className="h-3 w-3 text-destructive shrink-0" />}
+                          <Badge className={cn("text-xs capitalize", STATUS_STYLES[doc.status] ?? "")}>
+                            {doc.status}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {isLocked ? (
@@ -649,10 +682,9 @@ export function InboxList({
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <DeptPicker
                             documentId={doc.id}
-                            companyId={doc.company_id}
                             currentDeptId={doc.department_id}
                             departments={companyDepts}
-                            onAssigned={() => window.location.reload()}
+                            onAssigned={(deptId) => handleSingleAssign(doc.id, deptId)}
                           />
                         </TableCell>
                       )}
