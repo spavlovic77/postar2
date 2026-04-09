@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TransactionHistory } from "../transaction-history";
 import { AdjustBalanceDialog } from "../adjust-balance-dialog";
+import { RefundDialog } from "../refund-dialog";
 
 export default async function WalletDetailPage({
   params,
@@ -73,9 +74,16 @@ export default async function WalletDetailPage({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Balance</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             <p className="text-3xl font-bold">{wallet.available_balance.toFixed(2)} EUR</p>
-            <AdjustBalanceDialog walletId={walletId} />
+            <div className="flex flex-wrap gap-2">
+              <AdjustBalanceDialog walletId={walletId} />
+              <RefundDialog
+                walletId={walletId}
+                balance={Number(wallet.available_balance)}
+                hasActiveCompanies={companies.length > 0}
+              />
+            </div>
           </CardContent>
         </Card>
         <Card>

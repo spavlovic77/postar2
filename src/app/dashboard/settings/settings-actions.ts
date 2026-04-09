@@ -13,6 +13,7 @@ const ALLOWED_KEYS = [
   "ion_ap_base_url",
   "ion_ap_api_token",
   "twilio_phone_number",
+  "welcome_credit_amount",
 ];
 
 export async function updateSystemSettings(formData: FormData) {

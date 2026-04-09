@@ -21,6 +21,7 @@ const SETTINGS: Setting[] = [
   { key: "ion_ap_base_url", label: "ion-AP Base URL", description: "ion-AP API URL (e.g. https://test.ion-ap.net)", type: "url" },
   { key: "ion_ap_api_token", label: "ion-AP API Token", description: "ion-AP super admin API token", type: "password" },
   { key: "twilio_phone_number", label: "Twilio Phone Number", description: "Phone number for SMS OTP", type: "text" },
+  { key: "welcome_credit_amount", label: "Welcome Credit (EUR)", description: "Amount credited to wallet on first Peppol activation. Set to 0 to disable.", type: "text" },
 ];
 
 interface Props {
