@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -29,6 +30,7 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );
