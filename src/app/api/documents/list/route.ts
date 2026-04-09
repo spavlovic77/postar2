@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("documents")
-    .select("*, company:companies(id, dic, legal_name)", { count: "exact" })
+    .select("*, company:companies!documents_company_id_fkey(id, dic, legal_name)", { count: "exact" })
     .eq("direction", "received")
     .order("peppol_created_at", { ascending: false })
     .limit(limit);
