@@ -632,7 +632,7 @@ export async function getDocuments(params: {
   const admin = getSupabaseAdmin();
   let query = admin
     .from("documents")
-    .select("*", { count: "exact" })
+    .select("*, company:companies(id, dic, legal_name)", { count: "exact" })
     .order("peppol_created_at", { ascending: false });
 
   if (!params.isSuperAdmin && params.companyIds.length > 0) {

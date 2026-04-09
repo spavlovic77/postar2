@@ -14,7 +14,7 @@ export default async function InboxPage({
   const data = await getUserWithRole();
   if (!data) redirect("/");
 
-  const { role, user, memberships } = data;
+  const { role, user, memberships, companies } = data;
   const params = await searchParams;
   const companyFilter = params.company ?? null;
   const companyIds = memberships.map((m) => m.company_id);
@@ -86,6 +86,7 @@ export default async function InboxPage({
         canTriage={canTriage}
         isSuperAdmin={role === "super_admin"}
         walletId={walletId}
+        companyCount={companies.length}
         filters={
           <FilterBar
             filters={[

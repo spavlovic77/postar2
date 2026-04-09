@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, Check, Lock, RefreshCw, Download, CreditCard } from "lucide-react";
+import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, ChevronUp, ChevronsUpDown, Check, Lock, RefreshCw, Download, CreditCard } from "lucide-react";
 import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -68,6 +68,7 @@ interface Props {
   canTriage: boolean;
   isSuperAdmin: boolean;
   walletId?: string | null;
+  companyCount?: number;
   filters?: React.ReactNode;
 }
 
@@ -140,6 +141,13 @@ function DeptPicker({
     </DropdownMenu>
   );
 }
+
+type SortField = "date" | "amount" | "from" | "status";
+type SortDir = "asc" | "desc";
+
+const STATUS_ORDER: Record<string, number> = {
+  new: 0, assigned: 1, processed: 2, pending: 3, processing: 4, failed: 5,
+};
 
 const ZIP_THRESHOLD = 5;
 
@@ -234,6 +242,7 @@ export function InboxList({
   canTriage,
   isSuperAdmin,
   walletId,
+  companyCount = 1,
   filters,
 }: Props) {
   const router = useRouter();
@@ -251,7 +260,52 @@ export function InboxList({
   const [showExportConfirm, setShowExportConfirm] = useState(false);
   const [exportType, setExportType] = useState<"xml" | "pdf" | "both">("xml");
   const [exportNote, setExportNote] = useState("");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const showToColumn = companyCount > 1 && !companyFilter;
   const { toast } = useToast();
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir(field === "date" ? "desc" : "asc");
+    }
+  };
+
+  const sortedDocuments = useMemo(() => {
+    const docs = [...documents];
+    docs.sort((a: any, b: any) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "date": {
+          const da = a.peppol_created_at ? new Date(a.peppol_created_at).getTime() : 0;
+          const db = b.peppol_created_at ? new Date(b.peppol_created_at).getTime() : 0;
+          cmp = da - db;
+          break;
+        }
+        case "amount": {
+          const aa = parseFloat(a.metadata?.totalAmount ?? "0") || 0;
+          const ab = parseFloat(b.metadata?.totalAmount ?? "0") || 0;
+          cmp = aa - ab;
+          break;
+        }
+        case "from": {
+          const fa = (a.metadata?.supplierName ?? a.sender_identifier ?? "").toLowerCase();
+          const fb = (b.metadata?.supplierName ?? b.sender_identifier ?? "").toLowerCase();
+          cmp = fa.localeCompare(fb);
+          break;
+        }
+        case "status": {
+          cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+          break;
+        }
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return docs;
+  }, [documents, sortField, sortDir]);
 
   // Sync with server data when props change (after router.refresh)
   useEffect(() => {
@@ -481,18 +535,36 @@ export function InboxList({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[30px]">
-                    <input type="checkbox" checked={selectedIds.size === documents.length && documents.length > 0} onChange={toggleSelectAll} className="rounded" />
+                    <input type="checkbox" checked={selectedIds.size === sortedDocuments.length && sortedDocuments.length > 0} onChange={toggleSelectAll} className="rounded" />
                   </TableHead>
                   <TableHead className="w-[30px]" />
-                  <TableHead>From</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>
+                    <button onClick={() => toggleSort("from")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      From
+                      {sortField === "from" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+                    </button>
+                  </TableHead>
+                  {showToColumn && (
+                    <TableHead className="hidden md:table-cell">To</TableHead>
+                  )}
+                  <TableHead className="text-right">
+                    <button onClick={() => toggleSort("amount")} className="ml-auto flex items-center gap-1 hover:text-foreground transition-colors">
+                      Amount
+                      {sortField === "amount" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+                    </button>
+                  </TableHead>
                   {canTriage && <TableHead>Department</TableHead>}
-                  <TableHead className="text-right">Date</TableHead>
+                  <TableHead className="text-right">
+                    <button onClick={() => toggleSort("date")} className="ml-auto flex items-center gap-1 hover:text-foreground transition-colors">
+                      Date
+                      {sortField === "date" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+                    </button>
+                  </TableHead>
                   <TableHead className="w-[40px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {documents.map((doc: any) => {
+                {sortedDocuments.map((doc: any) => {
                   const isUnread = doc.status === "new";
                   const isPending = doc.status === "pending" || doc.status === "processing";
                   const isFailed = doc.status === "failed";
@@ -563,6 +635,11 @@ export function InboxList({
                           </div>
                         )}
                       </TableCell>
+                      {showToColumn && (
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground truncate max-w-[150px]">
+                          {doc.company?.legal_name ?? doc.company?.dic ?? ""}
+                        </TableCell>
+                      )}
                       <TableCell className={cn("text-right text-sm font-medium", isLocked && "blur-sm select-none")}>
                         {doc.metadata?.totalAmount ? (
                           <span>{doc.metadata.totalAmount} {doc.metadata.currency ?? ""}</span>
