@@ -57,7 +57,7 @@ export default async function Home() {
                   href={registerLink}
                   className="inline-flex items-center justify-center rounded-lg bg-[#0B4EA2] px-8 py-3 text-base font-semibold text-white hover:bg-[#093d80] transition-colors shadow-sm"
                 >
-                  Register at your Digital Postman
+                  Choose us as a Digital Postman
                 </a>
                 <p className="text-xs text-[#9ca3af] dark:text-[#6b7280]">
                   You will be redirected to the Tax Administration office portal
