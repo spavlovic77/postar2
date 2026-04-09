@@ -10,6 +10,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text, text);
 
+drop table if exists tos_acceptances cascade;
 drop table if exists magic_links cascade;
 drop table if exists system_settings cascade;
 drop table if exists payment_links cascade;
@@ -112,7 +113,8 @@ insert into system_settings (key, value, description) values
   ('pfs_activation_link', '', 'URL sent to customers for PFS portal onboarding'),
   ('ion_ap_base_url', 'https://test.ion-ap.net', 'ion-AP API base URL'),
   ('ion_ap_api_token', '', 'ion-AP super admin API token'),
-  ('twilio_phone_number', '', 'Twilio phone number for SMS OTP');
+  ('twilio_phone_number', '', 'Twilio phone number for SMS OTP'),
+  ('welcome_credit_amount', '0.03', 'Welcome credit (EUR) added to wallet on first Peppol activation. Set to 0 to disable.');
 
 -- ----------------------
 -- Companies
@@ -401,6 +403,23 @@ create index idx_magic_links_token on magic_links (token);
 create index idx_magic_links_user on magic_links (user_id);
 
 -- ----------------------
+-- ToS Acceptances (audit trail of legal document acceptance)
+-- ----------------------
+create table tos_acceptances (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  vop_version text not null,
+  privacy_version text not null,
+  vop_downloaded_at timestamptz,
+  privacy_downloaded_at timestamptz,
+  source_ip text,
+  user_agent text,
+  accepted_at timestamptz not null default now()
+);
+
+create index idx_tos_acceptances_user on tos_acceptances (user_id, accepted_at);
+
+-- ----------------------
 -- Verification Codes (6-digit OTP for email/SMS)
 -- ----------------------
 create table verification_codes (
@@ -521,6 +540,7 @@ alter table wallet_transactions enable row level security;
 alter table payment_links enable row level security;
 alter table document_notes enable row level security;
 alter table magic_links enable row level security;
+alter table tos_acceptances enable row level security;
 
 -- System Settings (super admin only)
 create policy "Super admins can view system settings"

@@ -598,12 +598,16 @@ export async function activateCompanyOnPeppol(companyId: string) {
       try {
         const wallet = await getOrCreateWallet(user.id);
         if (wallet.available_balance === 0) {
-          await topUpWallet(
-            wallet.id,
-            0.03,
-            { type: "initial_credit", reason: "Welcome credit on Peppol activation" },
-            user.id,
-          );
+          const { getWelcomeCreditAmount } = await import("@/lib/settings");
+          const welcomeCredit = await getWelcomeCreditAmount();
+          if (welcomeCredit > 0) {
+            await topUpWallet(
+              wallet.id,
+              welcomeCredit,
+              { type: "initial_credit", reason: "Welcome credit on Peppol activation" },
+              user.id,
+            );
+          }
         }
       } catch (err) {
         console.error("Failed to create wallet with initial credit:", err);
@@ -907,6 +911,41 @@ export async function revokeInvitation(invitationId: string) {
   });
 
   revalidatePath("/dashboard/users");
+  return { success: true };
+}
+
+/**
+ * Record acceptance of legal documents (VOP + Privacy Policy).
+ * Called from the activation page after user downloads both PDFs and confirms.
+ */
+export async function recordTosAcceptance(params: {
+  vopVersion: string;
+  privacyVersion: string;
+  vopDownloadedAt: string | null;
+  privacyDownloadedAt: string | null;
+}) {
+  const user = await getAuthUser();
+  const admin = getSupabaseAdmin();
+
+  await admin.from("tos_acceptances").insert({
+    user_id: user.id,
+    vop_version: params.vopVersion,
+    privacy_version: params.privacyVersion,
+    vop_downloaded_at: params.vopDownloadedAt,
+    privacy_downloaded_at: params.privacyDownloadedAt,
+  });
+
+  audit({
+    eventId: "TOS_ACCEPTED",
+    eventName: "Terms of Service and Privacy Policy accepted",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    details: {
+      vopVersion: params.vopVersion,
+      privacyVersion: params.privacyVersion,
+    },
+  });
+
   return { success: true };
 }
 

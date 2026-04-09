@@ -74,6 +74,13 @@ export default async function Home() {
           This is a demo version for educational purposes only.
           Ask support at peppol(at)financnasprava.sk
         </p>
+        <div className="flex items-center justify-center gap-3 text-[11px] text-[#b0b0b0] dark:text-[#555]">
+          <a href="/legal/vop" className="hover:text-[#888] dark:hover:text-[#777] transition-colors">VOP</a>
+          <span>·</span>
+          <a href="/legal/ochrana-udajov" className="hover:text-[#888] dark:hover:text-[#777] transition-colors">Ochrana údajov</a>
+          <span>·</span>
+          <a href="/legal/dpa" className="hover:text-[#888] dark:hover:text-[#777] transition-colors">DPA</a>
+        </div>
         <a
           href="https://github.com/spavlovic77/postar2"
           target="_blank"

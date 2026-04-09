@@ -108,3 +108,13 @@ export async function getIonApApiToken(): Promise<string> {
 export async function getTwilioPhoneNumber(): Promise<string> {
   return getSetting("twilio_phone_number", "TWILIO_PHONE_NUMBER", "");
 }
+
+/**
+ * Welcome credit added to a wallet on first Peppol activation.
+ * Configurable in EUR. Default 0.03 EUR. Set to 0 to disable.
+ */
+export async function getWelcomeCreditAmount(): Promise<number> {
+  const v = await getSetting("welcome_credit_amount", undefined, "0.03");
+  const num = parseFloat(v);
+  return isNaN(num) || num < 0 ? 0 : num;
+}
