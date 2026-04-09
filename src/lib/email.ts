@@ -171,7 +171,13 @@ export async function sendDocumentReceivedEmail(params: {
 }): Promise<void> {
   const resend = getResend();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
-  const docUrl = `${appUrl}/dashboard/inbox/${params.documentId}`;
+  const directUrl = `/dashboard/inbox/${params.documentId}`;
+
+  // Try to create a magic link for one-click sign-in.
+  // Falls back to direct URL (which redirects to sign-in) if user not found.
+  const { createMagicLinkForEmail } = await import("@/lib/magic-link");
+  const magicUrl = await createMagicLinkForEmail(params.to, directUrl, appUrl);
+  const docUrl = magicUrl ?? `${appUrl}${directUrl}`;
 
   const docType = params.documentType === "CreditNote" ? "Credit Note" : "Invoice";
   const from = params.supplierName ?? params.supplierTaxId ?? "Unknown sender";

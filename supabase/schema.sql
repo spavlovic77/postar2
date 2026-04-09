@@ -10,6 +10,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
 drop function if exists upsert_profile(uuid, text, text, text);
 
+drop table if exists magic_links cascade;
 drop table if exists system_settings cascade;
 drop table if exists payment_links cascade;
 drop table if exists wallet_transactions cascade;
@@ -384,6 +385,22 @@ create index idx_payment_links_external on payment_links (external_transaction_i
 create index idx_payment_links_pending on payment_links (status) where status = 'pending';
 
 -- ----------------------
+-- Magic Links (one-click email auth, single-use)
+-- ----------------------
+create table magic_links (
+  id uuid primary key default gen_random_uuid(),
+  token text not null unique default encode(gen_random_bytes(32), 'hex'),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  redirect_to text not null,
+  expires_at timestamptz not null default (now() + interval '7 days'),
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index idx_magic_links_token on magic_links (token);
+create index idx_magic_links_user on magic_links (user_id);
+
+-- ----------------------
 -- Verification Codes (6-digit OTP for email/SMS)
 -- ----------------------
 create table verification_codes (
@@ -503,6 +520,7 @@ alter table wallets enable row level security;
 alter table wallet_transactions enable row level security;
 alter table payment_links enable row level security;
 alter table document_notes enable row level security;
+alter table magic_links enable row level security;
 
 -- System Settings (super admin only)
 create policy "Super admins can view system settings"
