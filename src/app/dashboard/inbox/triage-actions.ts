@@ -83,6 +83,85 @@ export async function assignDocumentToDepartment(
   return { success: true };
 }
 
+/**
+ * Manually change a document's status. Only admin/operator.
+ * Allowed transitions: to new, assigned, or processed.
+ * Processed status requires a note (handled by markDocumentProcessed instead).
+ * Changing to 'new' clears the department.
+ */
+export async function updateDocumentStatus(
+  documentId: string,
+  newStatus: "new" | "assigned" | "processed"
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getSupabaseAdmin();
+
+  const { data: doc } = await admin
+    .from("documents")
+    .select("company_id, status, department_id")
+    .eq("id", documentId)
+    .single();
+
+  if (!doc) return { error: "Document not found" };
+
+  // Check permission: super admin, company admin, or operator
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
+    const { data: membership } = await admin
+      .from("company_memberships")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("company_id", doc.company_id)
+      .eq("status", "active")
+      .single();
+
+    if (membership?.role !== "company_admin" && membership?.role !== "operator") {
+      return { error: "Only admins and operators can change document status" };
+    }
+  }
+
+  // Changing to 'assigned' requires a department to already be set
+  if (newStatus === "assigned" && !doc.department_id) {
+    return { error: "Assign the document to a department first" };
+  }
+
+  const updates: Record<string, any> = { status: newStatus };
+  // Changing to 'new' also clears department
+  if (newStatus === "new") {
+    updates.department_id = null;
+  }
+
+  await admin.from("documents").update(updates).eq("id", documentId);
+
+  audit({
+    eventId: "DOCUMENT_STATUS_UPDATED",
+    eventName: "Document status manually updated",
+    actorId: user.id,
+    actorEmail: user.email ?? undefined,
+    companyId: doc.company_id,
+    details: {
+      documentId,
+      oldStatus: doc.status,
+      newStatus,
+    },
+  });
+
+  revalidatePath("/dashboard/inbox");
+  revalidatePath(`/dashboard/inbox/${documentId}`);
+  return { success: true };
+}
+
 export async function bulkAssignDocuments(
   documentIds: string[],
   departmentId: string

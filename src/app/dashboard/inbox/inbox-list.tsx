@@ -19,12 +19,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mail, MailOpen, FileText, AlertCircle, Loader2, FolderInput, ChevronDown, ChevronUp, ChevronsUpDown, Check, Lock, RefreshCw, Download, CreditCard } from "lucide-react";
+import { Mail, MailOpen, FileText, FileCode2, AlertCircle, Loader2, FolderInput, ChevronDown, ChevronUp, ChevronsUpDown, Check, Lock, RefreshCw, Download, CreditCard } from "lucide-react";
 import { LoadMore } from "@/components/ui/load-more";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { assignDocumentToDepartment, bulkAssignDocuments } from "./triage-actions";
-import { bulkMarkDocumentsProcessed } from "./[id]/actions";
+import { assignDocumentToDepartment, bulkAssignDocuments, updateDocumentStatus } from "./triage-actions";
+import { bulkMarkDocumentsProcessed, markDocumentProcessed } from "./[id]/actions";
 import { TopUpDialog } from "@/app/dashboard/wallet/top-up-dialog";
 import {
   Dialog,
@@ -72,6 +72,15 @@ interface Props {
   filters?: React.ReactNode;
 }
 
+const STATUS_STYLES: Record<string, string> = {
+  new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  assigned: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  processed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  pending: "bg-muted text-muted-foreground",
+  processing: "bg-muted text-muted-foreground",
+  failed: "bg-destructive/10 text-destructive",
+};
+
 function DeptPicker({
   documentId,
   currentDeptId,
@@ -81,22 +90,26 @@ function DeptPicker({
   documentId: string;
   currentDeptId: string | null;
   departments: Department[];
-  onAssigned: (deptId: string) => void;
+  onAssigned: (deptId: string | null) => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const currentDept = departments.find((d) => d.id === currentDeptId);
 
-  const handleAssign = async (deptId: string) => {
+  const handleAssign = async (deptId: string | null) => {
     setIsLoading(true);
     const result = await assignDocumentToDepartment(documentId, deptId);
     setIsLoading(false);
     if (result.error) {
       toast(result.error, "error");
     } else {
-      const dept = departments.find((d) => d.id === deptId);
-      toast(`Assigned to ${dept?.name ?? "department"}`);
+      if (deptId === null) {
+        toast("Reset to unassigned");
+      } else {
+        const dept = departments.find((d) => d.id === deptId);
+        toast(`Assigned to ${dept?.name ?? "department"}`);
+      }
       onAssigned(deptId);
     }
   };
@@ -125,6 +138,12 @@ function DeptPicker({
         }
       />
       <DropdownMenuContent align="start" className="w-[200px]">
+        {currentDeptId && (
+          <DropdownMenuItem onClick={() => handleAssign(null)}>
+            <Check className="mr-2 h-3.5 w-3.5 opacity-0" />
+            <span className="text-muted-foreground">Unassigned</span>
+          </DropdownMenuItem>
+        )}
         {departments.length === 0 ? (
           <DropdownMenuItem disabled>No departments</DropdownMenuItem>
         ) : (
@@ -140,20 +159,151 @@ function DeptPicker({
   );
 }
 
+function RowDownloadButton({
+  documentId,
+  status,
+  canDownload,
+  onRequestXmlExport,
+}: {
+  documentId: string;
+  status: string;
+  canDownload: boolean;
+  onRequestXmlExport: () => void;
+}) {
+  if (!canDownload) return null;
+
+  const canExportXml = status !== "processed";
+
+  const handleDownloadPdf = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`/api/documents/${documentId}/pdf`, "_blank");
+  };
+
+  const handleExportXml = () => {
+    onRequestXmlExport();
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
+            title="Download"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Download className="h-4 w-4 text-muted-foreground" />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-[180px]" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem onClick={handleDownloadPdf}>
+          <FileText className="mr-2 h-3.5 w-3.5" />
+          PDF
+        </DropdownMenuItem>
+        {canExportXml && (
+          <DropdownMenuItem onClick={handleExportXml}>
+            <FileCode2 className="mr-2 h-3.5 w-3.5" />
+            XML &amp; Process
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function StatusPicker({
+  documentId,
+  currentStatus,
+  canEdit,
+  isPending,
+  isFailed,
+  onStatusChanged,
+  onRequestProcessedNote,
+}: {
+  documentId: string;
+  currentStatus: string;
+  canEdit: boolean;
+  isPending: boolean;
+  isFailed: boolean;
+  onStatusChanged: (status: "new" | "assigned" | "processed") => void;
+  onRequestProcessedNote: () => void;
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const badge = (
+    <div className="flex items-center gap-1.5">
+      {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+      {isFailed && <AlertCircle className="h-3 w-3 text-destructive shrink-0" />}
+      <Badge className={cn("text-xs capitalize", STATUS_STYLES[currentStatus] ?? "")}>
+        {currentStatus}
+      </Badge>
+      {canEdit && !isPending && !isFailed && <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />}
+    </div>
+  );
+
+  // Non-editable or system states — just show the badge
+  if (!canEdit || isPending || isFailed) {
+    return badge;
+  }
+
+  const handleChange = async (newStatus: "new" | "assigned" | "processed") => {
+    if (newStatus === currentStatus) return;
+
+    // Processed requires a note — open the dialog instead of direct call
+    if (newStatus === "processed") {
+      onRequestProcessedNote();
+      return;
+    }
+
+    setIsLoading(true);
+    const result = await updateDocumentStatus(documentId, newStatus);
+    setIsLoading(false);
+    if (result.error) {
+      toast(result.error, "error");
+    } else {
+      toast(`Status changed to ${newStatus}`);
+      onStatusChanged(newStatus);
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            className="flex items-center gap-1.5 rounded hover:bg-muted/50 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : badge}
+          </button>
+        }
+      />
+      <DropdownMenuContent align="start" className="w-[180px]">
+        <DropdownMenuItem onClick={() => handleChange("new")}>
+          <Check className={cn("mr-2 h-3.5 w-3.5", currentStatus === "new" ? "opacity-100" : "opacity-0")} />
+          <Badge className={cn("text-xs capitalize", STATUS_STYLES.new)}>new</Badge>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleChange("assigned")}>
+          <Check className={cn("mr-2 h-3.5 w-3.5", currentStatus === "assigned" ? "opacity-100" : "opacity-0")} />
+          <Badge className={cn("text-xs capitalize", STATUS_STYLES.assigned)}>assigned</Badge>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleChange("processed")}>
+          <Check className={cn("mr-2 h-3.5 w-3.5", currentStatus === "processed" ? "opacity-100" : "opacity-0")} />
+          <Badge className={cn("text-xs capitalize", STATUS_STYLES.processed)}>processed</Badge>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 type SortField = "date" | "amount" | "from" | "status";
 type SortDir = "asc" | "desc";
 
 const STATUS_ORDER: Record<string, number> = {
   new: 0, assigned: 1, processed: 2, pending: 3, processing: 4, failed: 5,
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  assigned: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  processed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  pending: "bg-muted text-muted-foreground",
-  processing: "bg-muted text-muted-foreground",
-  failed: "bg-destructive/10 text-destructive",
 };
 
 const ZIP_THRESHOLD = 5;
@@ -269,6 +419,12 @@ export function InboxList({
   const [exportNote, setExportNote] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [processedDialog, setProcessedDialog] = useState<{ documentId: string } | null>(null);
+  const [processedNote, setProcessedNote] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [xmlExportDialog, setXmlExportDialog] = useState<{ documentId: string } | null>(null);
+  const [xmlExportNote, setXmlExportNote] = useState("");
+  const [isXmlExporting, setIsXmlExporting] = useState(false);
   const showToColumn = companyCount > 1 && !companyFilter;
   const { toast } = useToast();
 
@@ -384,13 +540,61 @@ export function InboxList({
     }
   };
 
-  const handleSingleAssign = (documentId: string, deptId: string) => {
+  const handleStatusChanged = (documentId: string, newStatus: "new" | "assigned" | "processed") => {
     setDocuments((prev: any[]) =>
-      prev.map((d) =>
-        d.id === documentId
-          ? { ...d, department_id: deptId, status: d.status === "new" ? "assigned" : d.status }
-          : d
-      )
+      prev.map((d) => {
+        if (d.id !== documentId) return d;
+        if (newStatus === "new") {
+          return { ...d, status: "new", department_id: null };
+        }
+        return { ...d, status: newStatus };
+      })
+    );
+  };
+
+  const handleConfirmProcessed = async () => {
+    if (!processedDialog || !processedNote.trim()) return;
+    setIsProcessing(true);
+    const result = await markDocumentProcessed(processedDialog.documentId, processedNote.trim());
+    setIsProcessing(false);
+    if (result.error) {
+      toast(result.error, "error");
+    } else {
+      toast("Marked as processed");
+      handleStatusChanged(processedDialog.documentId, "processed");
+      setProcessedDialog(null);
+      setProcessedNote("");
+    }
+  };
+
+  const handleConfirmXmlExport = async () => {
+    if (!xmlExportDialog || !xmlExportNote.trim()) return;
+    setIsXmlExporting(true);
+    // Download XML first
+    window.open(`/api/documents/${xmlExportDialog.documentId}/xml`, "_blank");
+    // Then mark as processed
+    const result = await markDocumentProcessed(xmlExportDialog.documentId, xmlExportNote.trim());
+    setIsXmlExporting(false);
+    if (result.error) {
+      toast(result.error, "error");
+    } else {
+      toast("XML exported, marked as processed");
+      handleStatusChanged(xmlExportDialog.documentId, "processed");
+      setXmlExportDialog(null);
+      setXmlExportNote("");
+    }
+  };
+
+  const handleSingleAssign = (documentId: string, deptId: string | null) => {
+    setDocuments((prev: any[]) =>
+      prev.map((d) => {
+        if (d.id !== documentId) return d;
+        if (deptId === null) {
+          // Unassign: clear department, reset to new (unless processed)
+          return { ...d, department_id: null, status: d.status === "processed" ? d.status : "new" };
+        }
+        return { ...d, department_id: deptId, status: d.status === "new" ? "assigned" : d.status };
+      })
     );
   };
 
@@ -626,14 +830,16 @@ export function InboxList({
                       <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="rounded" />
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                          {isFailed && <AlertCircle className="h-3 w-3 text-destructive shrink-0" />}
-                          <Badge className={cn("text-xs capitalize", STATUS_STYLES[doc.status] ?? "")}>
-                            {doc.status}
-                          </Badge>
-                        </div>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <StatusPicker
+                          documentId={doc.id}
+                          currentStatus={doc.status}
+                          canEdit={canTriage}
+                          isPending={isPending}
+                          isFailed={isFailed}
+                          onStatusChanged={(s) => handleStatusChanged(doc.id, s)}
+                          onRequestProcessedNote={() => { setProcessedNote(""); setProcessedDialog({ documentId: doc.id }); }}
+                        />
                       </TableCell>
                       <TableCell>
                         {isLocked ? (
@@ -692,15 +898,12 @@ export function InboxList({
                         {doc.peppol_created_at ? formatDate(doc.peppol_created_at) : "-"}
                       </TableCell>
                       <TableCell className="pr-3" onClick={(e) => e.stopPropagation()}>
-                        {canDownloadPdf && (
-                          <button
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
-                            title="View PDF"
-                            onClick={() => window.open(`/api/documents/${doc.id}/pdf`, "_blank")}
-                          >
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                          </button>
-                        )}
+                        <RowDownloadButton
+                          documentId={doc.id}
+                          status={doc.status}
+                          canDownload={canDownloadPdf}
+                          onRequestXmlExport={() => { setXmlExportNote(""); setXmlExportDialog({ documentId: doc.id }); }}
+                        />
                       </TableCell>
                     </TableRow>
                   );
@@ -711,6 +914,58 @@ export function InboxList({
 
           <LoadMore hasMore={!!cursor} isLoading={isLoadingMore} onLoadMore={loadMore} loadedCount={documents.length} total={total} />
         </>
+      )}
+
+      {processedDialog && (
+        <Dialog open onOpenChange={(open) => !open && setProcessedDialog(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Mark as Processed</DialogTitle>
+              <DialogDescription>
+                Add a note describing how this document was processed.
+              </DialogDescription>
+            </DialogHeader>
+            <textarea
+              value={processedNote}
+              onChange={(e) => setProcessedNote(e.target.value)}
+              placeholder="e.g., Payment verified, forwarded to accounting..."
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setProcessedDialog(null)}>Cancel</Button>
+              <Button onClick={handleConfirmProcessed} disabled={isProcessing || !processedNote.trim()}>
+                {isProcessing ? "Saving..." : "Mark as Processed"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {xmlExportDialog && (
+        <Dialog open onOpenChange={(open) => !open && setXmlExportDialog(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Export XML &amp; Mark as Processed</DialogTitle>
+              <DialogDescription>
+                The XML file is the legally valid electronic invoice. Exporting it will mark this document as processed. Add a note for the audit trail.
+              </DialogDescription>
+            </DialogHeader>
+            <textarea
+              value={xmlExportNote}
+              onChange={(e) => setXmlExportNote(e.target.value)}
+              placeholder="e.g., Exported to accounting system..."
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setXmlExportDialog(null)}>Cancel</Button>
+              <Button onClick={handleConfirmXmlExport} disabled={isXmlExporting || !xmlExportNote.trim()}>
+                {isXmlExporting ? "Exporting..." : "Export XML & Process"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {showExportConfirm && (
