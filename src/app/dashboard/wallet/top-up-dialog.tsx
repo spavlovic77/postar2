@@ -66,8 +66,8 @@ export function TopUpDialog({ walletId, onClose, onSuccess }: Props) {
 
   const handleGenerate = async () => {
     const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount < 0.05 || numAmount > 10000) {
-      toast("Enter an amount between 0.05 and 10,000 EUR", "error");
+    if (!numAmount || numAmount < 0.50 || numAmount > 100) {
+      toast("Enter an amount between 0.50 and 100 EUR", "error");
       return;
     }
 
@@ -126,7 +126,7 @@ export function TopUpDialog({ walletId, onClose, onSuccess }: Props) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                min="0.05"
+                min="0.50"
                 step="0.01"
                 autoFocus
               />

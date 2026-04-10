@@ -1,4 +1,4 @@
-# Všeobecné obchodné podmienky služby peppolbox.sk
+# Všeobecné obchodné podmienky služby peppolbox
 
 **Platné od:** [DOPLNIŤ DÁTUM]
 **Verzia:** 1.0
@@ -7,7 +7,7 @@
 
 ## 1. Úvodné ustanovenia a identifikácia poskytovateľa
 
-1.1. Tieto všeobecné obchodné podmienky (ďalej len **„VOP"**) upravujú práva a povinnosti medzi poskytovateľom služby a zákazníkom pri poskytovaní služby **peppolbox.sk** (ďalej len **„Služba"**).
+1.1. Tieto všeobecné obchodné podmienky (ďalej len **„VOP"**) upravujú práva a povinnosti medzi poskytovateľom služby a zákazníkom pri poskytovaní služby **peppolbox** (ďalej len **„Služba"**).
 
 1.2. **Poskytovateľom** je obchodná spoločnosť:
 
@@ -30,7 +30,7 @@
 
 ## 2. Predmet a opis Služby
 
-2.1. Služba **peppolbox.sk** je elektronická poštová schránka pre prijímanie elektronických faktúr a iných obchodných dokumentov prostredníctvom siete **Peppol** (Pan-European Public Procurement OnLine). Služba plní funkciu „digitálneho poštára" pre Zákazníka.
+2.1. Služba **peppolbox** je elektronická poštová schránka pre prijímanie elektronických faktúr a iných obchodných dokumentov prostredníctvom siete **Peppol** (Pan-European Public Procurement OnLine). Služba plní funkciu „digitálneho poštára" pre Zákazníka.
 
 2.2. Hlavné funkcie Služby zahŕňajú:
 
@@ -104,9 +104,9 @@
 
 ## 5. Dobitie peňaženky a platby
 
-5.1. Zákazník dobíja peňaženku prostredníctvom **QR platby** generovanej v užívateľskom rozhraní Služby vo formáte **payme link standard**. QR kód je technicky doručený prostredníctvom systému **NOP (Notifikátor okamžitých platieb)** Finančnej správy SR.
+5.1. Zákazník dobíja peňaženku prostredníctvom **QR platby** generovanej v užívateľskom rozhraní Služby vo formáte **payme link standard**. QR kód obsahuje ID transakcie poskytnuté štátnym systémom **NOP (Notifikátor okamžitých platieb)** Finančnej správy SR. Zákazník vykoná platbu prevodom okamžitou úhradou.
 
-5.2. **Minimálna suma jedného dobitia je 5,00 EUR.** Maximálna suma jedného dobitia je 10 000,00 EUR.
+5.2. **Minimálna suma jedného dobitia je 0,50 EUR.** Maximálna suma jedného dobitia je 100,00 EUR.
 
 5.3. Po prijatí platby Poskytovateľom je peňaženka pripísaná v zostatku okamžite a Zákazníkovi je automaticky vystavená **elektronická faktúra** (e-faktúra) v zmysle zákona o DPH. Faktúra je zaslaná prostredníctvom siete Peppol na Peppol identifikátor Zákazníka.
 
