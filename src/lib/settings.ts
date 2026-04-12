@@ -118,3 +118,13 @@ export async function getWelcomeCreditAmount(): Promise<number> {
   const num = parseFloat(v);
   return isNaN(num) || num < 0 ? 0 : num;
 }
+
+/**
+ * Current highest bid for the peppolbox.sk domain charity auction (EUR).
+ * Starting price is 10 EUR. Updated manually via /auction/admin.
+ */
+export async function getAuctionCurrentBid(): Promise<number> {
+  const v = await getSetting("auction_current_bid", undefined, "10");
+  const num = parseFloat(v);
+  return isNaN(num) || num < 0 ? 10 : num;
+}

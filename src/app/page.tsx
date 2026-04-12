@@ -81,6 +81,21 @@ export default async function Home() {
           <span>·</span>
           <a href="/legal/dpa" className="hover:text-[#888] dark:hover:text-[#777] transition-colors">DPA</a>
         </div>
+        <p className="text-[11px] text-[#b0b0b0] dark:text-[#555]">
+          Doména peppolbox.sk je v charitatívnej aukcii v prospech{" "}
+          <a
+            href="https://www.plamienok.sk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#888] dark:hover:text-[#777] transition-colors underline underline-offset-2"
+          >
+            Plamienok
+          </a>
+          {" — "}
+          <a href="/auction" className="hover:text-[#888] dark:hover:text-[#777] transition-colors underline underline-offset-2">
+            detaily
+          </a>
+        </p>
         <a
           href="https://github.com/spavlovic77/postar2"
           target="_blank"
