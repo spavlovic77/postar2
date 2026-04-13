@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MoreHorizontal, FileDown, FileCode2, RefreshCw, CheckCircle2, Undo2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { retryDocument, markDocumentProcessed, returnDocumentToTriage } from "./actions";
 
 interface Props {
@@ -26,13 +27,13 @@ interface Props {
   ionApTransactionId: number;
 }
 
-export function DocumentActions({ documentId, status, ionApTransactionId }: Props) {
+export function DocumentActions({ documentId, status }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [showProcessed, setShowProcessed] = useState(false);
-  const [showExportXml, setShowExportXml] = useState(false);
   const [showReturnTriage, setShowReturnTriage] = useState(false);
   const [note, setNote] = useState("");
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleRetry = async () => {
     setIsLoading(true);
@@ -66,32 +67,36 @@ export function DocumentActions({ documentId, status, ionApTransactionId }: Prop
   };
 
   const handleExportXmlAndProcess = async () => {
-    if (!note.trim()) return;
     setIsLoading(true);
 
-    // Download XML as a file (not open in new tab)
     try {
       const res = await fetch(`/api/documents/${documentId}/xml`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `document-${documentId.slice(0, 8)}.xml`;
-        a.click();
-        URL.revokeObjectURL(a.href);
+      if (!res.ok) {
+        toast("Failed to download XML", "error");
+        setIsLoading(false);
+        return;
       }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `document-${documentId.slice(0, 8)}.xml`;
+      a.click();
+      URL.revokeObjectURL(a.href);
     } catch {
-      // Non-fatal: still mark as processed
+      toast("Failed to download XML", "error");
+      setIsLoading(false);
+      return;
     }
 
-    // Then mark as processed
-    const result = await markDocumentProcessed(documentId, note);
+    const autoNote = `Exported XML to accounting system on ${new Date().toLocaleDateString("sk-SK")}`;
+    const result = await markDocumentProcessed(documentId, autoNote);
     setIsLoading(false);
-    if (!result.error) {
-      setShowExportXml(false);
-      setNote("");
-      router.refresh();
+    if (result.error) {
+      toast(result.error, "error");
+      return;
     }
+    toast("XML exported and document marked as processed");
+    router.refresh();
   };
 
   const handleDownloadPdf = () => {
@@ -104,43 +109,45 @@ export function DocumentActions({ documentId, status, ionApTransactionId }: Prop
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" size="icon" />}>
-          <MoreHorizontal className="h-4 w-4" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {isPendingOrFailed && (
-            <DropdownMenuItem onClick={handleRetry} disabled={isLoading}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Retry Processing
-            </DropdownMenuItem>
-          )}
-          {canMarkProcessed && (
-            <>
-              <DropdownMenuItem onClick={() => { setNote(""); setShowExportXml(true); }} disabled={isLoading}>
-                <FileCode2 className="mr-2 h-4 w-4" />
-                Export XML & Process
+      <div className="flex items-center gap-2">
+        {canMarkProcessed && (
+          <Button onClick={handleExportXmlAndProcess} disabled={isLoading}>
+            <FileCode2 className="mr-2 h-4 w-4" />
+            {isLoading ? "Exporting…" : "Export XML & Process"}
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" size="icon" />}>
+            <MoreHorizontal className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {isPendingOrFailed && (
+              <DropdownMenuItem onClick={handleRetry} disabled={isLoading}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry Processing
               </DropdownMenuItem>
+            )}
+            {canMarkProcessed && (
               <DropdownMenuItem onClick={() => { setNote(""); setShowProcessed(true); }} disabled={isLoading}>
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Mark as Processed
               </DropdownMenuItem>
-            </>
-          )}
-          {canReturnToTriage && (
-            <DropdownMenuItem onClick={() => { setNote(""); setShowReturnTriage(true); }} disabled={isLoading}>
-              <Undo2 className="mr-2 h-4 w-4" />
-              Return to Triage
-            </DropdownMenuItem>
-          )}
-          {!isPendingOrFailed && (
-            <DropdownMenuItem onClick={handleDownloadPdf}>
-              <FileDown className="mr-2 h-4 w-4" />
-              Download PDF
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            )}
+            {canReturnToTriage && (
+              <DropdownMenuItem onClick={() => { setNote(""); setShowReturnTriage(true); }} disabled={isLoading}>
+                <Undo2 className="mr-2 h-4 w-4" />
+                Return to Triage
+              </DropdownMenuItem>
+            )}
+            {!isPendingOrFailed && (
+              <DropdownMenuItem onClick={handleDownloadPdf}>
+                <FileDown className="mr-2 h-4 w-4" />
+                Download PDF
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {showReturnTriage && (
         <Dialog open onOpenChange={(open) => !open && setShowReturnTriage(false)}>
@@ -162,32 +169,6 @@ export function DocumentActions({ documentId, status, ionApTransactionId }: Prop
               <Button variant="outline" onClick={() => setShowReturnTriage(false)}>Cancel</Button>
               <Button onClick={handleReturnToTriage} disabled={isLoading || !note.trim()}>
                 {isLoading ? "Returning..." : "Return to Triage"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {showExportXml && (
-        <Dialog open onOpenChange={(open) => !open && setShowExportXml(false)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Export XML & Mark as Processed</DialogTitle>
-              <DialogDescription>
-                The XML file is the legally valid electronic invoice. Exporting it will mark this document as processed. Add a note for the audit trail.
-              </DialogDescription>
-            </DialogHeader>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g., Exported to accounting system..."
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
-              autoFocus
-            />
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowExportXml(false)}>Cancel</Button>
-              <Button onClick={handleExportXmlAndProcess} disabled={isLoading || !note.trim()}>
-                {isLoading ? "Exporting..." : "Export XML & Process"}
               </Button>
             </DialogFooter>
           </DialogContent>

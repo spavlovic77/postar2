@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageSquare, CheckCircle2, FolderInput, Mail, FileText, CreditCard, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDocumentNote } from "./actions";
@@ -57,13 +56,9 @@ export function DocumentTimeline({ entries, documentId }: Props) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Activity & Notes</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add note form */}
-        <div className="flex gap-2">
+    <div className="space-y-4">
+      {/* Add note form */}
+      <div className="flex gap-2">
           <input
             type="text"
             value={note}
@@ -114,9 +109,8 @@ export function DocumentTimeline({ entries, documentId }: Props) {
                 </div>
               );
             })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }

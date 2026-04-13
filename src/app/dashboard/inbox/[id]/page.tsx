@@ -1,26 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import { redirect, notFound } from "next/navigation";
-import { getUserWithRole, getDocument } from "@/lib/dal";
 import Link from "next/link";
+import { getUserWithRole, getDocument, getUserDepartments } from "@/lib/dal";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DocumentActions } from "./document-actions";
-import { DocumentTimeline } from "./document-timeline";
-import { audit } from "@/lib/audit";
-import { getUserDepartments } from "@/lib/dal";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { FileDown } from "lucide-react";
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { DocumentActions } from "./document-actions";
+import { DocumentSidebar } from "./document-sidebar";
 
 function documentTypeLabel(type: string | null) {
   if (!type) return "Document";
@@ -37,6 +27,16 @@ const STATUS_STYLES: Record<string, string> = {
   processed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
 };
 
+const AUDIT_ICONS: Record<string, string> = {
+  DOCUMENT_READ: "mail",
+  DOCUMENT_ASSIGNED: "folder",
+  DOCUMENTS_BULK_ASSIGNED: "folder",
+  DOCUMENT_PROCESSED: "check",
+  DOCUMENT_CHARGED: "card",
+  PEPPOL_DOCUMENT_RECEIVED: "file",
+  DOCUMENT_NOTE_ADDED: "comment",
+};
+
 export default async function DocumentDetailPage({
   params,
 }: {
@@ -51,28 +51,24 @@ export default async function DocumentDetailPage({
   const doc = await getDocument(id);
   if (!doc) notFound();
 
-  // Check access
   if (role !== "super_admin") {
     const hasAccess = memberships.some((m) => m.company_id === doc.company_id);
     if (!hasAccess) notFound();
   }
 
-  // Processor: can only view documents assigned to their department(s)
   if (role === "processor" && doc.department_id) {
     const userDepts = await getUserDepartments(user.id);
     const userDeptIds = userDepts.map((dm: any) => dm.department_id);
     if (!userDeptIds.includes(doc.department_id)) notFound();
   } else if (role === "processor" && !doc.department_id) {
-    // Processor cannot see unassigned documents
     notFound();
   }
 
-  // Billing gate: block unbilled documents for non-super-admins
   const isUnbilled = !doc.billed_at && ["new", "read", "assigned", "processed"].includes(doc.status);
   if (isUnbilled && role !== "super_admin") {
     return (
       <div className="flex flex-col items-center gap-4 py-16">
-        <Card className="max-w-md w-full">
+        <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Document Locked</CardTitle>
           </CardHeader>
@@ -90,11 +86,8 @@ export default async function DocumentDetailPage({
     );
   }
 
-  // No auto-mark-as-read — document stays "new" until assigned or processed
-
   const company = (doc as any).company;
 
-  // Fetch notes and audit events for timeline
   const adminClient = getSupabaseAdmin();
   const [{ data: notes }, { data: auditEvents }] = await Promise.all([
     adminClient
@@ -110,17 +103,6 @@ export default async function DocumentDetailPage({
       .limit(50),
   ]);
 
-  // Build timeline entries
-  const AUDIT_ICONS: Record<string, string> = {
-    DOCUMENT_READ: "mail",
-    DOCUMENT_ASSIGNED: "folder",
-    DOCUMENTS_BULK_ASSIGNED: "folder",
-    DOCUMENT_PROCESSED: "check",
-    DOCUMENT_CHARGED: "card",
-    PEPPOL_DOCUMENT_RECEIVED: "file",
-    DOCUMENT_NOTE_ADDED: "comment",
-  };
-
   const timelineEntries = [
     ...(notes ?? []).map((n: any) => ({
       id: `note-${n.id}`,
@@ -132,7 +114,7 @@ export default async function DocumentDetailPage({
       timestamp: n.created_at,
     })),
     ...(auditEvents ?? [])
-      .filter((e: any) => e.event_id !== "DOCUMENT_NOTE_ADDED") // avoid duplicate with notes
+      .filter((e: any) => e.event_id !== "DOCUMENT_NOTE_ADDED")
       .map((e: any) => ({
         id: `audit-${e.id}`,
         type: "audit" as const,
@@ -144,99 +126,65 @@ export default async function DocumentDetailPage({
       })),
   ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+  const details = {
+    sender: doc.sender_identifier ?? "-",
+    receiver: doc.receiver_identifier ?? "-",
+    company: company?.legal_name ?? company?.dic ?? "-",
+    receivedAt: doc.peppol_created_at ?? null,
+    transactionUuid: doc.transaction_uuid ?? "-",
+    ionApTransactionId: String(doc.ion_ap_transaction_id),
+    documentType: doc.document_type ?? "-",
+    direction: doc.direction,
+  };
+
+  const pdfUrl = `/api/documents/${doc.id}/pdf`;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
+    <div className="-m-4 flex h-[calc(100dvh-3.5rem-5rem)] flex-col md:-m-6 md:h-[calc(100dvh-3.5rem)]">
+      {/* Top bar */}
+      <div className="flex items-center gap-3 border-b bg-background px-4 py-3 md:px-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-semibold">
             {documentTypeLabel(doc.document_type)} {doc.document_id ?? ""}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            From {doc.sender_identifier ?? "unknown"} to {doc.receiver_identifier ?? "unknown"}
+          <p className="truncate text-xs text-muted-foreground">
+            From {doc.sender_identifier ?? "unknown"} → {doc.receiver_identifier ?? "unknown"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className={STATUS_STYLES[doc.status] ?? ""}>
-            {doc.status}
-          </Badge>
-          <DocumentActions
-            documentId={doc.id}
-            status={doc.status}
-            ionApTransactionId={doc.ion_ap_transaction_id}
+        <Badge className={STATUS_STYLES[doc.status] ?? ""}>{doc.status}</Badge>
+        <DocumentActions
+          documentId={doc.id}
+          status={doc.status}
+          ionApTransactionId={doc.ion_ap_transaction_id}
+        />
+      </div>
+
+      {/* Main body: PDF + sidebar */}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {/* PDF — iframe on desktop, button on mobile */}
+        <div className="flex min-h-0 flex-1 bg-muted">
+          <iframe
+            src={pdfUrl}
+            className="hidden h-full w-full md:block"
+            title="Invoice PDF"
           />
+          <div className="flex w-full items-start justify-center p-4 md:hidden">
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent"
+            >
+              <FileDown className="h-4 w-4" /> Open PDF
+            </a>
+          </div>
         </div>
+        <DocumentSidebar
+          details={details}
+          timelineEntries={timelineEntries}
+          documentId={doc.id}
+        />
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Sender
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="font-mono text-sm">{doc.sender_identifier ?? "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Receiver
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="font-mono text-sm">{doc.receiver_identifier ?? "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Company
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">{company?.legal_name ?? company?.dic ?? "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Received
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">
-              {doc.peppol_created_at ? formatDate(doc.peppol_created_at) : "-"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Transaction Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div>
-            <span className="text-muted-foreground">Transaction UUID:</span>{" "}
-            <span className="font-mono">{doc.transaction_uuid ?? "-"}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">ion-AP Transaction ID:</span>{" "}
-            <span className="font-mono">{doc.ion_ap_transaction_id}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Document Type:</span>{" "}
-            {doc.document_type ?? "-"}
-          </div>
-          <div>
-            <span className="text-muted-foreground">Direction:</span>{" "}
-            {doc.direction}
-          </div>
-        </CardContent>
-      </Card>
-
-      <DocumentTimeline entries={timelineEntries} documentId={doc.id} />
     </div>
   );
 }
