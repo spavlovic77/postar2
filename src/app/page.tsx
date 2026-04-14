@@ -5,14 +5,25 @@ import { AnimatedPeppolboxLogo } from "@/components/animated-peppolbox-logo";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { getPfsActivationLink } from "@/lib/settings";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { next: rawNext } = await searchParams;
+  // Prevent open redirect — only allow relative paths
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : undefined;
+
   if (user) {
-    redirect("/dashboard");
+    redirect(next ?? "/dashboard");
   }
 
   const registerLink = await getPfsActivationLink();
@@ -37,7 +48,7 @@ export default async function Home() {
 
           {/* Sign in */}
           <div className="pt-2">
-            <AuthModal />
+            <AuthModal redirectTo={next} />
           </div>
 
           {/* Divider */}

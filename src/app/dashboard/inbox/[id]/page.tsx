@@ -42,10 +42,13 @@ export default async function DocumentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const data = await getUserWithRole();
-  if (!data) redirect("/");
-
   const { id } = await params;
+
+  const data = await getUserWithRole();
+  if (!data) {
+    redirect(`/?next=${encodeURIComponent(`/dashboard/inbox/${id}`)}`);
+  }
+
   const { role, user, memberships } = data;
 
   const doc = await getDocument(id);

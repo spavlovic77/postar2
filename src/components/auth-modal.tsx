@@ -11,7 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { AuthForm } from "@/components/auth-form";
 
-export function AuthModal() {
+interface AuthModalProps {
+  redirectTo?: string;
+}
+
+export function AuthModal({ redirectTo }: AuthModalProps) {
   return (
     <Dialog>
       <DialogTrigger render={<Button size="lg" />}>Sign In</DialogTrigger>
@@ -23,7 +27,7 @@ export function AuthModal() {
           </DialogDescription>
         </DialogHeader>
         <div className="pt-4">
-          <AuthForm />
+          <AuthForm redirectTo={redirectTo} />
         </div>
       </DialogContent>
     </Dialog>

@@ -25,12 +25,15 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/?error=invalid_link`);
   }
 
-  if (link.consumed_at) {
-    return NextResponse.redirect(`${origin}/?error=link_used`);
-  }
-
+  // Link is idempotent until expires_at — Gmail/Outlook safe-link scanners
+  // pre-fetch URLs for phishing checks, which previously consumed the token
+  // before the real user clicked it. We keep `consumed_at` as a last-used
+  // timestamp for audit/telemetry but don't gate on it.
   if (new Date(link.expires_at) < new Date()) {
-    return NextResponse.redirect(`${origin}/?error=link_expired`);
+    const fallback = link.redirect_to?.startsWith("/") && !link.redirect_to.startsWith("//")
+      ? `${origin}/?error=link_expired&next=${encodeURIComponent(link.redirect_to)}`
+      : `${origin}/?error=link_expired`;
+    return NextResponse.redirect(fallback);
   }
 
   // Get the user's email
@@ -76,10 +79,13 @@ export async function GET(request: Request) {
 
   if (verifyError) {
     console.error("Failed to create session:", verifyError);
-    return NextResponse.redirect(`${origin}/?error=session_failed`);
+    const fallback = link.redirect_to?.startsWith("/") && !link.redirect_to.startsWith("//")
+      ? `${origin}/?error=session_failed&next=${encodeURIComponent(link.redirect_to)}`
+      : `${origin}/?error=session_failed`;
+    return NextResponse.redirect(fallback);
   }
 
-  // Mark link as consumed
+  // Update last-used timestamp (audit/telemetry; not gating)
   await admin
     .from("magic_links")
     .update({ consumed_at: new Date().toISOString() })
