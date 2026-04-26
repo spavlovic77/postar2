@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     "Aukcia domény peppolbox.sk v prospech nadácie Plamienok. Výťažok pôjde v plnej výške organizácii Plamienok n.o.",
 };
 
+export const dynamic = "force-dynamic";
+
 // Auction ends 26.4.2026 23:59 Europe/Bratislava (CEST = UTC+2)
 const AUCTION_END_ISO = "2026-04-26T21:59:00.000Z";
 const AUCTION_END_DISPLAY = "26. apríla 2026, 23:59 (Europe/Bratislava)";

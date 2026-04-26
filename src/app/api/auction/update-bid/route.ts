@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { updateSetting } from "@/lib/settings";
 
 export async function POST(request: Request) {
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
   }
 
   await updateSetting("auction_current_bid", bidNum.toFixed(2));
+  revalidatePath("/auction");
 
   return NextResponse.json({ ok: true, bid: bidNum });
 }
