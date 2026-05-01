@@ -57,6 +57,33 @@ export function parseUblMetadata(xml: string): DocumentMetadata {
       extractTag(xml, "DueDate") ??
       extractTag(xml, "PaymentDueDate");
 
+    // PaymentMeans → IBAN, BIC, payment symbols
+    const paymentBlock = extractBlock(xml, "PaymentMeans");
+    if (paymentBlock) {
+      const accountBlock = extractBlock(paymentBlock, "PayeeFinancialAccount");
+      if (accountBlock) {
+        const accountId = extractTag(accountBlock, "ID");
+        if (accountId && /^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/i.test(accountId.replace(/\s+/g, ""))) {
+          metadata.paymentIban = accountId.replace(/\s+/g, "").toUpperCase();
+        }
+        const branchBlock = extractBlock(accountBlock, "FinancialInstitutionBranch");
+        if (branchBlock) {
+          metadata.paymentBic = extractTag(branchBlock, "ID");
+        }
+      }
+
+      // PaymentID often carries the variable symbol in Slovak e-invoices.
+      // Some senders put structured codes like "/VS123/SS456/KS0308"
+      // others just the bare digits.
+      const paymentId = extractTag(paymentBlock, "PaymentID");
+      if (paymentId) {
+        const symbols = parsePaymentSymbols(paymentId);
+        if (symbols.vs) metadata.variableSymbol = symbols.vs;
+        if (symbols.ss) metadata.specificSymbol = symbols.ss;
+        if (symbols.ks) metadata.constantSymbol = symbols.ks;
+      }
+    }
+
     // Line items (first 5 names + amounts)
     const lineItems: string[] = [];
     const lineDetails: DocumentLineDetail[] = [];
@@ -147,4 +174,38 @@ function extractAllBlocks(xml: string, tagPattern: string): string[] {
     "gi"
   );
   return Array.from(xml.matchAll(regex)).map((m) => m[0]);
+}
+
+/**
+ * Parse a Slovak PaymentID into VS/SS/KS components.
+ * Handles three forms:
+ *   "/VS2546874464/SS2019568456/KS1118" — structured
+ *   "VS:2546874464"                      — labeled
+ *   "2546874464"                         — bare digits → treated as VS
+ */
+export function parsePaymentSymbols(input: string): {
+  vs?: string;
+  ss?: string;
+  ks?: string;
+} {
+  const trimmed = input.trim();
+  if (!trimmed) return {};
+
+  const result: { vs?: string; ss?: string; ks?: string } = {};
+
+  // Structured form
+  const vsMatch = trimmed.match(/\/?VS[:\s]?(\d{1,10})/i);
+  const ssMatch = trimmed.match(/\/?SS[:\s]?(\d{1,10})/i);
+  const ksMatch = trimmed.match(/\/?KS[:\s]?(\d{1,4})/i);
+
+  if (vsMatch) result.vs = vsMatch[1];
+  if (ssMatch) result.ss = ssMatch[1];
+  if (ksMatch) result.ks = ksMatch[1];
+
+  // If no labels matched, treat bare digits as VS
+  if (!result.vs && !result.ss && !result.ks && /^\d{1,10}$/.test(trimmed)) {
+    result.vs = trimmed;
+  }
+
+  return result;
 }

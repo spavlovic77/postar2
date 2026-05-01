@@ -115,6 +115,12 @@ export interface DocumentMetadata {
   lineDetails?: DocumentLineDetail[];
   issueDate?: string;
   dueDate?: string;
+  // Payment data (extracted from UBL PaymentMeans)
+  paymentIban?: string;
+  paymentBic?: string;
+  variableSymbol?: string;
+  constantSymbol?: string;
+  specificSymbol?: string;
 }
 
 export interface Department {
