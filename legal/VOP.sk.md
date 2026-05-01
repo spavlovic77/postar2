@@ -259,7 +259,7 @@
 
 14.3. Predchádzajúce verzie VOP zostávajú v platnosti pre vzťahy vzniknuté pred dňom účinnosti nového znenia, pokiaľ nie je výslovne dohodnuté inak.
 
-14.4. Aktuálna verzia VOP je vždy dostupná na adrese: **https://www.peppolbox.sk/legal/vop**
+14.4. Aktuálna verzia VOP je vždy dostupná na adrese: **https://www.v0-postar2.vercel.app/legal/vop**
 
 ---
 

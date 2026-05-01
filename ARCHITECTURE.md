@@ -582,7 +582,7 @@ REACTIVATION:
 | `KV_KEY`                        | Yes      | mTLS client key (PEM)                               |
 | `KV_CA_BUNDLE`                  | Yes      | mTLS CA bundle (PEM)                                |
 | `ION_AP_TEST_SENDER_TOKEN`      | No       | ion-AP token for test invoices and billing invoices |
-| `NEXT_PUBLIC_APP_URL`           | No       | App URL (default: www.peppolbox.sk)                 |
+| `NEXT_PUBLIC_APP_URL`           | No       | App URL (default: www.v0-postar2.vercel.app)                 |
 | `PAYME_CREDITOR_NAME`           | No       | Creditor name for QR (default: peppolbox.sk)        |
 
 System settings (editable in dashboard, override env vars):

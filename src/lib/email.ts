@@ -170,7 +170,7 @@ export async function sendDocumentReceivedEmail(params: {
   totalLineCount?: number;
 }): Promise<void> {
   const resend = getResend();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.peppolbox.sk";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.v0-postar2.vercel.app";
   const directUrl = `/dashboard/inbox/${params.documentId}`;
 
   // Try to create a magic link for one-click sign-in.

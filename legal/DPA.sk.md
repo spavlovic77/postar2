@@ -241,7 +241,7 @@ Sprostredkovateľ **nespracúva osobitné kategórie údajov** v zmysle čl. 9 G
 
 15.2. Táto DPA sa riadi právnym poriadkom Slovenskej republiky.
 
-15.3. Aktuálna verzia tejto DPA je vždy dostupná na: **https://www.peppolbox.sk/legal/dpa**
+15.3. Aktuálna verzia tejto DPA je vždy dostupná na: **https://www.v0-postar2.vercel.app/legal/dpa**
 
 ---
 

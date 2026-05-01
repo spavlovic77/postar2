@@ -214,7 +214,7 @@ Služba **nevykonáva automatizované rozhodovanie ani profilovanie** v zmysle �
 
 12.1. Tento dokument môžeme z času na čas aktualizovať. O každej podstatnej zmene budeme informovať e-mailom najmenej **30 dní vopred**.
 
-12.2. Aktuálna verzia je vždy dostupná na: **https://www.peppolbox.sk/legal/ochrana-udajov**
+12.2. Aktuálna verzia je vždy dostupná na: **https://www.v0-postar2.vercel.app/legal/ochrana-udajov**
 
 12.3. História verzií:
 
