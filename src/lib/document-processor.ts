@@ -7,6 +7,7 @@ import {
 } from "@/lib/ion-ap";
 import { audit } from "@/lib/audit";
 import { sendDocumentReceivedEmail } from "@/lib/email";
+import { sendNewInvoicePush } from "@/lib/push";
 
 const MAX_RETRIES = 10;
 
@@ -104,6 +105,15 @@ export async function processDocument(documentId: string): Promise<boolean> {
         metadata: { supplier: metadata.supplierName, amount: metadata.totalAmount, currency: metadata.currency },
       },
     });
+
+    // Push notification to active company members (non-fatal, fire-and-forget)
+    sendNewInvoicePush(supabase, {
+      docId: documentId,
+      companyId: doc.company_id,
+      supplierName: metadata.supplierName ?? null,
+      totalAmount: metadata.totalAmount ?? null,
+      currency: metadata.currency ?? null,
+    }).catch(() => {});
 
     // Email notification to company (non-fatal)
     if (company?.company_email) {
