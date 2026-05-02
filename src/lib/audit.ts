@@ -136,6 +136,24 @@ export function auditSignOut(params: {
   });
 }
 
+export function auditAccountDeleted(params: {
+  userId: string;
+  email: string;
+  request?: Request;
+  details?: Record<string, unknown>;
+}) {
+  const meta = getRequestMeta(params.request);
+  audit({
+    eventId: "AUTH_ACCOUNT_DELETED",
+    eventName: "User account deleted",
+    severity: "warning",
+    actorId: params.userId,
+    actorEmail: params.email,
+    details: params.details,
+    ...meta,
+  });
+}
+
 export function auditOtpSent(params: {
   userId: string;
   email: string;
