@@ -5,7 +5,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const FCM_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 const APNS_HOST_DEFAULT = "api.push.apple.com";
-const APNS_BUNDLE_DEFAULT = "sk.epodatelna24.mobile";
 
 type PushBody = {
   docId: string;
@@ -50,21 +49,39 @@ function normalizePem(raw: string): string {
   return raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
 }
 
-async function getApnsJwt(): Promise<string | null> {
+type ApnsConfig = {
+  keyId: string;
+  teamId: string;
+  keyPem: string;
+  bundleId: string;
+  host: string;
+};
+
+function getApnsConfig(): ApnsConfig | null {
   const keyId = process.env.APNS_KEY_ID;
   const teamId = process.env.APNS_TEAM_ID;
   const keyPem = process.env.APNS_AUTH_KEY;
-  if (!keyId || !teamId || !keyPem) return null;
+  const bundleId = process.env.APNS_BUNDLE_ID;
+  if (!keyId || !teamId || !keyPem || !bundleId) return null;
+  return {
+    keyId,
+    teamId,
+    keyPem,
+    bundleId,
+    host: process.env.APNS_HOST ?? APNS_HOST_DEFAULT,
+  };
+}
 
+async function getApnsJwt(cfg: ApnsConfig): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   // APNs caps JWT lifetime at 1h. Refresh every 55min to stay safe.
   if (apnsJwtCache && now - apnsJwtCache.iat < 55 * 60) {
     return apnsJwtCache.token;
   }
-  const key = await importPKCS8(normalizePem(keyPem), "ES256");
+  const key = await importPKCS8(normalizePem(cfg.keyPem), "ES256");
   const jwt = await new SignJWT({})
-    .setProtectedHeader({ alg: "ES256", kid: keyId })
-    .setIssuer(teamId)
+    .setProtectedHeader({ alg: "ES256", kid: cfg.keyId })
+    .setIssuer(cfg.teamId)
     .setIssuedAt(now)
     .sign(key);
   apnsJwtCache = { token: jwt, iat: now };
@@ -128,13 +145,12 @@ type PushResult = { ok: boolean; isInvalid: boolean };
 async function sendApnsBatch(
   tokens: string[],
   body: PushBody,
+  cfg: ApnsConfig,
   jwt: string
 ): Promise<Map<string, PushResult>> {
-  const host = process.env.APNS_HOST ?? APNS_HOST_DEFAULT;
-  const bundleId = process.env.APNS_BUNDLE_ID ?? APNS_BUNDLE_DEFAULT;
   const results = new Map<string, PushResult>();
 
-  const client = http2.connect(`https://${host}`);
+  const client = http2.connect(`https://${cfg.host}`);
   const closeClient = () => {
     try { client.close(); } catch { /* noop */ }
   };
@@ -155,7 +171,7 @@ async function sendApnsBatch(
           const req = client.request({
             ":method": "POST",
             ":path": `/3/device/${token}`,
-            "apns-topic": bundleId,
+            "apns-topic": cfg.bundleId,
             "apns-push-type": "alert",
             "apns-priority": "10",
             authorization: `bearer ${jwt}`,
@@ -279,12 +295,15 @@ export async function sendNewInvoicePush(
     const dead: string[] = [];
 
     if (ios.length) {
-      const jwt = await getApnsJwt();
-      if (jwt) {
-        const results = await sendApnsBatch(ios, body, jwt);
+      const cfg = getApnsConfig();
+      if (cfg) {
+        const jwt = await getApnsJwt(cfg);
+        const results = await sendApnsBatch(ios, body, cfg, jwt);
         for (const [token, r] of results) if (r.isInvalid) dead.push(token);
       } else {
-        console.warn("[push] APNs not configured (APNS_AUTH_KEY/KEY_ID/TEAM_ID missing)");
+        console.warn(
+          "[push] APNs not configured (APNS_AUTH_KEY / APNS_KEY_ID / APNS_TEAM_ID / APNS_BUNDLE_ID missing)"
+        );
       }
     }
 
