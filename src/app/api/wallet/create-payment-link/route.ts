@@ -4,13 +4,27 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createPaymentLink } from "@/lib/payment";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Mobile sends a Supabase access token via Authorization: Bearer <jwt>.
+  // Web continues to authenticate via session cookies — fall through to
+  // createClient() when no Bearer header is present.
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+
+  let user: { id: string } | null = null;
+  if (bearer) {
+    const adminAuth = getSupabaseAdmin();
+    const { data: bearerRes } = await adminAuth.auth.getUser(bearer);
+    user = bearerRes?.user ?? null;
+  } else {
+    const supabase = await createClient();
+    const { data: cookieRes } = await supabase.auth.getUser();
+    user = cookieRes?.user ?? null;
+  }
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const { walletId, amount } = await request.json();
