@@ -148,6 +148,11 @@ export async function deactivateMembership(membershipId: string) {
     return { error: "Membership not found" };
   }
 
+  // Universal: never deactivate yourself.
+  if (membership.user_id === user.id) {
+    return { error: "You can't deactivate your own membership" };
+  }
+
   // Check permissions
   const { data: profile } = await admin
     .from("profiles")
@@ -156,6 +161,11 @@ export async function deactivateMembership(membershipId: string) {
     .single();
 
   if (!profile?.is_super_admin) {
+    // Genesis admin can't be deactivated by non-super-admin
+    if (membership.is_genesis) {
+      return { error: "Genesis admin can only be deactivated by a super admin" };
+    }
+
     // Non-super-admin: must be company_admin for this company
     const { data: myMembership } = await admin
       .from("company_memberships")
@@ -167,11 +177,6 @@ export async function deactivateMembership(membershipId: string) {
 
     if (!myMembership || myMembership.role !== "company_admin") {
       return { error: "You don't have permission to deactivate this member" };
-    }
-
-    // Genesis admin can't be deactivated by non-super-admin
-    if (membership.is_genesis) {
-      return { error: "Genesis admin can only be deactivated by a super admin" };
     }
 
     // Non-genesis admin can't deactivate other admins

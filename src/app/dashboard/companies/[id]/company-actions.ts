@@ -196,6 +196,11 @@ export async function updateMemberRole(membershipId: string, role: string) {
 
   if (!membership) return { error: "Membership not found" };
 
+  // Universal: never change your own role.
+  if (membership.user_id === user.id) {
+    return { error: "You can't change your own role" };
+  }
+
   // Check permissions
   const { data: profile } = await admin
     .from("profiles")
@@ -204,6 +209,15 @@ export async function updateMemberRole(membershipId: string, role: string) {
     .single();
 
   const isSuperAdmin = profile?.is_super_admin ?? false;
+
+  // Genesis admin's role is immutable except by super_admin.
+  if (membership.is_genesis && !isSuperAdmin) {
+    return { error: "The genesis admin's role can only be changed by a super admin" };
+  }
+
+  if (membership.role === role) {
+    return { error: "Member already has that role" };
+  }
 
   if (!isSuperAdmin) {
     const { data: myMembership } = await admin
@@ -216,12 +230,26 @@ export async function updateMemberRole(membershipId: string, role: string) {
 
     if (!myMembership) return { error: "You don't have access to this company" };
 
-    if (myMembership.role !== "company_admin" && myMembership.role !== "operator") {
+    const callerIsAdmin = myMembership.role === "company_admin";
+    const callerIsOperator = myMembership.role === "operator";
+
+    if (!callerIsAdmin && !callerIsOperator) {
       return { error: "You don't have permission to edit roles" };
     }
 
+    // Operators can only manage operator <-> processor.
+    if (callerIsOperator && (membership.role === "company_admin" || role === "company_admin")) {
+      return { error: "Operators can only change roles between Operator and Processor" };
+    }
+
+    // Only genesis admin can promote to company_admin.
     if (role === "company_admin" && !myMembership.is_genesis) {
       return { error: "Only genesis admin or super admin can assign the Company Admin role" };
+    }
+
+    // Non-genesis admin can't change another admin's role.
+    if (callerIsAdmin && membership.role === "company_admin" && !myMembership.is_genesis) {
+      return { error: "Only genesis admin or super admin can change another admin's role" };
     }
   }
 
