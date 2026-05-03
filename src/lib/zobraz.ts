@@ -38,9 +38,11 @@ export async function renderInvoicePdf(
   xml: string,
   opts: { locale?: ZobrazLocale } = {}
 ): Promise<ZobrazRenderResult> {
-  const baseUrl = process.env.ZOBRAZ_BASE_URL;
-  const apiKey = process.env.ZOBRAZ_API_KEY;
-  const apiSecret = process.env.ZOBRAZ_API_SECRET;
+  // Trim defensively — Vercel env UI can occasionally pick up trailing
+  // whitespace from copy-paste. zobraz checks key equality strictly.
+  const baseUrl = process.env.ZOBRAZ_BASE_URL?.trim();
+  const apiKey = process.env.ZOBRAZ_API_KEY?.trim();
+  const apiSecret = process.env.ZOBRAZ_API_SECRET?.trim();
 
   if (!baseUrl || !apiKey || !apiSecret) {
     throw new ZobrazError(
@@ -51,7 +53,27 @@ export async function renderInvoicePdf(
   }
 
   const locale = opts.locale ?? "sk";
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}${RENDER_PATH}`, {
+  const url = `${baseUrl.replace(/\/$/, "")}${RENDER_PATH}`;
+
+  // Diagnostic: log shape of what we're sending without leaking secrets.
+  // Shows prefix+suffix+length so you can verify the env values weren't
+  // truncated, swapped, or mangled in Vercel's UI.
+  const reveal = (s: string) =>
+    s.length <= 8 ? `<len=${s.length}>` : `${s.slice(0, 4)}…${s.slice(-4)} (len=${s.length})`;
+  console.log(
+    "[zobraz] render request:",
+    JSON.stringify({
+      url,
+      apiKey: reveal(apiKey),
+      apiKeyHasPrefix: apiKey.startsWith("zef_"),
+      apiSecret: reveal(apiSecret),
+      apiSecretHasPrefix: apiSecret.startsWith("zefs_"),
+      locale,
+      xmlBytes: Buffer.byteLength(xml, "utf8"),
+    })
+  );
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/xml",
@@ -64,6 +86,10 @@ export async function renderInvoicePdf(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    console.warn(
+      "[zobraz] render failed:",
+      JSON.stringify({ status: res.status, body: body.slice(0, 300) })
+    );
     throw new ZobrazError(
       `zobraz render failed: ${res.status} ${res.statusText}`,
       res.status,
