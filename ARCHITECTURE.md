@@ -4,7 +4,7 @@ A multi-tenant Peppol e-invoice platform: Slovak businesses register via the
 PFS verification webhook, get auto-activated on the Peppol network through
 ION AP, receive UBL invoices into a per-company inbox, and pay per document
 from a prepaid wallet. The web app is the primary surface; a separate
-**ePodatelna24** mobile app talks to the same backend over a Bearer-auth
+mobile app talks to the same backend over a Bearer-auth
 API surface for the read-only inbox + wallet top-up + member management.
 
 ## Tech Stack
@@ -577,7 +577,7 @@ Mobile sign-in     device_tokens         postar2 receive        APNs/FCM        
 
 ## Mobile API surface
 
-The ePodatelna24 mobile app uses Supabase Auth client-side and stores
+The mobile app uses Supabase Auth client-side and stores
 session tokens in iOS Keychain / Android Keystore. All postar2 calls
 include `Authorization: Bearer <supabase-access-token>`. Mobile reads
 most data directly via Supabase JS (RLS-gated); only mutations or
