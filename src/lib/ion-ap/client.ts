@@ -327,19 +327,6 @@ export async function getReceiveTransactionDocument(
   return res.text();
 }
 
-export async function getReceiveTransactionPdf(id: number): Promise<ArrayBuffer> {
-  const token = await getIonApApiToken();
-  const baseUrl = await getIonApBaseUrl();
-  const res = await fetch(`${baseUrl}${API_PREFIX}/receive-transactions/${id}/pdf`, {
-    headers: {
-      Authorization: `Token ${token}`,
-      Accept: "application/pdf",
-    },
-  });
-  if (!res.ok) throw new Error(`Failed to get PDF: ${res.status}`);
-  return res.arrayBuffer();
-}
-
 export async function markReceiveTransactionRead(
   id: number
 ): Promise<IonApReceiveTransaction> {
