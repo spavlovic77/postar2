@@ -1,19 +1,33 @@
-# peppolbox.sk — Manual Test Cases
+# postar2 — Manual Test Cases
 
 ## Test Environment
 
 | Role                    | Email                                 |
 | ----------------------- | ------------------------------------- |
 | Super Admin             | stanislav.pavlovic@fiinancnasprava.sk |
-| Company Admin (Genesis) | peppolbox.sk@gmail.com                   |
+| Company Admin (Genesis) | peppolbox.sk@gmail.com                |
 | Operator                | operator@test.com                     |
-| Processor               | jankouctovaník@gmail.com               |
+| Processor               | jankouctovaník@gmail.com              |
 
-**Prerequisites:**
-- Fresh schema.sql executed in Supabase SQL Editor
-- All env vars set in Vercel (Supabase, Resend, Twilio, ion-AP, ION_AP_TEST_SENDER_TOKEN)
-- ion-AP test environment token configured
+**Prerequisites (web):**
+- Fresh schema.sql + migrations applied in Supabase SQL Editor (incl. `2026_05_02_device_tokens.sql`, `2026_05_03_pdf_cache.sql`)
+- All env vars set in Vercel:
+  - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+  - Email/SMS: `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
+  - ION AP: `ION_AP_TEST_SENDER_TOKEN`
+  - Blob: `BLOB_READ_WRITE_TOKEN`
+  - Cron: `CRON_SECRET`
+  - Payments: `PAYME_IBAN`, `KV_API_URL`, `KV_CERT`, `KV_KEY`, `KV_CA_BUNDLE`, `PAYMENT_WEBHOOK_SECRET`
+  - PDF rendering (zobrazfakturu): `ZOBRAZ_BASE_URL`, `ZOBRAZ_API_KEY`, `ZOBRAZ_API_SECRET`
+  - iOS push: `APNS_AUTH_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`
+  - Android push (when shipped): `FCM_SERVICE_ACCOUNT_JSON`
 - PFS activation link set in System Settings
+- zobrazfakturu deployment reachable, API key minted, daily quota raised on the postar2 zobraz user (default 5/day is too low for testing)
+
+**Prerequisites (mobile — for groups 30+):**
+- Latest TestFlight build of ePodatelna24 mobile app installed on a real iPhone
+- Notification permissions granted on first launch
+- A device row appears in `device_tokens` after sign-in (verify via SQL)
 
 ---
 
@@ -1725,6 +1739,527 @@ Verify each role's sidebar matches this table.
 
 ---
 
+## Group 30: PDF Rendering Pipeline (zobrazfakturu)
+
+PDF rendering for received documents goes through self-hosted zobrazfakturu with Vercel Blob caching. Sent documents still use ION AP. Validation results from the Peppol validator are surfaced via response headers.
+
+### TC-30.1: First-time PDF render (cache miss)
+
+| Step | Action                                                     | Expected                                                                 |
+| ---- | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Find a received document where `documents.pdf_blob_url IS NULL` | Confirmed via SQL                                                  |
+| 2    | Sign in as a member of the doc's company                  | Inbox loads                                                              |
+| 3    | Open the document detail page                             | PDF renders inline                                                       |
+| 4    | Inspect Vercel function logs                              | One zobraz POST call to `/api/v1/render` with 200 OK                     |
+| 5    | SQL: re-check the document row                            | `pdf_blob_url` and `pdf_validation` are now populated                    |
+| 6    | Check Vercel Blob                                         | A file at `peppol/rendered/{documentId}.pdf` exists                      |
+
+### TC-30.2: Cache hit on second view
+
+| Step | Action                                          | Expected                                              |
+| ---- | ----------------------------------------------- | ----------------------------------------------------- |
+| 1    | Reload the same document                        | PDF loads noticeably faster (~150–300 ms vs 1–2 s)    |
+| 2    | Inspect Vercel function logs                    | NO new zobraz call; only Blob fetch                   |
+| 3    | Inspect response headers in DevTools            | `X-Peppol-Validator-Status`, `-Errors`, `-Warnings` present |
+
+### TC-30.3: Validation badge — passing invoice
+
+| Step | Action                                         | Expected                                                                 |
+| ---- | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Render a Peppol-valid UBL invoice              | PDF generated                                                            |
+| 2    | Check response header `X-Peppol-Validator-Status` | `ok`                                                                  |
+| 3    | Check `X-Peppol-Errors`                        | `0`                                                                      |
+| 4    | (Mobile) Check the validation badge in UI      | Shows green "Peppol overené" or equivalent                               |
+
+### TC-30.4: Validation badge — failing invoice
+
+| Step | Action                                                       | Expected                                                |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------- |
+| 1    | Send a malformed invoice (e.g. missing required field)       | Document still gets a PDF (zobraz renders anyway)       |
+| 2    | Check response header `X-Peppol-Validator-Status`            | `failed`                                                |
+| 3    | Check `X-Peppol-Errors`                                      | non-zero count                                          |
+| 4    | Mobile UI                                                    | Either no badge or warning indicator (not a green ✓)    |
+
+### TC-30.5: Force re-render by clearing cache
+
+| Step | Action                                                                    | Expected                                                  |
+| ---- | ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | SQL: `update documents set pdf_blob_url = null, pdf_validation = null where id = '<docId>'` | Cache cleared for one row |
+| 2    | Reload the document                                                       | New zobraz call fires; new Blob written; columns repopulated |
+
+### TC-30.6: Self-heal on legacy document missing `blob_url`
+
+| Step | Action                                                                  | Expected                                                                |
+| ---- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | SQL: pick a document with `blob_url IS NULL` (legacy, pre-Blob ingestion) | Confirmed                                                              |
+| 2    | Open it                                                                  | Route lazy-fetches XML from ION AP, uploads to Blob, then renders      |
+| 3    | SQL: re-check the row                                                    | `blob_url` and `pdf_blob_url` both populated                            |
+
+---
+
+## Group 31: Permission Matrix Tightening (Web + Mobile)
+
+Web and mobile enforce identical matrices after the May 2026 tightening. Web tests use server actions (`deactivateMembership`, `updateMemberRole`); mobile tests hit `POST /api/memberships/[id]/{role,deactivate}`. Each test should be run on at least one surface.
+
+### TC-31.1: Self-deactivation blocked (universal)
+
+| Step | Action                                                                | Expected                                          |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| 1    | As any role, attempt to deactivate your own membership                | Error: "You can't deactivate your own membership" |
+| 2    | (Mobile) Same via `POST /api/memberships/{own-id}/deactivate`         | `400 cannot_deactivate_self`                      |
+
+### TC-31.2: Self role-change blocked (universal)
+
+| Step | Action                                                | Expected                                       |
+| ---- | ----------------------------------------------------- | ---------------------------------------------- |
+| 1    | As any role, attempt to change your own role          | Error: "You can't change your own role"        |
+| 2    | (Mobile) Same via `POST /api/memberships/{own-id}/role` | `400 cannot_change_own_role`                 |
+
+### TC-31.3: Genesis target — non-super-admin blocked
+
+| Step | Action                                                         | Expected                                                                       |
+| ---- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1    | As genesis admin, try to deactivate ANOTHER genesis admin      | Error: "Genesis admin can only be deactivated by a super admin"                |
+| 2    | As any company_admin (non-genesis), try the same               | Same refusal                                                                   |
+| 3    | Mobile path                                                    | `400 cannot_deactivate_genesis`                                                |
+| 4    | Same matrix for role change                                    | `400 cannot_change_genesis_role`                                               |
+
+### TC-31.4: Genesis target — super admin allowed (support lever)
+
+| Step | Action                                                            | Expected                                |
+| ---- | ----------------------------------------------------------------- | --------------------------------------- |
+| 1    | As super admin, deactivate a genesis admin                        | Succeeds (`200 ok`)                     |
+| 2    | Audit log shows `MEMBERSHIP_DEACTIVATED` with `severity=warning`  | Yes                                     |
+
+### TC-31.5: Operator can only manage operator ↔ processor
+
+| From → To                | As operator | Expected         |
+| ------------------------ | ----------- | ---------------- |
+| operator → processor     | yes         | `200 ok`         |
+| processor → operator     | yes         | `200 ok`         |
+| operator → company_admin | no          | `403 forbidden`  |
+| company_admin → operator | no          | `403 forbidden`  |
+| company_admin → processor| no          | `403 forbidden`  |
+
+Run each row on both web and mobile.
+
+### TC-31.6: Only genesis admin can promote to company_admin
+
+| Step | Action                                                  | Expected               |
+| ---- | ------------------------------------------------------- | ---------------------- |
+| 1    | As genesis company_admin, promote operator → company_admin | `200 ok`            |
+| 2    | As non-genesis company_admin, attempt the same promotion | `403 forbidden`       |
+| 3    | As super admin                                          | `200 ok`               |
+
+### TC-31.7: Non-genesis admin can't change another admin's role
+
+| Step | Action                                                                            | Expected            |
+| ---- | --------------------------------------------------------------------------------- | ------------------- |
+| 1    | As non-genesis company_admin, try to demote another company_admin (non-genesis) → operator | `403 forbidden` |
+| 2    | As genesis admin                                                                  | `200 ok`            |
+
+### TC-31.8: `no_change` short-circuit on role POST
+
+| Step | Action                                                | Expected         |
+| ---- | ----------------------------------------------------- | ---------------- |
+| 1    | POST `/api/memberships/{id}/role` with the target's CURRENT role | `400 no_change` |
+| 2    | Audit log                                             | No `MEMBER_ROLE_UPDATED` event written |
+
+---
+
+## Group 32: Mobile API — Bearer Auth Contract
+
+These verify the postar2 routes that the ePodatelna24 mobile uses. Run with a real Supabase access token from a signed-in mobile session (or generate one via `supabase.auth.signInWithPassword` in a script).
+
+### TC-32.1: Missing Bearer token
+
+| Step | Action                                                              | Expected                |
+| ---- | ------------------------------------------------------------------- | ----------------------- |
+| 1    | curl any mobile route (e.g. `GET /api/wallet`) with no `Authorization` | `401 unauthorized`   |
+| 2    | curl with `Authorization: Bearer <garbage>`                          | `401 unauthorized`     |
+| 3    | curl with an expired token                                          | `401 unauthorized`     |
+
+### TC-32.2: Bearer token from valid session works on dual-auth routes
+
+| Route                                  | Test                                                          |
+| -------------------------------------- | ------------------------------------------------------------- |
+| `GET /api/documents/[id]/pdf`          | Same response with Bearer as with cookie session              |
+| `GET /api/documents/[id]/xml`          | Same response with Bearer as with cookie session              |
+| `POST /api/wallet/create-payment-link` | Same response with Bearer as with cookie session              |
+
+### TC-32.3: Mobile-only routes reject cookie session
+
+| Route                                | Expected with cookie + no Bearer |
+| ------------------------------------ | -------------------------------- |
+| `GET /api/wallet`                    | `401 unauthorized`               |
+| `POST /api/invitations`              | `401 unauthorized`               |
+| `POST /api/memberships/[id]/role`    | `401 unauthorized`               |
+| `POST /api/account/delete`           | `401 unauthorized`               |
+| `GET /api/companies/[id]/members`    | `401 unauthorized`               |
+
+### TC-32.4: Token belongs to a deleted user
+
+| Step | Action                                                            | Expected             |
+| ---- | ----------------------------------------------------------------- | -------------------- |
+| 1    | Have a Bearer token, then delete the user via `auth.admin.deleteUser` | Token invalidated |
+| 2    | Call any Bearer route                                             | `401 unauthorized`   |
+
+### TC-32.5: Error code stability
+
+| Step | Action                                                                       | Expected                                                                            |
+| ---- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1    | Trigger each documented error path on every mobile route                     | The `error` field in the JSON body matches the spec verbatim (snake_case constants) |
+| 2    | Confirm mobile alert messages render correctly for each code                 | Slovak alert text per the mobile's mapping                                          |
+
+### TC-32.6: CORS / cross-origin behavior
+
+| Step | Action                                                    | Expected                                                            |
+| ---- | --------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1    | Mobile fetch from native context (no browser CORS rules)  | Works                                                               |
+| 2    | (Optional) Browser fetch from a non-app origin            | Default Next.js behavior (no CORS headers; same-origin-only)        |
+
+---
+
+## Group 33: Mobile Inbox & Native PDF Viewer
+
+The mobile inbox reads `documents` directly via Supabase RLS. The detail screen fetches the PDF natively from `/api/documents/[id]/pdf` with Bearer auth.
+
+### TC-33.1: Inbox loads after sign-in
+
+| Step | Action                                          | Expected                                                  |
+| ---- | ----------------------------------------------- | --------------------------------------------------------- |
+| 1    | Cold-launch mobile app, sign in as company_admin | Inbox tab is the home screen                             |
+| 2    | Pull-to-refresh                                 | List re-fetches; latest documents at the top             |
+| 3    | Empty state                                     | Friendly message rather than blank screen                 |
+
+### TC-33.2: Open document — native PDF render
+
+| Step | Action                                                 | Expected                                                                  |
+| ---- | ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| 1    | Tap a row                                              | Detail screen opens                                                       |
+| 2    | Observe                                                | Native PDF view (NOT a webview / in-app browser)                          |
+| 3    | Pinch to zoom, scroll                                  | Smooth                                                                    |
+| 4    | Inspect network                                        | One `GET /api/documents/[id]/pdf` request with `Authorization: Bearer …` |
+
+### TC-33.3: Locked document UX (mobile)
+
+| Step | Action                                              | Expected                                                                  |
+| ---- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1    | Set wallet balance to 0; receive an invoice         | Document arrives with `billed_at = NULL`                                  |
+| 2    | Open mobile inbox                                   | Locked row shows red banner / 🔒 chip                                     |
+| 3    | Tap the locked row                                  | Detail screen shows lock card + "Dobiť kredit" sticky bar                 |
+| 4    | Try to view PDF directly via API                    | `403 "Document is locked"`                                                |
+
+### TC-33.4: Sign-out invalidates the PDF endpoint
+
+| Step | Action                                              | Expected                                                  |
+| ---- | --------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Sign out of mobile                                  | Bearer token invalidated server-side                      |
+| 2    | Reuse the old token in curl against `/api/documents/[id]/pdf` | `401 unauthorized`                              |
+
+### TC-33.5: Deep link from push notification
+
+| Step | Action                                                          | Expected                                                  |
+| ---- | --------------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Receive a push notification (cold app)                          | Notification appears                                      |
+| 2    | Tap                                                             | App launches; routes to `/document/{docId}`               |
+| 3    | PDF loads natively                                              | As in TC-33.2                                             |
+
+---
+
+## Group 34: Mobile Wallet & Top-Up
+
+Mobile wallet card → top-up via PAY by square / KVERKOM payment link → polling → balance update.
+
+### TC-34.1: Wallet card shows balance + ownership
+
+| Step | Action                                                | Expected                                                                 |
+| ---- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Open Account tab on mobile                            | Wallet card visible                                                      |
+| 2    | As genesis admin: card shows "your wallet"            | No "Hradí" badge                                                         |
+| 3    | As non-genesis member: card shows "Hradí: {ownerName}" | Owner display text                                                       |
+| 4    | Inspect `GET /api/wallet` response                    | `walletId`, `balance`, `isOwner`, `ownerName`, `ownerEmail`, `pricePerDocument` |
+
+### TC-34.2: Low-balance highlighting
+
+| Step | Action                                              | Expected                                              |
+| ---- | --------------------------------------------------- | ----------------------------------------------------- |
+| 1    | Set balance to 0.05 EUR; `pricePerDocument = 0.10`  | Mobile card shows red / warning state                 |
+| 2    | Top up to 1.00 EUR                                  | Color resets                                          |
+
+### TC-34.3: Top-up happy path
+
+| Step | Action                                              | Expected                                                                  |
+| ---- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1    | Tap "Dobiť kredit" → pick 5 €                       | Generates payment link via `POST /api/wallet/create-payment-link`         |
+| 2    | Tap "Otvoriť bankovú aplikáciu"                     | PAY by square / banking app opens with 5,00 € prefilled                   |
+| 3    | Confirm payment in bank app                         | Returns to mobile app                                                     |
+| 4    | Foreground polling (every 4 s)                      | Hits `GET /api/wallet/check-payment?paymentLinkId=…`                      |
+| 5    | Within 4–8 s                                        | Mobile shows ✅ checkmark; navigates to wallet card with new balance       |
+| 6    | SQL: `wallet_transactions` row of type `top_up`     | Exists                                                                    |
+| 7    | SQL: `payment_links.status`                         | `completed`                                                               |
+
+### TC-34.4: Top-up cancel
+
+| Step | Action                                                  | Expected                                                  |
+| ---- | ------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Generate payment link, then tap "Zrušiť"                | Returns to amount picker; no charge                       |
+| 2    | After 24 h                                              | Payment link expires server-side (cron picks it up)       |
+
+### TC-34.5: Billing invoice sent for mobile top-ups
+
+| Step | Action                                                    | Expected                                                                                         |
+| ---- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1    | Complete a mobile top-up (any amount > 0)                 | `wallet_transactions` row created                                                                |
+| 2    | Wait 10–30 s                                              | Billing invoice sent via Peppol (same path as web — `sendBillingInvoice` in [src/lib/payment.ts:241](src/lib/payment.ts#L241)) |
+| 3    | Check inbox on web                                        | Peppol billing invoice arrives from `peppolbox.sk`                                               |
+| 4    | Audit log                                                 | `BILLING_INVOICE_SENT` event written                                                             |
+
+### TC-34.6: Auto-billing unlocks documents on mobile top-up
+
+| Step | Action                                                | Expected                                              |
+| ---- | ----------------------------------------------------- | ----------------------------------------------------- |
+| 1    | Have 3 unbilled docs (0.01 EUR each); balance = 0     | All locked on mobile                                  |
+| 2    | Top up 1.00 EUR via mobile                            | Payment confirms                                      |
+| 3    | Pull-to-refresh inbox                                 | All 3 docs unlocked; banner disappears                |
+
+---
+
+## Group 35: Mobile Push Notifications (APNs / FCM)
+
+Push delivery requires Apple Developer + EAS credentials configured. Test on a real device, not the simulator.
+
+### TC-35.1: Token registration on cold start
+
+| Step | Action                                                 | Expected                                                                 |
+| ---- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| 1    | Install fresh build, sign in, grant notif permission   | App requests push permission                                             |
+| 2    | SQL: `select * from device_tokens where user_id = …`  | One row with 64-char hex `expo_token`, `platform = 'ios'`                 |
+| 3    | Force-quit and re-launch                                | `last_seen_at` updated                                                   |
+
+### TC-35.2: Push fan-out on new Peppol document
+
+| Step | Action                                                            | Expected                                                  |
+| ---- | ----------------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | As another company_admin of the same company, also sign in      | Two device_tokens rows                                    |
+| 2    | Send a test invoice to the company                                | Both phones get a push within seconds                     |
+| 3    | Notification body                                                 | "Od {supplier} — {amount} €"                              |
+| 4    | `data.docId`                                                      | Matches the new document UUID                             |
+
+### TC-35.3: Operator and processor do NOT receive push
+
+| Step | Action                                                  | Expected                                  |
+| ---- | ------------------------------------------------------- | ----------------------------------------- |
+| 1    | Have operator + processor with device_tokens registered | Their tokens exist in DB                  |
+| 2    | Send a new Peppol document to the company               | Only `company_admin` users get the push  |
+
+### TC-35.4: Tap notification → deep link
+
+| Step | Action                              | Expected                                                  |
+| ---- | ----------------------------------- | --------------------------------------------------------- |
+| 1    | App in background or killed         |                                                            |
+| 2    | Tap notification                    | App opens directly to `/document/{docId}`                 |
+| 3    | PDF renders inline                  | As in TC-33.2                                             |
+
+### TC-35.5: Dead-token cleanup
+
+| Step | Action                                                              | Expected                                                                 |
+| ---- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Uninstall the mobile app on Phone A                                  | Token registered server-side but APNs will return 410                  |
+| 2    | Trigger another document delivery                                   | Server gets `410 Unregistered` for Phone A                               |
+| 3    | SQL: re-check `device_tokens` for that token                        | Row deleted automatically                                                |
+
+### TC-35.6: APNs not configured — graceful skip
+
+| Step | Action                                                                          | Expected                                                                                |
+| ---- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 1    | Temporarily unset `APNS_AUTH_KEY` in Vercel, redeploy                           | iOS push branch becomes dormant                                                         |
+| 2    | Receive a new Peppol document                                                   | Receive transaction succeeds; logs show "[push] APNs not configured (… missing)" warning|
+| 3    | Document is delivered, charge happens, email sent                               | All non-push side effects intact                                                        |
+| 4    | Restore env var, redeploy                                                       | Push works again on the next document                                                   |
+
+---
+
+## Group 36: Mobile Per-Company Member Management
+
+The per-company screen lists active members with email, supports role change and removal.
+
+### TC-36.1: Members list — happy path
+
+| Step | Action                                                                  | Expected                                                                 |
+| ---- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | As an active member, open the company detail screen                     | List loads via `GET /api/companies/{id}/members`                         |
+| 2    | Each row displays                                                       | Name (or email if name absent), role badge, and "Hlavný" if `is_genesis` |
+| 3    | Inspect response                                                        | `{ members: [{ id, user_id, full_name, email, role, is_genesis }] }`     |
+| 4    | Inactive memberships                                                    | Excluded                                                                 |
+
+### TC-36.2: Members list — non-member 403
+
+| Step | Action                                                                | Expected                  |
+| ---- | --------------------------------------------------------------------- | ------------------------- |
+| 1    | Sign in as a user with no membership in company X                     | Auth ok                   |
+| 2    | Hit `GET /api/companies/X/members`                                    | `403 forbidden`           |
+
+### TC-36.3: Members list — invalid company id
+
+| Step | Action                                                  | Expected            |
+| ---- | ------------------------------------------------------- | ------------------- |
+| 1    | Hit `GET /api/companies/{random-uuid}/members`          | `404 not_found`     |
+
+### TC-36.4: Kebab menu visibility per role
+
+| Caller role         | Can see kebab on… |
+| ------------------- | ----------------- |
+| company_admin (genesis) | every member except self and other genesis |
+| company_admin (non-genesis) | non-admin members only |
+| operator            | operator/processor members only (no role escalation) |
+| processor           | none           |
+
+Verify by signing in as each role and inspecting the rendered list.
+
+### TC-36.5: Change role from mobile
+
+| Step | Action                                                  | Expected                                              |
+| ---- | ------------------------------------------------------- | ----------------------------------------------------- |
+| 1    | As genesis admin, kebab → "Zmeniť rolu" → operator → processor | `200 ok`; row re-fetches with new role         |
+| 2    | Audit log                                               | `MEMBER_ROLE_UPDATED` event with `oldRole`/`newRole`  |
+| 3    | Try same as operator targeting an admin                 | Forbidden (TC-31.5 covers this)                       |
+
+### TC-36.6: Remove member from mobile
+
+| Step | Action                                                                | Expected                                         |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------ |
+| 1    | As genesis admin, kebab → "Odstrániť z firmy" → confirm               | `200 ok`; row disappears                         |
+| 2    | SQL: `company_memberships` row                                        | `status = 'inactive'`                            |
+| 3    | Audit log                                                             | `MEMBERSHIP_DEACTIVATED` event                   |
+| 4    | The deactivated user's mobile session                                 | Loses access to the company on next refresh      |
+
+---
+
+## Group 37: Mobile Account Deletion
+
+App Store / Play Store require in-app account deletion. Mobile-only via `POST /api/account/delete`.
+
+### TC-37.1: Happy path — empty wallet, non-genesis user
+
+| Step | Action                                                                | Expected                                                                  |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1    | As a non-genesis user with `wallet.available_balance = 0`             | Account → "Vymazať účet" button visible                                   |
+| 2    | Confirm deletion                                                      | `200 ok`                                                                  |
+| 3    | SQL: auth.users row for that user                                     | Gone                                                                      |
+| 4    | SQL: profiles, device_tokens, department_memberships                  | All gone (cascade)                                                        |
+| 5    | SQL: company_memberships                                              | `status = 'inactive'` (kept for audit)                                    |
+| 6    | Audit log                                                             | `AUTH_ACCOUNT_DELETED` event with `severity = warning`                    |
+
+### TC-37.2: Wallet has positive balance — refused
+
+| Step | Action                                                | Expected                                                      |
+| ---- | ----------------------------------------------------- | ------------------------------------------------------------- |
+| 1    | User has `available_balance > 0`                      | Confirmed                                                     |
+| 2    | Attempt deletion                                      | `409 wallet_not_empty`                                        |
+| 3    | Mobile alert                                          | Slovak: "Vaša peňaženka má nenulový zostatok…"                |
+
+### TC-37.3: Genesis admin — refused
+
+| Step | Action                                                                  | Expected                          |
+| ---- | ----------------------------------------------------------------------- | --------------------------------- |
+| 1    | User is `is_genesis = true` of any active company, balance = 0         | Confirmed                         |
+| 2    | Attempt deletion                                                        | `409 genesis_admin`               |
+| 3    | Mobile alert                                                            | "Ste hlavným administrátorom firmy…" |
+
+### TC-37.4: Bearer token required
+
+| Step | Action                                              | Expected            |
+| ---- | --------------------------------------------------- | ------------------- |
+| 1    | curl `POST /api/account/delete` with no Authorization | `401 unauthorized` |
+
+### TC-37.5: Push notifications stop after deletion
+
+| Step | Action                                                  | Expected                                          |
+| ---- | ------------------------------------------------------- | ------------------------------------------------- |
+| 1    | After successful delete, send the deleted user's company a new doc | No push goes to their device (token cascade-deleted) |
+
+---
+
+## Group 38: Mobile Invitations
+
+Mobile companies-screen "Pozvať používateľa" → `POST /api/invitations`.
+
+### TC-38.1: Mobile invite happy path
+
+| Step | Action                                                                | Expected                                                                 |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | As company_admin, mobile → Account → Pozvať používateľa               | Form opens                                                               |
+| 2    | Email + role + company picker (auto-select if only one admin company) | Submit                                                                   |
+| 3    | Mobile shows "Pozvánka odoslaná"                                      | Toast/alert                                                              |
+| 4    | SQL: `invitations` row                                                | Created with right email + roles + company_ids                          |
+| 5    | Resend dashboard                                                      | Email queued                                                             |
+| 6    | Recipient                                                             | Receives email; magic link works                                         |
+
+### TC-38.2: Mobile invite — caller not admin → 403
+
+| Step | Action                                                            | Expected                                                          |
+| ---- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1    | As operator/processor, manually craft request with a company id   | `403 not_admin_for_companies` with `unauthorized: [<companyId>]` |
+
+### TC-38.3: Mobile invite — invalid role → 400
+
+| Step | Action                                                | Expected            |
+| ---- | ----------------------------------------------------- | ------------------- |
+| 1    | POST with `role: "super_admin"`                       | `400 invalid_role`  |
+| 2    | POST with `role: "owner"` or anything outside the three allowed | `400 invalid_role` |
+
+### TC-38.4: Mobile invite — already member of all requested companies → 409
+
+| Step | Action                                                                       | Expected                |
+| ---- | ---------------------------------------------------------------------------- | ----------------------- |
+| 1    | Pick a recipient who's already an active member of every requested company  | Submit                  |
+| 2    |                                                                              | `409 already_member`    |
+| 3    | No email sent                                                                | Resend dashboard quiet  |
+
+### TC-38.5: Mobile invite — bad token → 401
+
+| Step | Action                                              | Expected            |
+| ---- | --------------------------------------------------- | ------------------- |
+| 1    | Submit with stale Bearer token                      | `401 unauthorized`  |
+
+---
+
+## Group 39: UBL Parser — IBAN + Payment Symbols
+
+Recent commit extended the UBL parser to extract IBAN and Slovak payment symbols (variable, specific, constant) from UBL invoices. Foundational for the future "Pay via banking app" feature.
+
+### TC-39.1: IBAN extracted from UBL
+
+| Step | Action                                                                | Expected                                                  |
+| ---- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Process a UBL invoice with `<cac:PaymentMeans><cac:PayeeFinancialAccount><cbc:ID>SK…</cbc:ID>` | Document ingests successfully                  |
+| 2    | SQL: `select metadata from documents where id = …`                    | `metadata.iban` populated with the SK IBAN                |
+
+### TC-39.2: Payment symbols extracted
+
+| Step | Action                                                                          | Expected                                                  |
+| ---- | ------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | UBL invoice with `<cac:PaymentMeans><cbc:PaymentID>` containing variable symbol | Parse succeeds                                            |
+| 2    | SQL                                                                             | `metadata.variableSymbol` populated                       |
+| 3    | Same for specific and constant symbols                                          | `metadata.specificSymbol`, `metadata.constantSymbol`      |
+
+### TC-39.3: Missing payment fields — graceful
+
+| Step | Action                                                | Expected                                                          |
+| ---- | ----------------------------------------------------- | ----------------------------------------------------------------- |
+| 1    | UBL invoice with NO `PaymentMeans`                    | Document ingests, `metadata.iban` is null/undefined               |
+| 2    | UBL invoice with malformed payment ID                 | Other fields still extracted; bad fields default to null          |
+
+### TC-39.4: PDF render still works without payment fields
+
+| Step | Action                                                | Expected                                              |
+| ---- | ----------------------------------------------------- | ----------------------------------------------------- |
+| 1    | Process a UBL invoice with no IBAN                    | PDF renders fine via zobraz                           |
+| 2    | View PDF on mobile                                    | No errors                                             |
+
+---
+
 ## Execution Checklist
 
 | Group                                         | Tests               | Status |
@@ -1758,4 +2293,14 @@ Verify each role's sidebar matches this table.
 | 27. Quick Row Download (PDF / XML & Process)  | TC-27.1 to TC-27.6  | [ ]    |
 | 28. SLA Dashboard & Per-person Stats          | TC-28.1 to TC-28.7  | [ ]    |
 | 29. Sidebar Tidy-up                           | TC-29.1 to TC-29.4  | [ ]    |
-| **Total**                                     | **179 test cases**  |        |
+| 30. PDF Rendering Pipeline (zobrazfakturu)    | TC-30.1 to TC-30.6  | [ ]    |
+| 31. Permission Matrix Tightening (Web + Mobile) | TC-31.1 to TC-31.8 | [ ]    |
+| 32. Mobile API — Bearer Auth Contract         | TC-32.1 to TC-32.6  | [ ]    |
+| 33. Mobile Inbox & Native PDF Viewer          | TC-33.1 to TC-33.5  | [ ]    |
+| 34. Mobile Wallet & Top-Up                    | TC-34.1 to TC-34.6  | [ ]    |
+| 35. Mobile Push Notifications (APNs / FCM)    | TC-35.1 to TC-35.6  | [ ]    |
+| 36. Mobile Per-Company Member Management      | TC-36.1 to TC-36.6  | [ ]    |
+| 37. Mobile Account Deletion                   | TC-37.1 to TC-37.5  | [ ]    |
+| 38. Mobile Invitations                        | TC-38.1 to TC-38.5  | [ ]    |
+| 39. UBL Parser — IBAN + Payment Symbols       | TC-39.1 to TC-39.4  | [ ]    |
+| **Total**                                     | **234 test cases**  |        |
