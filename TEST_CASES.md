@@ -104,34 +104,66 @@
 
 ---
 
-## Group 2: Company Onboarding via PFS Webhook
+## Group 2: Company Onboarding via PFS/PDS Webhook
+
+The webhook contract is the FS SR PDS spec — see [PFS_WEBHOOK_INTEGRATION.md](PFS_WEBHOOK_INTEGRATION.md) for the full integration manual.
 
 ### TC-2.1: Trigger PFS Webhook (New Company)
 
 | Step | Action                                                                                         | Expected                                               |
 | ---- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 1    | Go to PFS test environment and trigger a webhook for a test company (DIC: use a real test DIC) | Webhook sent to peppolbox.sk                           |
-| 2    | In peppolbox.sk, navigate to Dashboard                                                         | "Webhooks" stat incremented                            |
+| 1    | Trigger a webhook from the PFS test environment OR send a curl POST to `/api/webhooks/pfs` with header `X-PDS-Secret: <Hex(SHA512(body+secret))>` and body `[{...}]` | `200 { "Kód": 200, "Popis": "OK" }` |
+| 2    | Navigate to Dashboard                                                                          | "Webhooks" stat incremented                            |
 | 3    | Check "Recent Webhooks" table                                                                  | New entry with DIC, company name, email                |
 | 4    | Navigate to Companies page                                                                     | New company listed with Peppol status "Not registered" |
 | 5    | Click company name                                                                             | Company detail page with DIC, email, phone, members    |
+| 6    | SQL: `select * from pfs_verifications order by created_at desc limit 1`                       | Raw payload stored exactly as sent                     |
 
 ### TC-2.2: Verify Genesis Admin Invitation Sent
 
 | Step | Action                                  | Expected                                                                                      |
 | ---- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 1    | Check "Recent Invitations" on Dashboard | New invitation for peppolbox.sk@gmail.com, role: company_admin, status: Pending                  |
-| 2    | Check peppolbox.sk@gmail.com inbox         | Email: "You've been invited to peppolbox.sk as Company Admin" with "Accept Invitation" button |
+| 1    | Check "Recent Invitations" on Dashboard | New invitation for the email in the webhook payload, role: company_admin, status: Pending    |
+| 2    | Check that inbox                        | Email with "Accept Invitation" magic-link button                                              |
 | 3    | Navigate to Users page                  | Invitation visible in Invitations table                                                       |
 
-### TC-2.3: Send Manual Onboarding Request (New Customer)
+### TC-2.3: Webhook Auth Failure Modes
+
+| Case                                              | Header / body                                                       | Expected response                          |
+| ------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
+| Missing `X-PDS-Secret`                            | No header                                                           | `401 { "Kód": 401 }`                       |
+| Wrong hash (random hex)                           | `0`×128                                                             | `401 { "Kód": 401 }`                       |
+| Hash uppercase (case-insensitive compare)         | Correct hash, A–F uppercased                                        | `200`                                      |
+| Body not array                                    | `{...}` (single object)                                             | `400 { "Kód": 400, "Popis": "...array" }`  |
+| Empty array                                       | `[]`                                                                | `400`                                      |
+| Missing `dic` / `verification_token` / `created`  | Item with one field missing                                         | `400`                                      |
+| Bad DIC format                                    | `dic: "123"`                                                        | `400`                                      |
+| Multi-element batch where any item is invalid     | `[good, bad]`                                                       | `400` and NOTHING from the batch persisted |
+
+### TC-2.4: Multi-Element Batch (Successful)
+
+| Step | Action                                                                | Expected                                              |
+| ---- | --------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1    | POST a 2-element array with two distinct DICs                         | `200`                                                 |
+| 2    | SQL                                                                   | Two new rows in `pfs_verifications`, two `companies`  |
+| 3    | Audit log                                                             | Two `WEBHOOK_RECEIVED` events                         |
+
+### TC-2.5: Idempotency (Repeated DIC)
+
+| Step | Action                                                            | Expected                                                              |
+| ---- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1    | Send the same valid item twice (separate POSTs)                   | Both return `200`                                                     |
+| 2    | SQL: `select count(*) from companies where dic = ?`               | `1` (no duplicate)                                                    |
+| 3    | SQL: `select count(*) from pfs_verifications where dic = ?`       | `2` (raw payloads are append-only — every call logged)                |
+
+### TC-2.6: Send Manual Onboarding Request (New Customer)
 
 | Step | Action                                                          | Expected                                                       |
 | ---- | --------------------------------------------------------------- | -------------------------------------------------------------- |
 | 1    | On Super Admin Dashboard, find "Send Onboarding Request" card   | Card visible                                                   |
 | 2    | Enter email: `test@example.com`, company name: `Test Manual Co` | Fields populated                                               |
 | 3    | Click "Send Onboarding Link"                                    | "Onboarding request sent" message                              |
-| 4    | Check recipient inbox                                           | Email: "Get started with peppolbox.sk — Register your company" |
+| 4    | Check recipient inbox                                           | Email: "Get started — Register your company"                   |
 | 5    | Check Audit Log page                                            | `ONBOARDING_REQUEST_SENT` event logged                         |
 
 ---
@@ -2265,7 +2297,7 @@ Recent commit extended the UBL parser to extract IBAN and Slovak payment symbols
 | Group                                         | Tests               | Status |
 | --------------------------------------------- | ------------------- | ------ |
 | 1. Landing Page & Initial Setup               | TC-1.1 to TC-1.7    | [ ]    |
-| 2. Company Onboarding via PFS                 | TC-2.1 to TC-2.3    | [ ]    |
+| 2. Company Onboarding via PFS/PDS Webhook     | TC-2.1 to TC-2.6    | [ ]    |
 | 3. Genesis Admin Onboarding & Auto Activation | TC-3.1 to TC-3.4    | [ ]    |
 | 4. Peppol Activation (Manual Fallback)        | TC-4.1 to TC-4.2    | [ ]    |
 | 5. User Management & Invitations              | TC-5.1 to TC-5.9    | [ ]    |
@@ -2303,4 +2335,4 @@ Recent commit extended the UBL parser to extract IBAN and Slovak payment symbols
 | 37. Mobile Account Deletion                   | TC-37.1 to TC-37.5  | [ ]    |
 | 38. Mobile Invitations                        | TC-38.1 to TC-38.5  | [ ]    |
 | 39. UBL Parser — IBAN + Payment Symbols       | TC-39.1 to TC-39.4  | [ ]    |
-| **Total**                                     | **234 test cases**  |        |
+| **Total**                                     | **237 test cases**  |        |

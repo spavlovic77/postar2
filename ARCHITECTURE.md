@@ -197,26 +197,35 @@ on PFS portal         ──────────              ────�
      │ registration        │                     │                          │
      │───────────────────→ │                     │                          │
      │                     │ POST /api/webhooks/ │                          │
-     │                     │ pfs (HMAC-SHA256)   │                          │
+     │                     │ pfs                 │                          │
+     │                     │ X-PDS-Secret:       │                          │
+     │                     │  Hex(SHA512(body+   │                          │
+     │                     │  webhookSecret))    │                          │
+     │                     │ Body: [{...}]       │                          │
      │                     │───────────────────→ │                          │
      │                     │               ┌─────┴──────┐                   │
      │                     │               │ 1. Verify  │                   │
-     │                     │               │    HMAC    │                   │
+     │                     │               │    SHA512  │                   │
      │                     │               │    (rota-  │                   │
      │                     │               │    table)  │                   │
-     │                     │               │ 2. Log raw │                   │
-     │                     │               │    payload │                   │
-     │                     │               │ 3. Upsert  │                   │
-     │                     │               │    company │                   │
-     │                     │               │    by dic  │                   │
-     │                     │               │ 4. Pre-    │                   │
+     │                     │               │ 2. Pre-    │                   │
+     │                     │               │    validate│                   │
+     │                     │               │    every   │                   │
+     │                     │               │    item    │                   │
+     │                     │               │ 3. Per     │                   │
+     │                     │               │    item:   │                   │
+     │                     │               │    log raw │                   │
+     │                     │               │    payload,│                   │
+     │                     │               │    upsert  │                   │
+     │                     │               │    company,│                   │
+     │                     │               │    pre-    │                   │
      │                     │               │    create  │                   │
      │                     │               │    auth    │                   │
-     │                     │               │    user    │                   │
-     │                     │               │ 5. Create  │                   │
-     │                     │               │    invite  │                   │
+     │                     │               │    user,   │                   │
+     │                     │               │    create  │                   │
      │                     │               │    is_     │                   │
      │                     │               │    genesis │                   │
+     │                     │               │    invite  │                   │
      │                     │               └─────┬──────┘                   │
      │                     │                     │ Resend email             │
      │                     │                     │ with magic link          │
@@ -525,7 +534,7 @@ Mobile sign-in     device_tokens         postar2 receive        APNs/FCM        
 
 | Route                                 | Method | Auth                  | Purpose                                              |
 | ------------------------------------- | ------ | --------------------- | ---------------------------------------------------- |
-| `/api/webhooks/pfs`                   | POST   | HMAC-SHA256 (rotatable) | PFS company registration                          |
+| `/api/webhooks/pfs`                   | POST   | SHA512(body+secret) hex in `X-PDS-Secret` header (rotatable) | PFS/PDS company registration. See [PFS_WEBHOOK_INTEGRATION.md](PFS_WEBHOOK_INTEGRATION.md) |
 | `/api/webhooks/peppol-receive`        | POST   | None (ION AP only)    | Inbound Peppol document delivery                     |
 | `/api/webhooks/payment-received`      | POST   | Bearer secret         | Optional MQTT/payment callback (fallback path)       |
 
