@@ -41,28 +41,75 @@ function pdsResponse(code: number, popis?: string) {
   return NextResponse.json(body, { status: code });
 }
 
+function reveal(s: string, head = 4, tail = 4): string {
+  if (s.length <= head + tail) return `<len=${s.length}>`;
+  return `${s.slice(0, head)}…${s.slice(-tail)} (len=${s.length})`;
+}
+
 async function verifyPdsSecret(rawBody: string, header: string): Promise<boolean> {
   const secretValue = await getPfsWebhookSecret();
-  if (!secretValue) return false;
+  if (!secretValue) {
+    console.warn("[PFS webhook] no secret configured (system_settings.pfs_webhook_secret + PFS_WEBHOOK_SECRET both empty)");
+    return false;
+  }
 
   const secrets = secretValue
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (secrets.length === 0) return false;
+  if (secrets.length === 0) {
+    console.warn("[PFS webhook] secret value parsed to zero entries");
+    return false;
+  }
 
   // Hex output from SHA-512 is always 128 chars. Compare case-insensitively
   // — spec doesn't pin uppercase vs lowercase. Constant-time across the byte
   // string to avoid timing oracles.
   const headerLower = header.toLowerCase();
 
-  for (const secret of secrets) {
-    const expected = createHash("sha512")
-      .update(rawBody + secret, "utf8")
-      .digest("hex");
+  // Diagnostic: log the shape of what we're seeing so we can compare with
+  // what PFS thinks they're sending. Body fingerprint = SHA512(body) WITHOUT
+  // the secret — safe to log, lets PFS recompute on their side and confirm
+  // they're hashing the same bytes we are. We also log the alternate
+  // concatenation order in case the spec ambiguity bit us.
+  const bodyFingerprint = createHash("sha512").update(rawBody, "utf8").digest("hex");
+  const bodyTrimmed = rawBody.trim();
+  const expectedHashes = secrets.map((secret) => ({
+    secret: reveal(secret),
+    bodyPlusSecret: createHash("sha512").update(rawBody + secret, "utf8").digest("hex"),
+    secretPlusBody: createHash("sha512").update(secret + rawBody, "utf8").digest("hex"),
+    bodyTrimmedPlusSecret: createHash("sha512").update(bodyTrimmed + secret, "utf8").digest("hex"),
+  }));
+
+  console.log(
+    "[PFS webhook] verify diagnostic:",
+    JSON.stringify({
+      headerLen: header.length,
+      headerHex: header,
+      bodyLen: rawBody.length,
+      bodyByteLen: Buffer.byteLength(rawBody, "utf8"),
+      bodyFirstBytes: rawBody.slice(0, 60),
+      bodyLastBytes: rawBody.slice(-30),
+      bodyHasBom: rawBody.charCodeAt(0) === 0xfeff,
+      bodyHasTrailingNewline: rawBody.endsWith("\n") || rawBody.endsWith("\r\n"),
+      bodyFingerprintSha512: bodyFingerprint,
+      secretCount: secrets.length,
+      candidates: expectedHashes.map((c) => ({
+        secret: c.secret,
+        bodyPlusSecret: reveal(c.bodyPlusSecret, 8, 8),
+        secretPlusBody: reveal(c.secretPlusBody, 8, 8),
+        bodyTrimmedPlusSecret: reveal(c.bodyTrimmedPlusSecret, 8, 8),
+        matchBodyPlusSecret: c.bodyPlusSecret === headerLower,
+        matchSecretPlusBody: c.secretPlusBody === headerLower,
+        matchBodyTrimmedPlusSecret: c.bodyTrimmedPlusSecret === headerLower,
+      })),
+    })
+  );
+
+  for (const candidate of expectedHashes) {
     if (
-      expected.length === headerLower.length &&
-      timingSafeEqual(Buffer.from(expected), Buffer.from(headerLower))
+      candidate.bodyPlusSecret.length === headerLower.length &&
+      timingSafeEqual(Buffer.from(candidate.bodyPlusSecret), Buffer.from(headerLower))
     ) {
       return true;
     }
